@@ -1,5 +1,6 @@
 package com.project.doctorpay
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -15,6 +16,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Check if user is logged in
+        if (!isLoggedIn()) {
+            // If not logged in, redirect to LoginActivity
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+            return
+        }
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -25,6 +36,12 @@ class MainActivity : AppCompatActivity() {
         observeViewModel()
 
         viewModel.fetchNonPaymentItems()
+    }
+
+    private fun isLoggedIn(): Boolean {
+        // TODO: Implement actual login check
+        // For now, always return false to show login screen
+        return false
     }
 
     private fun setupRecyclerView() {
