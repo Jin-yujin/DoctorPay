@@ -14,15 +14,16 @@ class LoginActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupLoginButton()
-        setupSignUpTextView()
+        //setupSignUpTextView() //로그인 기능 구현할 때 주석 풀기
     }
 
     private fun setupLoginButton() {
         binding.loginButton.setOnClickListener {
-            // TODO: Implement login logic
+            // 여기서 실제 로그인 로직을 구현할 수 있습니다.
+            // 지금은 단순히 MainActivity로 이동합니다.
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
-            finish()
+            finish() // LoginActivity를 종료하여 뒤로 가기 시 로그인 화면으로 돌아가지 않도록 합니다.
         }
     }
 
