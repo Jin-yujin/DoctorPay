@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1019633760773",
+    "project_id": "doctorpay-956d6",
+    "storage_bucket": "doctorpay-956d6.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1019633760773:android:2eb0812d388b81840d7a6c",
+        "android_client_info": {
+          "package_name": "com.project.doctorpay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
