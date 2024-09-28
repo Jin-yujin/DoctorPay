@@ -14,8 +14,9 @@ class LoginActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupLoginButton()
-        //setupSignUpTextView() //로그인 기능 구현할 때 주석 풀기
         setupSocialLoginButtons()
+        setupSignUpTextView()
+        setupForgotPasswordTextView()
     }
 
     private fun setupLoginButton() {
@@ -39,6 +40,22 @@ class LoginActivity : AppCompatActivity() {
 
         binding.googleLoginButton.setOnClickListener {
             // Google 로그인 로직 구현
+        }
+    }
+
+    private fun setupSignUpTextView() {
+        binding.signUpTextView.setOnClickListener {
+            // 회원가입 화면으로 이동
+            val intent = Intent(this, SignUpActivity::class.java)
+            startActivity(intent)
+        }
+    }
+
+    private fun setupForgotPasswordTextView() {
+        binding.forgotPasswordTextView.setOnClickListener {
+            // 비밀번호 찾기 화면으로 이동 또는 비밀번호 찾기 로직 구현
+            // 예: val intent = Intent(this, ForgotPasswordActivity::class.java)
+            // startActivity(intent)
         }
     }
 }
