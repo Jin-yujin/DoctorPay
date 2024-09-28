@@ -15,6 +15,7 @@ class LoginActivity : AppCompatActivity() {
 
         setupLoginButton()
         //setupSignUpTextView() //로그인 기능 구현할 때 주석 풀기
+        setupSocialLoginButtons()
     }
 
     private fun setupLoginButton() {
@@ -27,10 +28,17 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupSignUpTextView() {
-        binding.signUpTextView.setOnClickListener {
-            val intent = Intent(this, SignUpActivity::class.java)
-            startActivity(intent)
+    private fun setupSocialLoginButtons() {
+        binding.kakaoLoginButton.setOnClickListener {
+            // Kakao 로그인 로직 구현
+        }
+
+        binding.naverLoginButton.setOnClickListener {
+            // Naver 로그인 로직 구현
+        }
+
+        binding.googleLoginButton.setOnClickListener {
+            // Google 로그인 로직 구현
         }
     }
 }
