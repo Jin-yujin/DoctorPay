@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_home">
+
+    <fragment
+        android:id="@+id/navigation_home"
+        android:name="com.project.doctorpay.ui.home.HomeFragment"
+        android:label="@string/title_home"
+        tools:layout="@layout/fragment_home" />
+
+    <fragment
+        android:id="@+id/navigation_mapList"
+        android:name="com.project.doctorpay.ui.mapList.MapListFragment"
+        android:label="@string/title_maplist"
+        tools:layout="@layout/fragment_maplist" />
+
+    <fragment
+        android:id="@+id/navigation_calender"
+        android:name="com.project.doctorpay.ui.calender.CalendarFragment"
+        android:label="@string/title_favorite"
+        tools:layout="@layout/fragment_calender" />
+
+    <fragment
+        android:id="@+id/navigation_favorite"
+        android:name="com.project.doctorpay.ui.favorite.FavoriteFragment"
+        android:label="@string/title_calender"
+        tools:layout="@layout/fragment_favorite" />
+
+    <fragment
+        android:id="@+id/navigation_mypage"
+        android:name="com.project.doctorpay.ui.mypage.MyPageFragment"
+        android:label="@string/title_mypage"
+        tools:layout="@layout/fragment_mypage" />
+</navigation>

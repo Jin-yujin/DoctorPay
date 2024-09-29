@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Base application theme -->
-    <style name="Theme.DoctorPay" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme -->
-        <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryDark">@color/purple_700</item>
-        <item name="colorAccent">@color/teal_200</item>
+        <item name="colorPrimary">@color/blue</item>
+        <item name="colorPrimaryDark">@color/deepGreen</item>
+        <item name="colorAccent">@color/mint</item>
     </style>
+
+
+    <!-- 네비게이션 텍스트 폰트 스타일 -->
+    <style name="BottomNavigationViewTextStyle">
+        <item name="android:fontFamily">@font/f_gowun_regular</item>
+        <item name="android:textSize">10sp</item>
+    </style>
+
+
 </resources>

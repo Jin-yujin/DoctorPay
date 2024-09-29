@@ -7,4 +7,13 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="skyblue">#8BCFFF</color>
+    <color name="blue">#008DF2</color>
+    <color name="mint">#0CD7EE</color>
+    <color name="deepGreen">#02354D</color>
+
+
+    <color name="nav_item_color_selected">@color/deepGreen</color>
+    <color name="nav_item_color_unselected">#989898</color>
 </resources>

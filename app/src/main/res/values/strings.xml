@@ -1,3 +1,14 @@
 <resources>
     <string name="app_name">닥터페이</string>
+
+
+    <string name="title_home">홈</string>
+    <string name="title_maplist">지도</string>
+    <string name="title_favorite">찜</string>
+    <string name="title_calender">예약</string>
+    <string name="title_mypage">마이</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
+
+
 </resources>

@@ -1,47 +1,65 @@
 package com.project.doctorpay
 
-import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.LinearLayoutManager
-import com.project.doctorpay.NonPaymentAdapter
-import com.project.doctorpay.api.MainViewModel
-import com.project.doctorpay.databinding.ActivityMainBinding
+import android.os.Bundle
+import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.project.doctorpay.ui.calender.CalendarFragment
+import com.project.doctorpay.ui.favorite.FavoriteFragment
+import com.project.doctorpay.ui.home.HomeFragment
+import com.project.doctorpay.ui.mapList.MapListFragment
+import com.project.doctorpay.ui.mypage.MyPageFragment
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var viewModel: MainViewModel
-    private val adapter = NonPaymentAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
+        setContentView(R.layout.activity_main)
 
-        viewModel = ViewModelProvider(this)[MainViewModel::class.java]
-
-        setupRecyclerView()
-        setupSearchButton()
-        observeViewModel()
-
-        viewModel.fetchNonPaymentItems()
-    }
-
-    private fun setupRecyclerView() {
-        binding.recyclerView.layoutManager = LinearLayoutManager(this)
-        binding.recyclerView.adapter = adapter
-    }
-
-    private fun setupSearchButton() {
-        binding.searchButton.setOnClickListener {
-            val searchQuery = binding.searchEditText.text.toString()
-            viewModel.fetchNonPaymentItems(searchQuery)
+        val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
+        bottomNavigation.setOnItemSelectedListener { item ->
+            when(item.itemId) {
+                R.id.navigation_home -> {
+                    // 홈 프래그먼트로 전환
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, HomeFragment())
+                        .commit()
+                    true
+                }
+                R.id.navigation_map_list -> {
+                    // 지도 프래그먼트로 전환
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, MapListFragment())
+                        .commit()
+                    true
+                }
+                R.id.navigation_calendar -> {
+                    // 캘린더 프래그먼트로 전환
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, CalendarFragment())
+                        .commit()
+                    true
+                }
+                R.id.navigation_mypage -> {
+                    // 마이페이지 프래그먼트로 전환
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, MyPageFragment())
+                        .commit()
+                    true
+                }
+                R.id.navigation_like_list -> {
+                    // 찜 목록 프래그먼트로 전환
+                    supportFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, FavoriteFragment())
+                        .commit()
+                    true
+                }
+                else -> false
+            }
         }
-    }
 
-    private fun observeViewModel() {
-        viewModel.nonPaymentItems.observe(this) { items ->
-            adapter.setItems(items)
-        }
+        // 기본 프래그먼트 설정 (예: 홈)
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, HomeFragment())
+            .commit()
     }
 }
