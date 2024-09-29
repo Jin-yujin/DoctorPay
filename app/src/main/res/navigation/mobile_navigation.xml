@@ -13,9 +13,9 @@
 
     <fragment
         android:id="@+id/navigation_mapList"
-        android:name="com.project.doctorpay.ui.mapList.MapListFragment"
+        android:name="com.project.doctorpay.ui.map.MapViewFragment"
         android:label="@string/title_maplist"
-        tools:layout="@layout/fragment_maplist" />
+        tools:layout="@layout/fragment_mapview" />
 
     <fragment
         android:id="@+id/navigation_calender"

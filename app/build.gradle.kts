@@ -63,6 +63,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
+    implementation(libs.androidx.swiperefreshlayout)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -95,4 +96,9 @@ dependencies {
 
     implementation ("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation ("androidx.cardview:cardview:1.0.0")
+
+
+    implementation("com.naver.maps:map-sdk:3.18.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+
 }

@@ -6,7 +6,7 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.project.doctorpay.ui.calender.CalendarFragment
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.ui.home.HomeFragment
-import com.project.doctorpay.ui.mapList.MapListFragment
+import com.project.doctorpay.ui.map.MapViewFragment
 import com.project.doctorpay.ui.mypage.MyPageFragment
 
 class MainActivity : AppCompatActivity() {
@@ -28,7 +28,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.navigation_map_list -> {
                     // 지도 프래그먼트로 전환
                     supportFragmentManager.beginTransaction()
-                        .replace(R.id.fragment_container, MapListFragment())
+                        .replace(R.id.fragment_container, MapViewFragment())
                         .commit()
                     true
                 }
