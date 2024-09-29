@@ -100,6 +100,10 @@ dependencies {
     implementation("com.naver.maps:map-sdk:3.18.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
+    implementation ("androidx.navigation:navigation-fragment-ktx:2.5.3")
+    implementation ("androidx.navigation:navigation-ui-ktx:2.5.3")
+
+
     implementation ("com.google.android.material:material:1.5.0")
 
     implementation(platform("com.google.firebase:firebase-bom:33.3.0"))
