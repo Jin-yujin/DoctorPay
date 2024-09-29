@@ -16,4 +16,11 @@
 
     <color name="nav_item_color_selected">@color/deepGreen</color>
     <color name="nav_item_color_unselected">#989898</color>
+
+
+    <color name="signature_color1">#8BCFFF</color>
+    <color name="signature_color2">#008DF2</color>
+    <color name="signature_color3">#0CD7EE</color>
+    <color name="signature_color4">#02354D</color>
+
 </resources>

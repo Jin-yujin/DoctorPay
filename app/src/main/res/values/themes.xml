@@ -8,6 +8,12 @@
         <item name="colorPrimary">@color/blue</item>
         <item name="colorPrimaryVariant">@color/deepGreen</item>
         <item name="colorOnPrimary">@color/white</item>
+
+
+        <item name="colorSecondary">@color/signature_color3</item>
+        <item name="colorSecondaryVariant">@color/signature_color2</item>
+        <item name="colorOnSecondary">@color/black</item>
+
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->

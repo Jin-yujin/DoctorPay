@@ -4,10 +4,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+
     <!-- map -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!--
+    임시로그인 기능 없앨 때 아래의 주석 아닌 내용 삭제하고 주석 풀기
 
     <application
         android:allowBackup="true"
@@ -31,6 +34,44 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".SignUpActivity"
+            android:exported="false" />
+
+    </application>
+    -->
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.DoctorPay">
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".SignUpActivity"
+            android:exported="false" />
+
 
         <meta-data
             android:name="com.naver.maps.map.CLIENT_ID"
