@@ -3,9 +3,9 @@
     <!-- Base application theme -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <!-- Customize your theme -->
-        <item name="colorPrimary">@color/blue</item>
-        <item name="colorPrimaryDark">@color/deepGreen</item>
-        <item name="colorAccent">@color/mint</item>
+        <item name="colorPrimary">@color/signature_color2</item>
+        <item name="colorPrimaryDark">@color/signature_color4</item>
+        <item name="colorAccent">@color/signature_color3</item>
     </style>
 
 
