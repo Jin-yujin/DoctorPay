@@ -57,7 +57,9 @@
 
         <activity
             android:name=".LoginActivity"
-            android:exported="true">
+            android:theme="@style/Theme.DoctorPay"
+            android:exported="true"
+            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -66,11 +68,15 @@
 
         <activity
             android:name=".MainActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.DoctorPay"
+            />
 
         <activity
             android:name=".SignUpActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.DoctorPay"
+            />
 
 
         <meta-data
