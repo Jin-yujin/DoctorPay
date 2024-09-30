@@ -240,13 +240,14 @@
         android:layout_marginHorizontal="16dp"
         android:padding="8dp"/>
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/signUpButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="가입하기"
         android:textColor="#FFFFFF"
-        android:background="#2D3147"
+        android:background="@drawable/rounded_button_background"
+        app:backgroundTint="#02354D"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
