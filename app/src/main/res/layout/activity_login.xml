@@ -107,7 +107,7 @@
 
     </LinearLayout>
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/kakaoLoginButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -120,7 +120,7 @@
         android:layout_marginTop="24dp"
         android:layout_marginHorizontal="24dp"/>
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/naverLoginButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -133,7 +133,7 @@
         android:layout_marginTop="8dp"
         android:layout_marginHorizontal="24dp"/>
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/googleLoginButton"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
