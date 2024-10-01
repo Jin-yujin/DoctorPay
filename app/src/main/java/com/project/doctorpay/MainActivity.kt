@@ -3,7 +3,7 @@ package com.project.doctorpay
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.project.doctorpay.ui.calender.CalendarFragment
+import com.project.doctorpay.ui.calendar.CalendarFragment
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.ui.home.HomeFragment
 import com.project.doctorpay.ui.map.MapViewFragment
