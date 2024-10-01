@@ -1,10 +1,12 @@
 package com.project.doctorpay.ui.calendar
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CalendarView
+import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -17,6 +19,7 @@ class CalendarFragment : Fragment() {
     private lateinit var calendarView: CalendarView
     private lateinit var appointmentRecyclerView: RecyclerView
     private lateinit var addAppointmentButton: View
+    private lateinit var todayButton: View
     private val appointmentData = mutableListOf<Appointment>()
 
     override fun onCreateView(
@@ -29,10 +32,12 @@ class CalendarFragment : Fragment() {
         calendarView = view.findViewById(R.id.calendarView)
         appointmentRecyclerView = view.findViewById(R.id.appointmentRecyclerView)
         addAppointmentButton = view.findViewById(R.id.addAppointmentButton)
+        todayButton = view.findViewById(R.id.todayButton)
 
         setupCalendarView()
         setupRecyclerView()
         setupAddAppointmentButton()
+        setupTodayButton()
 
         return view
     }
@@ -53,7 +58,15 @@ class CalendarFragment : Fragment() {
     private fun setupAddAppointmentButton() {
         addAppointmentButton.setOnClickListener {
             // 예약 추가 다이얼로그 또는 액티비티를 띄우는 코드를 추가합니다.
-            Toast.makeText(context, "예약 추가 기능 구현 예정", Toast.LENGTH_SHORT).show()
+            showAddAppointmentDialog()
+        }
+    }
+
+    private fun setupTodayButton() {
+        todayButton.setOnClickListener {
+            val today = Calendar.getInstance()
+            calendarView.date = today.timeInMillis
+            updateAppointmentList(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
         }
     }
 
@@ -63,9 +76,42 @@ class CalendarFragment : Fragment() {
             it.year == year && it.month == month && it.day == dayOfMonth
         }
         (appointmentRecyclerView.adapter as AppointmentAdapter).updateData(selectedDateAppointments)
-
-        Toast.makeText(context, "$year/${month + 1}/$dayOfMonth 예약 목록 업데이트", Toast.LENGTH_SHORT).show()
     }
+
+    private fun showAddAppointmentDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_appointment, null)
+        val hospitalNameEditText = dialogView.findViewById<EditText>(R.id.hospitalNameEditText)
+        val appointmentTimeEditText = dialogView.findViewById<EditText>(R.id.appointmentTimeEditText)
+        val notesEditText = dialogView.findViewById<EditText>(R.id.notesEditText)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("예약 추가")
+            .setView(dialogView)
+            .setPositiveButton("추가") { _, _ ->
+                val hospitalName = hospitalNameEditText.text.toString()
+                val appointmentTime = appointmentTimeEditText.text.toString()
+                val notes = notesEditText.text.toString()
+
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = calendarView.date
+
+                val newAppointment = Appointment(
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH),
+                    calendar.get(Calendar.DAY_OF_MONTH),
+                    appointmentTime,
+                    hospitalName,
+                    notes
+                )
+
+                appointmentData.add(newAppointment)
+                updateAppointmentList(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+                Toast.makeText(context, "예약이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
 }
 
 data class Appointment(
@@ -81,7 +127,7 @@ class AppointmentAdapter(private var appointments: List<Appointment>) :
     RecyclerView.Adapter<AppointmentViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppointmentViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_appointment, parent, false)
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.dialog_add_appointment, parent, false)
         return AppointmentViewHolder(view)
     }
 
