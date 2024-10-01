@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CalendarView
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -19,7 +20,8 @@ class CalendarFragment : Fragment() {
     private lateinit var calendarView: CalendarView
     private lateinit var appointmentRecyclerView: RecyclerView
     private lateinit var addAppointmentButton: View
-    private lateinit var todayButton: View
+    private lateinit var searchIcon: ImageView
+    private lateinit var todayDateView: TodayDateView
     private val appointmentData = mutableListOf<Appointment>()
 
     override fun onCreateView(
@@ -32,14 +34,32 @@ class CalendarFragment : Fragment() {
         calendarView = view.findViewById(R.id.calendarView)
         appointmentRecyclerView = view.findViewById(R.id.appointmentRecyclerView)
         addAppointmentButton = view.findViewById(R.id.addAppointmentButton)
-        todayButton = view.findViewById(R.id.todayButton)
+        searchIcon = view.findViewById(R.id.searchIcon)
+        todayDateView = view.findViewById(R.id.todayDateView)
 
         setupCalendarView()
         setupRecyclerView()
         setupAddAppointmentButton()
-        setupTodayButton()
+        setupSearchIcon()
+        setupTodayDateView()
 
         return view
+    }
+
+    private fun setupSearchIcon() {
+        searchIcon.setOnClickListener {
+            // 검색 기능 구현
+            Toast.makeText(context, "검색 기능은 아직 구현되지 않았습니다.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupTodayDateView() {
+        todayDateView.updateDate()
+        todayDateView.setOnClickListener {
+            val today = Calendar.getInstance()
+            calendarView.date = today.timeInMillis
+            updateAppointmentList(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
+        }
     }
 
     private fun setupCalendarView() {
@@ -59,14 +79,6 @@ class CalendarFragment : Fragment() {
         addAppointmentButton.setOnClickListener {
             // 예약 추가 다이얼로그 또는 액티비티를 띄우는 코드를 추가합니다.
             showAddAppointmentDialog()
-        }
-    }
-
-    private fun setupTodayButton() {
-        todayButton.setOnClickListener {
-            val today = Calendar.getInstance()
-            calendarView.date = today.timeInMillis
-            updateAppointmentList(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
         }
     }
 
@@ -110,6 +122,11 @@ class CalendarFragment : Fragment() {
             }
             .setNegativeButton("취소", null)
             .show()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        todayDateView.updateDate()
     }
 
 }
