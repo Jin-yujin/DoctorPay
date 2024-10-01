@@ -10,5 +10,6 @@
     <string name="title_dashboard">Dashboard</string>
     <string name="title_notifications">Notifications</string>
 
+    <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>
 
 </resources>

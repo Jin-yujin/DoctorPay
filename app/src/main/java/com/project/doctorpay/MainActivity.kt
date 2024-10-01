@@ -1,21 +1,39 @@
 package com.project.doctorpay
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.firebase.auth.FirebaseAuth
+import com.navercorp.nid.NaverIdLoginSDK
 import com.project.doctorpay.ui.calendar.CalendarFragment
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.ui.home.HomeFragment
 import com.project.doctorpay.ui.map.MapViewFragment
 import com.project.doctorpay.ui.mypage.MyPageFragment
+import com.kakao.sdk.user.UserApiClient as LoginClient
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
 
         setContentView(R.layout.activity_main)
+
+        auth = FirebaseAuth.getInstance()
+
+        if (auth.currentUser == null) {
+            // If not logged in, redirect to LoginActivity
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+            return
+        }
 
         // Check if user is logged in
         // 임시 로그인 기능 없앨 때 주석 풀기
@@ -26,7 +44,6 @@ class MainActivity : AppCompatActivity() {
 //            finish()
 //            return
 //        }
-
 
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -75,7 +92,24 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.fragment_container, HomeFragment())
             .commit()
 
+    }
 
+    fun logout() {
+        auth.signOut()
+        // Kakao logout
+        LoginClient.instance.logout { error ->
+            if (error != null) {
+                // Handle error
+            }
+        }
+        // Naver logout
+        NaverIdLoginSDK.logout()
+        // Google logout
+        GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+
+        val intent = Intent(this, LoginActivity::class.java)
+        startActivity(intent)
+        finish()
     }
 
 }
