@@ -66,20 +66,14 @@ class LoginActivity : AppCompatActivity() {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener(this) { task ->
                         if (task.isSuccessful) {
-                            startMainActivity()
+                            checkUserProfile(auth.currentUser?.uid)
                         } else {
-                            Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "로그인 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
                         }
                     }
             } else {
-//                Toast.makeText(this, "ID와 Password를 입력하세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "이메일과 비밀번호를 입력하세요.", Toast.LENGTH_SHORT).show()
             }
-
-            // 여기서 실제 로그인 로직을 구현할 수 있습니다.
-            // 지금은 단순히 MainActivity로 이동합니다.
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
-            finish() // LoginActivity를 종료하여 뒤로 가기 시 로그인 화면으로 돌아가지 않도록 합니다.
         }
     }
 
@@ -87,7 +81,7 @@ class LoginActivity : AppCompatActivity() {
         // 구글 소셜 로그인
         binding.googleLoginButton.setOnClickListener {
             val signInIntent = googleSignInClient.signInIntent
-            googleSignInLauncher.launch(signInIntent)
+            startActivityForResult(signInIntent, RC_SIGN_IN)
         }
 
         // 카카오 소셜 로그인
@@ -119,17 +113,6 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun firebaseAuthWithGoogle(idToken: String) {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
-            .addOnCompleteListener(this) { task ->
-                if (task.isSuccessful) {
-                    startMainActivity()
-                } else {
-                    Toast.makeText(this, "Authentication failed.", Toast.LENGTH_SHORT).show()
-                }
-            }
-    }
 
     private val kakaoCallback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
         if (error != null) {
@@ -163,9 +146,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun setupSignUpTextView() {
         binding.signUpTextView.setOnClickListener {
-            // 회원가입 화면으로 이동
-            val intent = Intent(this, SignUpActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, SignUpActivity::class.java))
         }
     }
 
@@ -181,5 +162,43 @@ class LoginActivity : AppCompatActivity() {
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
         finish()
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == RC_SIGN_IN) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                firebaseAuthWithGoogle(account.idToken!!)
+            } catch (e: ApiException) {
+                Toast.makeText(this, "Google 로그인 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun firebaseAuthWithGoogle(idToken: String) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    checkUserProfile(auth.currentUser?.uid)
+                } else {
+                    Toast.makeText(this, "Google 로그인 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+    }
+
+    private fun checkUserProfile(userId: String?) {
+        // TODO: Check if user profile exists in your database
+        // If not, start ProfileCompletionActivity
+        // If exists, start MainActivity
+        startActivity(Intent(this, ProfileCompletionActivity::class.java))
+        finish()
+    }
+
+    companion object {
+        private const val RC_SIGN_IN = 9001
     }
 }

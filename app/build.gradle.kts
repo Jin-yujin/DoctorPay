@@ -109,6 +109,7 @@ dependencies {
     implementation (platform("com.google.firebase:firebase-bom:33.3.0"))
     implementation ("com.google.firebase:firebase-analytics")
     implementation ("com.google.firebase:firebase-auth-ktx")
+    implementation ("com.google.firebase:firebase-firestore-ktx:24.1.0")
 
     implementation ("com.kakao.sdk:v2-user:2.19.0" )    // 카카오 로그인
     implementation ("com.navercorp.nid:oauth:5.1.1")    // 네이버 로그인
