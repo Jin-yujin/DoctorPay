@@ -1,5 +1,6 @@
 package com.project.doctorpay
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.ArrayAdapter
@@ -73,7 +74,7 @@ class SignUpActivity : AppCompatActivity() {
                                     .addOnSuccessListener {
                                         Log.d("SignUpActivity", "User profile saved successfully")
                                         Toast.makeText(this, "가입되었습니다.", Toast.LENGTH_SHORT).show()
-                                        // 로그인 화면으로 이동
+                                        startActivity(Intent(this, LoginActivity::class.java))
                                         finish()
                                     }
                                     .addOnFailureListener { e ->
@@ -90,8 +91,7 @@ class SignUpActivity : AppCompatActivity() {
                         }
                     }
             } else {
-                Toast.makeText(this, "모든 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
-                Log.d("SignUpActivity", "Email: $email, Password: $password, Nickname: $nickname, Age: $age, Gender: $gender, Region: $region")
+                Toast.makeText(this, "모든 입력 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
             }
         }
     }

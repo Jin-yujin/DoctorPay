@@ -8,44 +8,6 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!--
-    임시로그인 기능 없앨 때 아래의 주석 아닌 내용 삭제하고 주석 풀기
-
-    <application
-        android:allowBackup="true"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.DoctorPay"
-        tools:targetApi="31"
-        android:usesCleartextTraffic="true">
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.DoctorPay">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false" />
-
-        <activity
-            android:name=".SignUpActivity"
-            android:exported="false" />
-
-    </application>
-    -->
-
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
@@ -76,6 +38,10 @@
             android:exported="false"
             android:theme="@style/Theme.DoctorPay"
             />
+
+        <activity
+            android:name=".ProfileCompletionActivity"
+            android:exported="false"/>
 
         <!-- 카카오 로그인 -->
         <activity

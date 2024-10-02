@@ -2,7 +2,6 @@ package com.project.doctorpay
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -15,10 +14,10 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.firestore
 import com.kakao.sdk.auth.model.OAuthToken
+import com.kakao.sdk.user.UserApiClient
 import com.navercorp.nid.NaverIdLoginSDK
 import com.navercorp.nid.oauth.OAuthLoginCallback
 import com.project.doctorpay.databinding.ActivityLoginBinding
-import com.kakao.sdk.user.UserApiClient as LoginClient
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var binding: ActivityLoginBinding
@@ -26,15 +25,16 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var googleSignInClient: GoogleSignInClient
     private val db = Firebase.firestore
 
-    private val googleSignInLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        try {
-            val account = task.getResult(ApiException::class.java)
-            firebaseAuthWithGoogle(account.idToken!!)
-        } catch (e: ApiException) {
-            Toast.makeText(this, "Google sign in failed: ${e.message}", Toast.LENGTH_SHORT).show()
+    private val googleSignInLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                firebaseAuthWithGoogle(account.idToken!!)
+            } catch (e: ApiException) {
+                Toast.makeText(this, "Google 로그인 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
         }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,9 +69,13 @@ class LoginActivity : AppCompatActivity() {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener(this) { task ->
                         if (task.isSuccessful) {
-                            checkUserProfile(auth.currentUser?.uid)
+                            checkUserProfile(auth.currentUser?.uid, "email")
                         } else {
-                            Toast.makeText(this, "로그인 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                this,
+                                "로그인 실패: ${task.exception?.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
             } else {
@@ -89,10 +93,10 @@ class LoginActivity : AppCompatActivity() {
 
         // 카카오 소셜 로그인
         binding.kakaoLoginButton.setOnClickListener {
-            if (LoginClient.instance.isKakaoTalkLoginAvailable(this)) {
-                LoginClient.instance.loginWithKakaoTalk(this, callback = kakaoCallback)
+            if (UserApiClient.instance.isKakaoTalkLoginAvailable(this)) {
+                UserApiClient.instance.loginWithKakaoTalk(this, callback = kakaoCallback)
             } else {
-                LoginClient.instance.loginWithKakaoAccount(this, callback = kakaoCallback)
+                UserApiClient.instance.loginWithKakaoAccount(this, callback = kakaoCallback)
             }
         }
 
@@ -106,12 +110,15 @@ class LoginActivity : AppCompatActivity() {
         if (error != null) {
             Toast.makeText(this, "Kakao login failed: ${error.message}", Toast.LENGTH_SHORT).show()
         } else if (token != null) {
-            LoginClient.instance.me { user, error ->
+            UserApiClient.instance.me { user, error ->
                 if (error != null) {
-                    Toast.makeText(this, "Failed to get user info: ${error.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        "Failed to get user info: ${error.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else if (user != null) {
-                    val email = user.kakaoAccount?.email ?: ""
-                    checkUserProfile(email)
+                    checkUserProfile(user.id.toString(), "kakao")
                 }
             }
         }
@@ -119,18 +126,19 @@ class LoginActivity : AppCompatActivity() {
 
     private val naverCallback = object : OAuthLoginCallback {
         override fun onSuccess() {
-            // Naver 로그인 성공 시 사용자 정보를 가져와서 checkUserProfile 호출
-            // 여기에 Naver SDK를 사용하여 사용자 정보를 가져오는 코드를 추가해야 합니다.
-            // 예시: val email = 네이버에서_가져온_이메일
-            // checkUserProfile(email)
+            NaverIdLoginSDK.getAccessToken()?.let { accessToken ->
+                val naverId = "naver_${accessToken.substring(0, 10)}"
+                checkUserProfile(naverId, "naver")
+            }
         }
 
         override fun onFailure(httpStatus: Int, message: String) {
-            Toast.makeText(this@LoginActivity, "Naver login failed: $message", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@LoginActivity, "Naver 로그인 실패: $message", Toast.LENGTH_SHORT).show()
         }
 
         override fun onError(errorCode: Int, message: String) {
-            Toast.makeText(this@LoginActivity, "Naver login error: $message", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@LoginActivity, "Naver login error: $message", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 
@@ -152,37 +160,47 @@ class LoginActivity : AppCompatActivity() {
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    checkUserProfile(user?.email)
+                    checkUserProfile(user?.uid, "google")
                 } else {
-                    Toast.makeText(this, "Google 로그인 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this,
+                        "Google 로그인 실패: ${task.exception?.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
     }
 
-    private fun checkUserProfile(userIdentifier: String?) {
+    private fun checkUserProfile(userIdentifier: String?, loginType: String) {
         if (userIdentifier == null) {
             Toast.makeText(this, "사용자 정보를 가져올 수 없습니다.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        db.collection("users").document(userIdentifier)
-            .get()
+        val userDocRef = if (loginType == "email") {
+            db.collection("users").document(userIdentifier)
+        } else {
+            db.collection("users").document("${loginType}_$userIdentifier")
+        }
+
+        userDocRef.get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
                     startActivity(Intent(this, MainActivity::class.java))
                     finish()
                 } else {
-                    val intent = Intent(this, ProfileCompletionActivity::class.java)
-                    intent.putExtra("USER_IDENTIFIER", userIdentifier)
-                    startActivity(intent)
+                    if (loginType != "email") {
+                        val intent = Intent(this, ProfileCompletionActivity::class.java)
+                        intent.putExtra("USER_IDENTIFIER", "${loginType}_$userIdentifier")
+                        intent.putExtra("LOGIN_TYPE", loginType)
+                        startActivity(intent)
+                    } else {
+                        Toast.makeText(this, "이메일 계정이 존재하지 않습니다.", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .addOnFailureListener { e ->
                 Toast.makeText(this, "프로필 확인 실패: ${e.message}", Toast.LENGTH_SHORT).show()
             }
-    }
-
-    companion object {
-        private const val RC_SIGN_IN = 9001
     }
 }

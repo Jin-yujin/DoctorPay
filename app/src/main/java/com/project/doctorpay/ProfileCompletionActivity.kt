@@ -55,30 +55,38 @@ class ProfileCompletionActivity : AppCompatActivity() {
             val region = binding.regionSpinner.selectedItem.toString()
 
             if (nickname.isNotEmpty() && age.isNotEmpty() && gender.isNotEmpty() && region.isNotEmpty()) {
-                val user = auth.currentUser
-                val userIdentifier = intent.getStringExtra("USER_IDENTIFIER") ?: user?.uid
+                val userIdentifier = intent.getStringExtra("USER_IDENTIFIER")
+                val loginType = intent.getStringExtra("LOGIN_TYPE")
 
                 if (userIdentifier != null) {
-                    val userProfile = UserProfile(user?.email ?: "", nickname, age, gender, region)
+                    val tempEmail = "${loginType}_$userIdentifier@temp.com"
+                    val userProfile = UserProfile(tempEmail, nickname, age, gender, region)
 
                     db.collection("users").document(userIdentifier)
                         .set(userProfile)
                         .addOnSuccessListener {
-                            Toast.makeText(this, "프로필이 완성되었습니다.", Toast.LENGTH_SHORT).show()
-                            // 로그인 화면으로 이동
-                            val intent = Intent(this, LoginActivity::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(intent)
-                            finish()
+                            // Firebase Authentication에 임시 계정 생성
+                            auth.createUserWithEmailAndPassword(tempEmail, "tempPassword")
+                                .addOnCompleteListener { task ->
+                                    if (task.isSuccessful) {
+                                        Toast.makeText(this, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+                                        val intent = Intent(this, LoginActivity::class.java)
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        startActivity(intent)
+                                        finish()
+                                    } else {
+                                        Toast.makeText(this, "Authentication 계정 생성 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                         }
                         .addOnFailureListener { e ->
-                            Toast.makeText(this, "프로필 저장 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "회원가입 실패: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
                 } else {
                     Toast.makeText(this, "사용자 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "모든 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "모든 입력 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
             }
         }
     }

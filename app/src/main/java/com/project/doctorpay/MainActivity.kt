@@ -35,16 +35,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Check if user is logged in
-        // 임시 로그인 기능 없앨 때 주석 풀기
-//        if (!isLoggedIn()) {
-//            // If not logged in, redirect to LoginActivity
-//            val intent = Intent(this, LoginActivity::class.java)
-//            startActivity(intent)
-//            finish()
-//            return
-//        }
-
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.setOnItemSelectedListener { item ->
             when(item.itemId) {
