@@ -54,21 +54,28 @@ class ProfileCompletionActivity : AppCompatActivity() {
             }
             val region = binding.regionSpinner.selectedItem.toString()
 
-            if (nickname.isNotEmpty() && age != null && gender.isNotEmpty() && region.isNotEmpty()) {
+            if (nickname.isNotEmpty() && age.isNotEmpty() && gender.isNotEmpty() && region.isNotEmpty()) {
                 val user = auth.currentUser
-                val userProfile = UserProfile(user?.email ?: "", nickname, age, gender, region)
+                val userIdentifier = intent.getStringExtra("USER_IDENTIFIER") ?: user?.uid
 
-                // Firestore에 사용자 프로필 저장
-                user?.let {
-                    db.collection("users").document(it.uid)
+                if (userIdentifier != null) {
+                    val userProfile = UserProfile(user?.email ?: "", nickname, age, gender, region)
+
+                    db.collection("users").document(userIdentifier)
                         .set(userProfile)
                         .addOnSuccessListener {
-                            startActivity(Intent(this, MainActivity::class.java))
+                            Toast.makeText(this, "프로필이 완성되었습니다.", Toast.LENGTH_SHORT).show()
+                            // 로그인 화면으로 이동
+                            val intent = Intent(this, LoginActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
                             finish()
                         }
                         .addOnFailureListener { e ->
                             Toast.makeText(this, "프로필 저장 실패: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
+                } else {
+                    Toast.makeText(this, "사용자 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 Toast.makeText(this, "모든 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()

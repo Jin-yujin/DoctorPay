@@ -73,6 +73,7 @@ class SignUpActivity : AppCompatActivity() {
                                     .addOnSuccessListener {
                                         Log.d("SignUpActivity", "User profile saved successfully")
                                         Toast.makeText(this, "가입되었습니다.", Toast.LENGTH_SHORT).show()
+                                        // 로그인 화면으로 이동
                                         finish()
                                     }
                                     .addOnFailureListener { e ->
