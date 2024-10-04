@@ -1,6 +1,8 @@
 package com.project.doctorpay.ui.member
 
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +28,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
     private val db = Firebase.firestore
+    private lateinit var sharedPreferences: SharedPreferences
 
     private val googleSignInLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -45,6 +48,13 @@ class LoginActivity : AppCompatActivity() {
         supportActionBar?.hide()
 
         auth = FirebaseAuth.getInstance()
+        sharedPreferences = getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+
+        // 자동 로그인 체크
+        if (isLoggedIn()) {
+            startMainActivity()
+            return
+        }
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
@@ -57,6 +67,7 @@ class LoginActivity : AppCompatActivity() {
         setupSocialLoginButtons()
         setupSignUpTextView()
         setupForgotPasswordTextView()
+        setupAutoLoginCheckbox()
 
         // Naver SDK 초기화
         NaverIdLoginSDK.initialize(this, "YYfE8Topjmu6Sp_yBcPA", "Jzh2Zl5AOM", "닥터페이")
@@ -71,6 +82,7 @@ class LoginActivity : AppCompatActivity() {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener(this) { task ->
                         if (task.isSuccessful) {
+                            saveLoginState(true)
                             checkUserProfile(auth.currentUser?.uid, "email")
                         } else {
                             Toast.makeText(
@@ -84,6 +96,29 @@ class LoginActivity : AppCompatActivity() {
                 Toast.makeText(this, "이메일과 비밀번호를 입력하세요.", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun setupAutoLoginCheckbox() {
+        binding.autoLoginCheckBox.setOnCheckedChangeListener { _, isChecked ->
+            saveAutoLoginPreference(isChecked)
+        }
+    }
+
+    private fun saveAutoLoginPreference(isAutoLogin: Boolean) {
+        sharedPreferences.edit().putBoolean("auto_login", isAutoLogin).apply()
+    }
+
+    private fun saveLoginState(isLoggedIn: Boolean) {
+        sharedPreferences.edit().putBoolean("is_logged_in", isLoggedIn).apply()
+    }
+
+    private fun isLoggedIn(): Boolean {
+        return sharedPreferences.getBoolean("is_logged_in", false)
+    }
+
+    private fun startMainActivity() {
+        startActivity(Intent(this, MainActivity::class.java))
+        finish()
     }
 
     private fun setupSocialLoginButtons() {
@@ -188,8 +223,8 @@ class LoginActivity : AppCompatActivity() {
         userDocRef.get()
             .addOnSuccessListener { document ->
                 if (document.exists()) {
-                    startActivity(Intent(this, MainActivity::class.java))
-                    finish()
+                    saveLoginState(true)
+                    startMainActivity()
                 } else {
                     if (loginType != "email") {
                         val intent = Intent(this, ProfileCompletionActivity::class.java)

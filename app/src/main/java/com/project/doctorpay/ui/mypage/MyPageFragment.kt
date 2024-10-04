@@ -1,5 +1,6 @@
 package com.project.doctorpay.ui.mypage
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,13 +10,17 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.navercorp.nid.NaverIdLoginSDK.logout
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
+import com.project.doctorpay.ui.member.LoginActivity
 
 class MyPageFragment : Fragment() {
 
     private lateinit var tvVersion: TextView
     private lateinit var tvNickname: TextView
     private lateinit var tvUserInfo: TextView
+    private lateinit var tvLogout: TextView
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
@@ -34,6 +39,7 @@ class MyPageFragment : Fragment() {
         tvVersion = view.findViewById(R.id.tvVersion)
         tvNickname = view.findViewById(R.id.tvNickname)
         tvUserInfo = view.findViewById(R.id.tvUserInfo)
+        tvLogout = view.findViewById(R.id.tvLogout)
 
         // 약관 및 정책
         val termsAndPolicyLayout: View = view.findViewById(R.id.layoutTermsAndPolicy)
@@ -42,6 +48,11 @@ class MyPageFragment : Fragment() {
                 .replace(R.id.fragment_container, TermsAndPolicyFragment())
                 .addToBackStack(null)
                 .commit()
+        }
+
+        // 로그아웃 기능 추가
+        tvLogout.setOnClickListener {
+            logout()
         }
 
         loadUserData()
@@ -71,5 +82,15 @@ class MyPageFragment : Fragment() {
         } else {
             Toast.makeText(context, "로그인 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun logout() {
+        (activity as? MainActivity)?.logout()
+
+        // MainActivity의 logout() 함수 호출 후 LoginActivity로 이동
+        val intent = Intent(activity, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        activity?.finish()
     }
 }

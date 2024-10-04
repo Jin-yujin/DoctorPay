@@ -1,5 +1,6 @@
 package com.project.doctorpay
 
+import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -97,6 +98,10 @@ class MainActivity : AppCompatActivity() {
         NaverIdLoginSDK.logout()
         // Google logout
         GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
+
+        // Clear login state
+        val sharedPreferences = getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+        sharedPreferences.edit().putBoolean("is_logged_in", false).apply()
 
         val intent = Intent(this, LoginActivity::class.java)
         startActivity(intent)
