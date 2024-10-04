@@ -12,37 +12,63 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="병원 이름"
+        android:textColor="@color/black"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <TextView
-        android:id="@+id/tvTimeInfo"
-        android:layout_width="0dp"
+
+    <LinearLayout
+        android:id="@+id/lyInfo"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="1dp"
-        android:paddingStart="10dp"
-        android:text="시간정보"
+        android:orientation="horizontal"
         app:layout_constraintTop_toBottomOf="@id/tvName"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent" >
+
+
+        <TextView
+            android:id="@+id/tvTimeInfo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:paddingStart="10dp"
+            android:text="위치 정보"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:paddingStart="10dp"
+            android:text=" | " />
+
+        <TextView
+            android:id="@+id/tvDistance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:paddingStart="10dp"
+            android:textColor="@color/black"
+            android:text="00m" />
+    </LinearLayout>
 
     <TextView
-        android:id="@+id/tvWriter"
+        android:id="@+id/tvNumber"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:text="TextView"
+        android:text="전화번호"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTimeInfo" />
+        app:layout_constraintTop_toBottomOf="@id/lyInfo" />
 
     <TextView
-        android:id="@+id/tvPartner"
+        android:id="@+id/tvState"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="0/0"
+        android:text="영업중 여부"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/tvWriter"
-        app:layout_constraintBottom_toBottomOf="@id/tvWriter" />
+        app:layout_constraintTop_toTopOf="@id/tvNumber"
+        app:layout_constraintBottom_toBottomOf="@id/tvNumber" />
 
     <FrameLayout
         android:id="@+id/notificationBadgeContainer"

@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.project.doctorpay" />
+                  <option name="mobileSdkAppId" value="1:1019633760773:android:2eb0812d388b81840d7a6c" />
+                  <option name="projectId" value="doctorpay-956d6" />
+                  <option name="projectNumber" value="1019633760773" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
