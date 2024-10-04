@@ -13,6 +13,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        supportActionBar?.hide()
+
         setContentView(R.layout.activity_main)
 
         // Check if user is logged in
@@ -72,5 +74,8 @@ class MainActivity : AppCompatActivity() {
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, HomeFragment())
             .commit()
+
+
     }
+
 }
