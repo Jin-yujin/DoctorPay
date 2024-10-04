@@ -1,15 +1,16 @@
 package com.project.doctorpay.ui.home
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
-import com.project.doctorpay.R
 import com.project.doctorpay.databinding.ViewHospitalListBinding
 import com.project.doctorpay.databinding.CompListItemBinding
+import com.project.doctorpay.ui.hospitalList.HospitalDetailActivity
 
 class HospitalListFragment : Fragment() {
     private var _binding: ViewHospitalListBinding? = null
@@ -59,6 +60,20 @@ class HospitalListFragment : Fragment() {
 
         binding.swipeRefreshLayout.setOnRefreshListener {
             loadHospitalList(binding.checkFilter.isChecked)
+        }
+
+        // Add click listener to list items
+        binding.mListView.setOnItemClickListener { _, _, position, _ ->
+            val hospital = adapter.getItem(position)
+            hospital?.let {
+                val intent = Intent(requireContext(), HospitalDetailActivity::class.java).apply {
+                    putExtra("HOSPITAL_NAME", it.name)
+                    putExtra("HOSPITAL_TIME", it.time)
+                    putExtra("HOSPITAL_DOCTOR", it.doctor)
+                    putExtra("HOSPITAL_CAPACITY", it.capacity)
+                }
+                startActivity(intent)
+            }
         }
     }
 

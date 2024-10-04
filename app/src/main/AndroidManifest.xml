@@ -43,6 +43,10 @@
             android:name=".ProfileCompletionActivity"
             android:exported="false"/>
 
+        <activity
+            android:name=".ui.hospitalList.HospitalDetailActivity"
+            android:exported="false" />
+
         <!-- 카카오 로그인 -->
         <activity
             android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
