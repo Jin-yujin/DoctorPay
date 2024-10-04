@@ -10,7 +10,6 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.navercorp.nid.NaverIdLoginSDK.logout
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.ui.member.LoginActivity
@@ -41,9 +40,18 @@ class MyPageFragment : Fragment() {
         tvUserInfo = view.findViewById(R.id.tvUserInfo)
         tvLogout = view.findViewById(R.id.tvLogout)
 
+        //알림
+        val btnAlramSet: View = view.findViewById(R.id.btnAlramSet)
+        btnAlramSet.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, AlarmFragment())
+                .addToBackStack(null)
+                .commit()
+        }
+
         // 약관 및 정책
-        val termsAndPolicyLayout: View = view.findViewById(R.id.layoutTermsAndPolicy)
-        termsAndPolicyLayout.setOnClickListener {
+        val btnTermsAndPolicy: View = view.findViewById(R.id.btnTermsAndPolicy)
+        btnTermsAndPolicy.setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, TermsAndPolicyFragment())
                 .addToBackStack(null)
