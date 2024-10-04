@@ -1,4 +1,4 @@
-package com.project.doctorpay
+package com.project.doctorpay.ui.member
 
 import android.content.Intent
 import android.os.Bundle
@@ -10,6 +10,7 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.project.doctorpay.databinding.ActivityProfileCompletionBinding
 import com.project.doctorpay.DB.UserProfile
+import com.project.doctorpay.R
 
 class ProfileCompletionActivity : AppCompatActivity() {
     private lateinit var binding: ActivityProfileCompletionBinding

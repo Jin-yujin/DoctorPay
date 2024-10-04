@@ -12,6 +12,7 @@ import com.project.doctorpay.ui.calendar.CalendarFragment
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.ui.home.HomeFragment
 import com.project.doctorpay.ui.map.MapViewFragment
+import com.project.doctorpay.ui.member.LoginActivity
 import com.project.doctorpay.ui.mypage.MyPageFragment
 import com.kakao.sdk.user.UserApiClient as LoginClient
 

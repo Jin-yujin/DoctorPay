@@ -13,6 +13,7 @@ import com.project.doctorpay.databinding.ActivityHospitalDetailBinding
 class HospitalDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHospitalDetailBinding
+    private lateinit var hospitalName: String
     private lateinit var hospitalAddress: String
     private lateinit var hospitalPhone: String
 
@@ -22,27 +23,37 @@ class HospitalDetailActivity : AppCompatActivity() {
         binding = ActivityHospitalDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val hospitalName = intent.getStringExtra("HOSPITAL_NAME") ?: ""
-        hospitalAddress = "서울 서대문구 연희로 272 동신병원 본관동 (홍은동)" // 예시 주소
-        hospitalPhone = "02-396-9161" // 예시 전화번호
+        // Retrieve hospital information from intent
+        hospitalName = intent.getStringExtra("HOSPITAL_NAME") ?: "Unknown Hospital"
+        hospitalAddress = "서울 서대문구 연희로 272 동신병원 본관동 (홍은동)" // 예시 주소, 실제로는 인텐트에서 받아와야 함
+        hospitalPhone = "02-396-9161" // 예시 전화번호, 실제로는 인텐트에서 받아와야 함
 
+        // Set up views with hospital information
         binding.tvHospitalName.text = hospitalName
         binding.tvHospitalType.text = "응급의료시설"
         binding.tvHospitalAddress.text = hospitalAddress
         binding.tvHospitalPhone.text = hospitalPhone
-        binding.ratingBar.rating = 4.5f // 예시 평점
+        binding.ratingBar.rating = 4.5f // 예시 평점, 실제로는 인텐트에서 받아와야 함
 
         binding.tvHospitalHours.text = "진료시간: 평일 09:00-18:00, 토요일 09:00-13:00"
         binding.tvHospitalHoliday.text = "휴일: 일요일, 공휴일"
         binding.tvNightCare.text = "야간진료: 가능"
         binding.tvFemaleDoctors.text = "여의사 진료: 가능"
 
+        // Set up other views and click listeners
+        setupClickListeners()
+        // Load reviews and non-covered items
+        loadReviewPreviews()
+        loadNonCoveredItems()
+    }
+
+    private fun setupClickListeners() {
         binding.btnBack.setOnClickListener { finish() }
         binding.btnStart.setOnClickListener { openMapWithDirections("출발") }
         binding.btnDestination.setOnClickListener { openMapWithDirections("도착") }
         binding.btnSave.setOnClickListener { /* TODO: Implement save functionality */ }
         binding.btnCall.setOnClickListener { dialPhoneNumber(hospitalPhone) }
-        binding.btnShare.setOnClickListener { shareHospitalInfo(hospitalName) }
+        binding.btnShare.setOnClickListener { shareHospitalInfo() }
         binding.tvHospitalPhone.setOnClickListener { dialPhoneNumber(hospitalPhone) }
 
         binding.btnAppointment.setOnClickListener {
@@ -50,20 +61,15 @@ class HospitalDetailActivity : AppCompatActivity() {
         }
 
         binding.btnMoreReviews.setOnClickListener {
-            // TODO: Open full review list
+            val intent = Intent(this, com.project.doctorpay.ui.reviews.ReviewsActivity::class.java).apply {
+                putExtra("HOSPITAL_NAME", hospitalName)
+            }
+            startActivity(intent)
         }
 
         binding.btnMoreNonCoveredItems.setOnClickListener {
-            // TODO: Open full non-covered items list
+            // TODO: Implement non-covered items list functionality
         }
-
-        // Add sample reviews
-        addReviewPreview("김OO", "친절하고 좋았어요", 5f)
-        addReviewPreview("이OO", "대기 시간이 좀 길었어요", 3f)
-
-        // Add sample non-covered items
-        addNonCoveredItem("MRI 검사", "500,000원")
-        addNonCoveredItem("치과 임플란트", "1,500,000원")
     }
 
     private fun openMapWithDirections(mode: String) {
@@ -83,6 +89,20 @@ class HospitalDetailActivity : AppCompatActivity() {
         }
     }
 
+    private fun loadReviewPreviews() {
+        // TODO: Load review previews from API or database
+        // For now, we'll add some dummy data
+        addReviewPreview("김OO", "친절하고 좋았어요", 5f)
+        addReviewPreview("이OO", "대기 시간이 좀 길었어요", 3f)
+    }
+
+    private fun loadNonCoveredItems() {
+        // TODO: Load non-covered items from API or database
+        // For now, we'll add some dummy data
+        addNonCoveredItem("MRI 검사", "500,000원")
+        addNonCoveredItem("치과 임플란트", "1,500,000원")
+    }
+
     private fun dialPhoneNumber(phoneNumber: String) {
         val intent = Intent(Intent.ACTION_DIAL).apply {
             data = Uri.parse("tel:$phoneNumber")
@@ -90,7 +110,7 @@ class HospitalDetailActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun shareHospitalInfo(hospitalName: String) {
+    private fun shareHospitalInfo() {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, hospitalName)

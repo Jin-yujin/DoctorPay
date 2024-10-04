@@ -18,7 +18,7 @@
         android:theme="@style/Theme.DoctorPay">
 
         <activity
-            android:name=".LoginActivity"
+            android:name=".ui.member.LoginActivity"
             android:theme="@style/Theme.DoctorPay"
             android:exported="true">
             <intent-filter>
@@ -34,17 +34,21 @@
             />
 
         <activity
-            android:name=".SignUpActivity"
+            android:name=".ui.member.SignUpActivity"
             android:exported="false"
             android:theme="@style/Theme.DoctorPay"
             />
 
         <activity
-            android:name=".ProfileCompletionActivity"
+            android:name=".ui.member.ProfileCompletionActivity"
             android:exported="false"/>
 
         <activity
             android:name=".ui.hospitalList.HospitalDetailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".ui.reviews.ReviewsActivity"
             android:exported="false" />
 
         <!-- 카카오 로그인 -->

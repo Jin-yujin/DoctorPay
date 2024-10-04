@@ -1,4 +1,4 @@
-package com.project.doctorpay.ui.home
+package com.project.doctorpay.ui.hospitalList
 
 import android.content.Context
 import android.content.Intent
@@ -10,7 +10,6 @@ import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
 import com.project.doctorpay.databinding.ViewHospitalListBinding
 import com.project.doctorpay.databinding.CompListItemBinding
-import com.project.doctorpay.ui.hospitalList.HospitalDetailActivity
 
 class HospitalListFragment : Fragment() {
     private var _binding: ViewHospitalListBinding? = null
@@ -71,6 +70,10 @@ class HospitalListFragment : Fragment() {
                     putExtra("HOSPITAL_TIME", it.time)
                     putExtra("HOSPITAL_DOCTOR", it.doctor)
                     putExtra("HOSPITAL_CAPACITY", it.capacity)
+                    // Add these lines if they're available in your Hospital data class
+                    // putExtra("HOSPITAL_ADDRESS", it.address)
+                    // putExtra("HOSPITAL_PHONE", it.phone)
+                    // putExtra("HOSPITAL_RATING", it.rating)
                 }
                 startActivity(intent)
             }

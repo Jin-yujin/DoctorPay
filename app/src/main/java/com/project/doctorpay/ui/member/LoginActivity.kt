@@ -1,4 +1,4 @@
-package com.project.doctorpay
+package com.project.doctorpay.ui.member
 
 import android.content.Intent
 import android.os.Bundle
@@ -17,6 +17,8 @@ import com.kakao.sdk.auth.model.OAuthToken
 import com.kakao.sdk.user.UserApiClient
 import com.navercorp.nid.NaverIdLoginSDK
 import com.navercorp.nid.oauth.OAuthLoginCallback
+import com.project.doctorpay.MainActivity
+import com.project.doctorpay.R
 import com.project.doctorpay.databinding.ActivityLoginBinding
 
 class LoginActivity : AppCompatActivity() {
