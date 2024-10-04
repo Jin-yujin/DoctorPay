@@ -58,6 +58,16 @@
                 android:textSize="14sp"
                 android:text="응급의료시설" />
 
+            <RatingBar
+                android:id="@+id/ratingBar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                style="?android:attr/ratingBarStyleSmall"
+                android:numStars="5"
+                android:stepSize="0.1"
+                android:isIndicator="true" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -176,6 +186,103 @@
                 android:layout_marginTop="8dp"
                 android:textColor="@android:color/holo_blue_dark"
                 tools:text="02-396-9161" />
+
+            <TextView
+                android:id="@+id/tvHospitalInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="진료 정보"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvHospitalHours"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                tools:text="진료시간: 평일 09:00-18:00, 토요일 09:00-13:00" />
+
+            <TextView
+                android:id="@+id/tvHospitalHoliday"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                tools:text="휴일: 일요일, 공휴일" />
+
+            <TextView
+                android:id="@+id/tvNightCare"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                tools:text="야간진료: 가능" />
+
+            <TextView
+                android:id="@+id/tvFemaleDoctors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                tools:text="여의사 진료: 가능" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnAppointment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="예약하기"
+                android:textColor="#FFFFFF"
+                app:backgroundTint="#8BCFFF" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="비급여 항목"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/layoutNonCoveredItems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp">
+                <!-- Non-covered items will be added here programmatically -->
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnMoreNonCoveredItems"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="비급여 항목 더보기"
+                android:textColor="#FFFFFF"
+                app:backgroundTint="#8BCFFF" />
+
+            <!-- Reviews section moved below non-covered items -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="리뷰"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/layoutReviews"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp">
+                <!-- Review previews will be added here programmatically -->
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnMoreReviews"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="리뷰 더보기"
+                android:textColor="#FFFFFF"
+                app:backgroundTint="#8BCFFF" />
+
 
         </LinearLayout>
 
