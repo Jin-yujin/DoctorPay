@@ -4,10 +4,10 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.project.doctorpay.databinding.ActivityReviewsBinding
+import com.project.doctorpay.databinding.FragmentReviewsBinding
 
-class ReviewsActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityReviewsBinding
+class ReviewsFragment : AppCompatActivity() {
+    private lateinit var binding: FragmentReviewsBinding
     private lateinit var reviewAdapter: ReviewAdapter
     private var currentPage = 1
     private val pageSize = 20
@@ -16,7 +16,7 @@ class ReviewsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityReviewsBinding.inflate(layoutInflater)
+        binding = FragmentReviewsBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.hide()
 
@@ -32,7 +32,7 @@ class ReviewsActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         reviewAdapter = ReviewAdapter()
         binding.recyclerViewReviews.apply {
-            layoutManager = LinearLayoutManager(this@ReviewsActivity)
+            layoutManager = LinearLayoutManager(this@ReviewsFragment)
             adapter = reviewAdapter
             addOnScrollListener(object : RecyclerView.OnScrollListener() {
                 override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {

@@ -44,11 +44,11 @@
             android:exported="false"/>
 
         <activity
-            android:name=".ui.hospitalList.HospitalDetailActivity"
+            android:name=".ui.hospitalList.HospitalDetailFragment"
             android:exported="false" />
 
         <activity
-            android:name=".ui.reviews.ReviewsActivity"
+            android:name=".ui.reviews.ReviewsFragment"
             android:exported="false" />
 
         <!-- 카카오 로그인 -->

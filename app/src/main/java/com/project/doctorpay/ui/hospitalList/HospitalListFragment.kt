@@ -1,15 +1,20 @@
 package com.project.doctorpay.ui.hospitalList
 
+
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
+import com.naver.maps.geometry.LatLng
+import com.project.doctorpay.DB.HospitalInfo
+import com.project.doctorpay.R
 import com.project.doctorpay.databinding.ViewHospitalListBinding
 import com.project.doctorpay.databinding.CompListItemBinding
+
 
 class HospitalListFragment : Fragment() {
     private var _binding: ViewHospitalListBinding? = null
@@ -53,7 +58,6 @@ class HospitalListFragment : Fragment() {
         loadHospitalList()
 
         binding.checkFilter.setOnCheckedChangeListener { _, isChecked ->
-            // TODO: 필터 적용 로직 구현
             loadHospitalList(isChecked)
         }
 
@@ -61,21 +65,22 @@ class HospitalListFragment : Fragment() {
             loadHospitalList(binding.checkFilter.isChecked)
         }
 
-        // Add click listener to list items
         binding.mListView.setOnItemClickListener { _, _, position, _ ->
             val hospital = adapter.getItem(position)
             hospital?.let {
-                val intent = Intent(requireContext(), HospitalDetailActivity::class.java).apply {
-                    putExtra("HOSPITAL_NAME", it.name)
-                    putExtra("HOSPITAL_TIME", it.time)
-                    putExtra("HOSPITAL_DOCTOR", it.doctor)
-                    putExtra("HOSPITAL_CAPACITY", it.capacity)
-                    // Add these lines if they're available in your Hospital data class
-                    // putExtra("HOSPITAL_ADDRESS", it.address)
-                    // putExtra("HOSPITAL_PHONE", it.phone)
-                    // putExtra("HOSPITAL_RATING", it.rating)
-                }
-                startActivity(intent)
+                val detailFragment = HospitalDetailFragment.newInstance(
+                    hospitalName = it.name,
+                    hospitalAddress = it.address,
+                    hospitalDepartment = it.department,
+                    hospitalTime = it.time,
+                    hospitalPhoneNumber = it.phoneNumber,
+                    isFromMap = false
+                )
+
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, detailFragment)
+                    .addToBackStack(null)
+                    .commit()
             }
         }
     }
@@ -88,9 +93,34 @@ class HospitalListFragment : Fragment() {
     private fun loadHospitalList(onlyAvailable: Boolean = false) {
         // TODO: 실제 데이터 로딩 로직으로 대체
         val dummyData = listOf(
-            Hospital("서울대학교병원", "09:00 - 18:00", "김의사", "3/5"),
-            Hospital("연세세브란스병원", "10:00 - 19:00", "이의사", "2/4"),
-            Hospital("가톨릭대학교 서울성모병원", "08:30 - 17:30", "박의사", "4/6")
+            HospitalInfo(
+                LatLng(37.5665, 126.9780),
+                "A병원",
+                "서울시 중구 A로 123",
+                "내과, 외과",
+                "09:00 - 18:00",
+                "02-1234-5678",
+                "영업중", 2.5
+
+            ),
+            HospitalInfo(
+                LatLng(37.5660, 126.9770),
+                "B병원",
+                "서울시 중구 B로 456",
+                "소아과, 피부과",
+                "10:00 - 19:00",
+                "02-2345-6789",
+                "영업중", 3.5
+            ),
+            HospitalInfo(
+                LatLng(37.5670, 126.9790),
+                "C병원",
+                "서울시 중구 C로 789",
+                "정형외과, 신경과",
+                "08:30 - 17:30",
+                "02-3456-7890",
+                "영업 마감", 4.2
+            )
         )
 
         adapter.clear()
@@ -105,15 +135,9 @@ class HospitalListFragment : Fragment() {
         _binding = null
     }
 
-    data class Hospital(
-        val name: String,
-        val time: String,
-        val doctor: String,
-        val capacity: String
-    )
 
-    inner class HospitalListAdapter(context: Context, hospitals: List<Hospital>) :
-        ArrayAdapter<Hospital>(context, 0, hospitals) {
+    inner class HospitalListAdapter(context: Context, hospitals: List<HospitalInfo>) :
+        ArrayAdapter<HospitalInfo>(context, 0, hospitals) {
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val binding = if (convertView == null) {
@@ -124,11 +148,11 @@ class HospitalListFragment : Fragment() {
 
             val hospital = getItem(position)!!
 
-            binding.tvName.text = hospital.name
-            binding.tvTimeInfo.text = hospital.time
-            binding.tvWriter.text = hospital.doctor
-            binding.tvPartner.text = hospital.capacity
-
+            binding.itemHospitalName.text = hospital.name
+            binding.itemHospitalAddress.text = hospital.address
+            binding.itemHospitalNum.text = hospital.phoneNumber
+            binding.tvState.text = hospital.state
+            binding.itemHospitalDistance.text = "000m"
             return binding.root
         }
     }
