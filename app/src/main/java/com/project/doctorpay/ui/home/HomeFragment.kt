@@ -11,6 +11,7 @@ import com.project.doctorpay.NonPaymentAdapter
 import com.project.doctorpay.R
 import com.project.doctorpay.api.MainViewModel
 import com.project.doctorpay.databinding.FragmentHomeBinding
+import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null

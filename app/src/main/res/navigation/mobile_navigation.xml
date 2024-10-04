@@ -19,9 +19,9 @@
 
     <fragment
         android:id="@+id/navigation_calender"
-        android:name="com.project.doctorpay.ui.calender.CalendarFragment"
+        android:name="com.project.doctorpay.ui.calendar.CalendarFragment"
         android:label="@string/title_favorite"
-        tools:layout="@layout/fragment_calender" />
+        tools:layout="@layout/fragment_calendar" />
 
     <fragment
         android:id="@+id/navigation_favorite"
