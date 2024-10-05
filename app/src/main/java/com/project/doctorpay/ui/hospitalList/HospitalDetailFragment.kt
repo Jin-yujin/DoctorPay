@@ -8,9 +8,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.RatingBar
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
+import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.ui.map.MapViewFragment
 
 class HospitalDetailFragment : Fragment() {
@@ -19,10 +21,17 @@ class HospitalDetailFragment : Fragment() {
     private var _binding: FragmentHospitalDetailBinding? = null
     private val binding get() = _binding!!
     private var isFromMap: Boolean = false
+    private var categoryId: Int = -1
 
     private lateinit var hospitalName: String
     private lateinit var hospitalAddress: String
     private lateinit var hospitalPhone: String
+
+    private var shouldShowToolbar = true
+
+    fun hideToolbar() {
+        shouldShowToolbar = false
+    }
 
     // Add this line to declare the listener property
     private var listener: HospitalDetailListener? = null
@@ -47,6 +56,10 @@ class HospitalDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        if (!shouldShowToolbar) {
+            binding.appBarLayout.visibility = View.GONE
+        }
+
         arguments?.let {
             hospitalName = it.getString("hospitalName", "")
             hospitalAddress = it.getString("hospitalAddress", "")
@@ -54,6 +67,7 @@ class HospitalDetailFragment : Fragment() {
             val hospitalTime = it.getString("hospitalTime", "")
             hospitalPhone = it.getString("hospitalPhoneNumber", "")
             isFromMap = it.getBoolean(ARG_IS_FROM_MAP, false)
+            categoryId = it.getInt(ARG_CATEGORY_ID, -1)
 
             // Set up views with hospital information
             binding.tvHospitalName.text = hospitalName
@@ -67,6 +81,15 @@ class HospitalDetailFragment : Fragment() {
             binding.tvNightCare.text = "야간진료: 가능"
             binding.tvFemaleDoctors.text = "여의사 진료: 가능"
         }
+
+
+        // 뒤로가기 버튼
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateBack()
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
 
         binding.btnBack.setOnClickListener {
             navigateBack()
@@ -176,8 +199,23 @@ class HospitalDetailFragment : Fragment() {
         if (isFromMap) {
             listener?.onBackFromHospitalDetail()
         } else {
-            //이전 누르면 리스트로 돌아가게 해야함
-            requireActivity().supportFragmentManager.popBackStack()
+            val parentFragment = parentFragment
+            if (parentFragment is HospitalListFragment) {
+                parentFragmentManager.popBackStack()
+            } else if (parentFragment is FavoriteFragment) {
+                listener?.onBackFromHospitalDetail()
+                parentFragmentManager.popBackStack()
+            } else {
+                if (categoryId != -1) {
+                    val hospitalListFragment = HospitalListFragment.newInstance(categoryId)
+                    parentFragmentManager.beginTransaction()
+                        .replace(R.id.fragment_container, hospitalListFragment)
+                        .commit()
+                } else {
+                    // categoryId가 없는 경우 처리
+                    parentFragmentManager.popBackStack()
+                }
+            }
         }
     }
 
@@ -195,6 +233,8 @@ class HospitalDetailFragment : Fragment() {
         private const val ARG_HOSPITAL_TIME = "hospitalTime"
         private const val ARG_HOSPITAL_PHONE = "hospitalPhoneNumber"
         private const val ARG_IS_FROM_MAP = "isFromMap"
+        private const val ARG_CATEGORY_ID = "category_id"
+
 
         fun newInstance(
             hospitalName: String,
@@ -203,6 +243,7 @@ class HospitalDetailFragment : Fragment() {
             hospitalTime: String,
             hospitalPhoneNumber: String,
             isFromMap: Boolean,
+            categoryId: Int
         ) = HospitalDetailFragment().apply {
             arguments = Bundle().apply {
                 putString(ARG_HOSPITAL_NAME, hospitalName)
@@ -211,6 +252,7 @@ class HospitalDetailFragment : Fragment() {
                 putString(ARG_HOSPITAL_TIME, hospitalTime)
                 putString(ARG_HOSPITAL_PHONE, hospitalPhoneNumber)
                 putBoolean(ARG_IS_FROM_MAP, isFromMap)
+                putInt(ARG_CATEGORY_ID, categoryId)
             }
         }
     }

@@ -164,7 +164,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             hospital.department,
             hospital.time,
             hospital.phoneNumber,
-            isFromMap = true
+            isFromMap = true,
+            categoryId = -1
         )
 
         hospitalDetailFragment.setHospitalDetailListener(this)

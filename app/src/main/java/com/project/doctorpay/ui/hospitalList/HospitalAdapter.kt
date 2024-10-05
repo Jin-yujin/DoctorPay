@@ -9,7 +9,7 @@ import com.project.doctorpay.DB.HospitalInfo
 import com.project.doctorpay.R
 
 class HospitalAdapter(
-    private val hospitals: List<HospitalInfo>,
+    private var hospitals: List<HospitalInfo>,
     private val onItemClick: (HospitalInfo) -> Unit
 ) : RecyclerView.Adapter<HospitalAdapter.HospitalViewHolder>() {
 
@@ -48,4 +48,9 @@ class HospitalAdapter(
     }
 
     override fun getItemCount() = hospitals.size
+
+    fun updateHospitals(newHospitals: List<HospitalInfo>) {
+        hospitals = newHospitals
+        notifyDataSetChanged()
+    }
 }

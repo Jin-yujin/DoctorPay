@@ -60,15 +60,10 @@ class AlarmFragment: Fragment() {
 //            updateSwitchColor(switchParticipationNotification, isChecked)
 //        }
         // 뒤로가기 버튼 처리
-        requireActivity().onBackPressedDispatcher.addCallback(object : OnBackPressedCallback(true) {
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // 뒤로가기 눌렀을 때 동작할 코드
-                val fragment = MyPageFragment()
-                requireActivity()
-                    .supportFragmentManager
-                    .beginTransaction()
-                    .replace(R.id.lyMypageFrameLayout, fragment)
-                    .commit()
+                // Instead of replacing the fragment, just pop the back stack
+                requireActivity().supportFragmentManager.popBackStack()
             }
         })
 
