@@ -31,7 +31,7 @@
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="200dp"
-                android:scaleType="fitXY"
+                android:scaleType="centerCrop"
                 android:src="@drawable/ad_banner_image" />
 
             <LinearLayout
@@ -77,6 +77,7 @@
 
                     <!--내과-->
                     <LinearLayout
+                        android:id="@+id/btnInternalMedicine"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -84,12 +85,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnInternalMedicine"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"
-                            app:tint="@color/white" />
+                            android:src="@drawable/ic_person"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -100,6 +99,7 @@
 
                     <!--내과-->
                     <LinearLayout
+                        android:id="@+id/btnGeneralSurgery"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -107,12 +107,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnGeneralSurgery"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"
-                            app:tint="@color/white" />
+                            android:src="@drawable/ic_person" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -123,6 +121,7 @@
 
                     <!--치과-->
                     <LinearLayout
+                        android:id="@+id/btnDentistry"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -130,7 +129,6 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnDentistry"
                             android:layout_width="30dp"
                             android:layout_height="30dp"
                             android:layout_gravity="center"
@@ -153,6 +151,7 @@
                     android:orientation="horizontal">
                     <!--이비인후과-->
                     <LinearLayout
+                        android:id="@+id/btnENT"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -160,12 +159,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnENT"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"
-                            app:tint="@color/white" />
+                            android:src="@drawable/ic_person" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -176,6 +173,7 @@
 
                     <!--정형외과-->
                     <LinearLayout
+                        android:id="@+id/btnOrthopedics"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -183,12 +181,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnOrthopedics"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"
-                            app:tint="@color/white" />
+                            android:src="@drawable/ic_person"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -199,6 +195,7 @@
 
                     <!--산부인과-->
                     <LinearLayout
+                        android:id="@+id/btnObGyn"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -206,7 +203,6 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnObGyn"
                             android:layout_width="33dp"
                             android:layout_height="31dp"
                             android:layout_gravity="center"
@@ -229,6 +225,7 @@
                     android:orientation="horizontal">
 
                     <LinearLayout
+                        android:id="@+id/btnUrology"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -236,12 +233,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnUrology"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"
-                            app:tint="@color/white" />
+                            android:src="@drawable/ic_person"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -252,6 +247,7 @@
 
                     <!--항문외과-->
                     <LinearLayout
+                        android:id="@+id/btnProctology"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -259,12 +255,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnProctology"
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"
-                            app:tint="@color/white" />
+                            android:src="@drawable/ic_person"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -275,6 +269,7 @@
 
                     <!--성형외과-->
                     <LinearLayout
+                        android:id="@+id/btnPlasticSurgery"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -282,7 +277,6 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:id="@+id/btnPlasticSurgery"
                             android:layout_width="33dp"
                             android:layout_height="31dp"
                             android:layout_gravity="center"
