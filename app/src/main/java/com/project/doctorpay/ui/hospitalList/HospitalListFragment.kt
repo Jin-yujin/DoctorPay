@@ -4,36 +4,46 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.DB.HospitalInfo
 import com.project.doctorpay.R
+import com.project.doctorpay.api.HospitalViewModel
+import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.api.healthInsuranceApi
 import com.project.doctorpay.databinding.ViewHospitalListBinding
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class HospitalListFragment : Fragment() {
     private var _binding: ViewHospitalListBinding? = null
     private val binding get() = _binding!!
 
-    private var categoryId: Int = -1
+    private var category: String = ""
     private lateinit var adapter: HospitalAdapter
+    private val viewModel: HospitalViewModel by viewModels {
+        HospitalViewModelFactory(healthInsuranceApi)
+    }
 
     companion object {
-        private const val ARG_CATEGORY_ID = "category_id"
+        private const val ARG_CATEGORY = "category"
 
-        fun newInstance(categoryId: Int): HospitalListFragment {
-            val fragment = HospitalListFragment()
-            val args = Bundle()
-            args.putInt(ARG_CATEGORY_ID, categoryId)
-            fragment.arguments = args
-            return fragment
+        fun newInstance(category: String): HospitalListFragment {
+            return HospitalListFragment().apply {
+                arguments = Bundle().apply {
+                    putString(ARG_CATEGORY, category)
+                }
+            }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
-            categoryId = it.getInt(ARG_CATEGORY_ID)
+            category = it.getString(ARG_CATEGORY, "")
         }
     }
 
@@ -50,6 +60,7 @@ class HospitalListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
+        setupObservers()
         loadHospitalList()
 
         binding.checkFilter.setOnCheckedChangeListener { _, isChecked ->
@@ -62,68 +73,53 @@ class HospitalListFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        adapter = HospitalAdapter(emptyList()) { hospital ->
+        adapter = HospitalAdapter { hospital ->
             navigateToHospitalDetail(hospital)
         }
         binding.mListView.layoutManager = LinearLayoutManager(requireContext())
         binding.mListView.adapter = adapter
     }
 
-    private fun loadHospitalList(onlyAvailable: Boolean = false) {
-        // TODO: Replace with actual data loading logic
-        val dummyData = listOf(
-            HospitalInfo(
-                LatLng(37.5665, 126.9780),
-                "A병원",
-                "서울시 중구 A로 123",
-                "내과, 외과",
-                "09:00 - 18:00",
-                "02-1234-5678",
-                "영업중",
-                2.5
-            ),
-            HospitalInfo(
-                LatLng(37.5660, 126.9770),
-                "B병원",
-                "서울시 중구 B로 456",
-                "소아과, 피부과",
-                "10:00 - 19:00",
-                "02-2345-6789",
-                "영업중",
-                3.5
-            ),
-            HospitalInfo(
-                LatLng(37.5670, 126.9790),
-                "C병원",
-                "서울시 중구 C로 789",
-                "정형외과, 신경과",
-                "08:30 - 17:30",
-                "02-3456-7890",
-                "영업 마감",
-                4.2
-            )
-        )
-
-        val filteredData = if (onlyAvailable) {
-            dummyData.filter { it.state == "영업중" }
-        } else {
-            dummyData
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.hospitals.collectLatest { hospitals ->
+                val filteredHospitals = hospitals.filter { hospital ->
+                    hospital.department.split(", ").any { it.contains(category, ignoreCase = true) }
+                }
+                adapter.submitList(filteredHospitals)
+                binding.swipeRefreshLayout.isRefreshing = false
+            }
         }
 
-        adapter.updateHospitals(filteredData)
+        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+            binding.swipeRefreshLayout.isRefreshing = isLoading
+        }
 
-        binding.swipeRefreshLayout.isRefreshing = false
+        viewModel.error.observe(viewLifecycleOwner) { error ->
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun loadHospitalList(onlyAvailable: Boolean = false) {
+        viewModel.fetchHospitalData()
+        if (onlyAvailable) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewModel.hospitals.collectLatest { hospitals ->
+                    val filteredHospitals = hospitals.filter { hospital ->
+                        hospital.department.split(", ").any { it.contains(category, ignoreCase = true) } &&
+                                hospital.state == "영업중"
+                    }
+                    adapter.submitList(filteredHospitals)
+                }
+            }
+        }
     }
 
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         val detailFragment = HospitalDetailFragment.newInstance(
-            hospitalName = hospital.name,
-            hospitalAddress = hospital.address,
-            hospitalDepartment = hospital.department,
-            hospitalTime = hospital.time,
-            hospitalPhoneNumber = hospital.phoneNumber,
+            hospitalId = hospital.name,  // 고유 ID가 없으므로 이름을 사용
             isFromMap = false,
-            categoryId = categoryId
+            category = category
         )
 
         parentFragmentManager.beginTransaction()

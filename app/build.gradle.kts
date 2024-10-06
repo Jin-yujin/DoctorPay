@@ -115,6 +115,11 @@ dependencies {
     implementation ("com.navercorp.nid:oauth:5.1.1")    // 네이버 로그인
     implementation ("com.google.android.gms:play-services-auth:20.5.0") // 구글 로그인
 
+    implementation ("androidx.fragment:fragment-ktx:1.5.5")
+    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.5.1")
+    implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.5.1")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+
 }
 
 

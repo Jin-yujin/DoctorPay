@@ -1,14 +1,13 @@
 package com.project.doctorpay.ui.map
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.CameraUpdate
@@ -17,9 +16,14 @@ import com.naver.maps.map.OnMapReadyCallback
 import com.naver.maps.map.overlay.Marker
 import com.project.doctorpay.DB.HospitalInfo
 import com.project.doctorpay.R
+import com.project.doctorpay.api.HospitalViewModel
+import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.api.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentMapviewBinding
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.HospitalDetailListener {
 
@@ -28,8 +32,10 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private lateinit var naverMap: NaverMap
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
-    private val hospitals = mutableListOf<HospitalInfo>()
-
+    private val viewModel: HospitalViewModel by viewModels {
+        HospitalViewModelFactory(healthInsuranceApi)
+    }
+    private lateinit var adapter: HospitalAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -40,10 +46,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         return binding.root
     }
 
-    override fun onBackFromHospitalDetail() {
-        showHospitalList()
-    }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.mapView.onCreate(savedInstanceState)
@@ -51,7 +53,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
         setupBottomSheet()
         setupRecyclerView()
-        showHospitalList()
+        setupObservers()
+        viewModel.fetchHospitalData()
     }
 
     private fun setupBottomSheet() {
@@ -72,12 +75,21 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun setupRecyclerView() {
-        binding.hospitalRecyclerView.layoutManager = LinearLayoutManager(context)
-        binding.hospitalRecyclerView.adapter = HospitalAdapter(hospitals) { hospital ->
+        adapter = HospitalAdapter { hospital ->
             showHospitalDetail(hospital)
         }
+        binding.hospitalRecyclerView.layoutManager = LinearLayoutManager(context)
+        binding.hospitalRecyclerView.adapter = adapter
     }
 
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.hospitals.collectLatest { hospitals ->
+                adapter.submitList(hospitals)
+                addHospitalMarkers(hospitals)
+            }
+        }
+    }
 
     private fun toggleBottomSheetState() {
         when (bottomSheetBehavior.state) {
@@ -97,53 +109,16 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         )
     }
 
-
     override fun onMapReady(map: NaverMap) {
         naverMap = map
         val initialPosition = LatLng(37.5666102, 126.9783881)
         naverMap.moveCamera(CameraUpdate.scrollTo(initialPosition))
-        addHospitalMarkers()
     }
 
-    private fun addHospitalMarkers() {
-        val dummyData = listOf(
-            HospitalInfo(
-                LatLng(37.5665, 126.9780),
-                "A병원",
-                "서울시 중구 A로 123",
-                "내과, 외과",
-                "09:00 - 18:00",
-                "02-1234-5678",
-                "영업중",
-                2.5
-            ),
-            HospitalInfo(
-                LatLng(37.5660, 126.9770),
-                "B병원",
-                "서울시 중구 B로 456",
-                "소아과, 피부과",
-                "10:00 - 19:00",
-                "02-2345-6789",
-                "영업중",
-                3.5
-            ),
-            HospitalInfo(
-                LatLng(37.5670, 126.9790),
-                "C병원",
-                "서울시 중구 C로 789",
-                "정형외과, 신경과",
-                "08:30 - 17:30",
-                "02-3456-7890",
-                "영업 마감",
-                4.2
-            )
-        )
-
-        hospitals.addAll(dummyData)
-
-        dummyData.forEachIndexed { index, hospital ->
+    private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
+        hospitals.forEachIndexed { index, hospital ->
             Marker().apply {
-                position = hospital.location
+                position = LatLng(hospital.latitude, hospital.longitude)
                 map = naverMap
                 captionText = hospital.name
                 tag = index
@@ -153,31 +128,30 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 }
             }
         }
-
-        (binding.hospitalRecyclerView.adapter as HospitalAdapter).notifyDataSetChanged()
     }
 
     private fun showHospitalDetail(hospital: HospitalInfo) {
         val hospitalDetailFragment = HospitalDetailFragment.newInstance(
-            hospital.name,
-            hospital.address,
-            hospital.department,
-            hospital.time,
-            hospital.phoneNumber,
+            hospitalId = hospital.name, // 고유 ID가 없으므로 이름을 사용
             isFromMap = true,
-            categoryId = -1
+            category = "" // 카테고리 정보가 없으므로 빈 문자열 전달
         )
 
         hospitalDetailFragment.setHospitalDetailListener(this)
 
         childFragmentManager.beginTransaction()
-            .replace(R.id.hospitalDetailContainer, hospitalDetailFragment).addToBackStack(null)
+            .replace(R.id.hospitalDetailContainer, hospitalDetailFragment)
+            .addToBackStack(null)
             .commit()
 
         binding.hospitalRecyclerView.visibility = View.GONE
         binding.hospitalDetailContainer.visibility = View.VISIBLE
 
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+    }
+
+    override fun onBackFromHospitalDetail() {
+        showHospitalList()
     }
 
     private fun showHospitalList() {

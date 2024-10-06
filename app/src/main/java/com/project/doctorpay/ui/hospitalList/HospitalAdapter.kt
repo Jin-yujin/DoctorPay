@@ -4,24 +4,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.project.doctorpay.DB.HospitalInfo
 import com.project.doctorpay.R
 
 class HospitalAdapter(
-    private var hospitals: List<HospitalInfo>,
     private val onItemClick: (HospitalInfo) -> Unit
-) : RecyclerView.Adapter<HospitalAdapter.HospitalViewHolder>() {
-
-    class HospitalViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val nameTextView: TextView = view.findViewById(R.id.item_hospitalName)
-        val addressTextView: TextView = view.findViewById(R.id.item_hospitalAddress)
-        val departmentTextView: TextView = view.findViewById(R.id.item_department)
-        val timeTextView: TextView = view.findViewById(R.id.item_hospitalTime)
-        val phoneNumberTextView: TextView = view.findViewById(R.id.item_hospitalNum)
-        val stateTextView: TextView = view.findViewById(R.id.tvState)
-        val distanceTextView: TextView = view.findViewById(R.id.item_hospitalDistance)
-    }
+) : ListAdapter<HospitalInfo, HospitalAdapter.HospitalViewHolder>(HospitalDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HospitalViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -30,27 +21,38 @@ class HospitalAdapter(
     }
 
     override fun onBindViewHolder(holder: HospitalViewHolder, position: Int) {
-        val hospital = hospitals[position]
-        holder.nameTextView.text = hospital.name
-        holder.addressTextView.text = hospital.address
-        holder.departmentTextView.text = hospital.department
-        holder.timeTextView.text = hospital.time
-        holder.phoneNumberTextView.text = hospital.phoneNumber
-        holder.stateTextView.text = hospital.state
+        val hospital = getItem(position)
+        holder.bind(hospital)
+        holder.itemView.setOnClickListener { onItemClick(hospital) }
+    }
 
-        // Distance calculation should be done separately and stored in HospitalInfo
-        // For now, we'll use a placeholder
-        holder.distanceTextView.text = "000m"
+    class HospitalViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val nameTextView: TextView = view.findViewById(R.id.item_hospitalName)
+        private val addressTextView: TextView = view.findViewById(R.id.item_hospitalAddress)
+        private val departmentTextView: TextView = view.findViewById(R.id.item_department)
+        private val timeTextView: TextView = view.findViewById(R.id.item_hospitalTime)
+        private val phoneNumberTextView: TextView = view.findViewById(R.id.item_hospitalNum)
+        private val stateTextView: TextView = view.findViewById(R.id.tvState)
+        private val distanceTextView: TextView = view.findViewById(R.id.item_hospitalDistance)
 
-        holder.itemView.setOnClickListener {
-            onItemClick(hospital)
+        fun bind(hospital: HospitalInfo) {
+            nameTextView.text = hospital.name
+            addressTextView.text = hospital.address
+            departmentTextView.text = hospital.department
+            timeTextView.text = hospital.time
+            phoneNumberTextView.text = hospital.phoneNumber
+            stateTextView.text = hospital.state
+            distanceTextView.text = "거리 정보 준비 중"  // 향후 실제 거리로 대체될 예정
         }
     }
 
-    override fun getItemCount() = hospitals.size
+    private class HospitalDiffCallback : DiffUtil.ItemCallback<HospitalInfo>() {
+        override fun areItemsTheSame(oldItem: HospitalInfo, newItem: HospitalInfo): Boolean {
+            return oldItem.name == newItem.name && oldItem.address == newItem.address
+        }
 
-    fun updateHospitals(newHospitals: List<HospitalInfo>) {
-        hospitals = newHospitals
-        notifyDataSetChanged()
+        override fun areContentsTheSame(oldItem: HospitalInfo, newItem: HospitalInfo): Boolean {
+            return oldItem == newItem
+        }
     }
 }
