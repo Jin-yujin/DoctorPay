@@ -4,14 +4,17 @@ import NonPaymentItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.RatingBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
 import com.project.doctorpay.db.HospitalInfo
@@ -19,6 +22,7 @@ import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
+import kotlinx.coroutines.launch
 
 class HospitalDetailFragment : Fragment() {
 
@@ -58,6 +62,7 @@ class HospitalDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        Log.d("HospitalDetailFragment", "onViewCreated called")
 
         if (!shouldShowToolbar) {
             binding.appBarLayout.visibility = View.GONE
@@ -65,12 +70,25 @@ class HospitalDetailFragment : Fragment() {
 
         arguments?.let {
             val hospitalId = it.getString(ARG_HOSPITAL_ID, "")
+            Log.d("HospitalDetailFragment", "Hospital ID: $hospitalId")
             isFromMap = it.getBoolean(ARG_IS_FROM_MAP, false)
             category = it.getString(ARG_CATEGORY, "")
 
-            viewModel.getHospitalById(hospitalId).observe(viewLifecycleOwner) { hospitalInfo ->
-                hospital = hospitalInfo
-                updateUI(hospitalInfo)
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewModel.hospitals.collect { hospitals ->
+                    if (hospitals.isNotEmpty()) {
+                        val hospitalInfo = hospitals.find { it.name == hospitalId }
+                        if (hospitalInfo != null) {
+                            Log.d("HospitalDetailFragment", "Hospital info received: ${hospitalInfo.name}")
+                            hospital = hospitalInfo
+                            updateUI(hospitalInfo)
+                        } else {
+                            Log.e("HospitalDetailFragment", "Hospital info is null")
+                            Toast.makeText(context, "병원 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
+                            navigateBack()
+                        }
+                    }
+                }
             }
         }
 
@@ -81,18 +99,19 @@ class HospitalDetailFragment : Fragment() {
     private fun updateUI(hospital: HospitalInfo) {
         binding.apply {
             tvHospitalName.text = hospital.name
-            tvHospitalType.text = hospital.department
+            tvHospitalType.text = hospital.clCdNm
             tvHospitalAddress.text = hospital.address
             tvHospitalPhone.text = hospital.phoneNumber
             ratingBar.rating = hospital.rating.toFloat()
-            tvHospitalHours.text = hospital.time
-            tvHospitalHoliday.text = "휴일: 일요일, 공휴일" // This should come from the API
-            tvNightCare.text = "야간진료: 가능" // This should come from the API
-            tvFemaleDoctors.text = "여의사 진료: 가능" // This should come from the API
+            tvHospitalHours.text = hospital.time.ifEmpty { "영업 시간 정보 없음" }
+            tvHospitalHoliday.text = "휴일: 정보 없음" // 실제 데이터가 있다면 그것을 사용
+            tvNightCare.text = "야간진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
+            tvFemaleDoctors.text = "여의사 진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
+            tvHospitalDepartment.text = hospital.department
         }
 
-        loadReviewPreviews()
-        loadNonCoveredItems()
+        loadNonCoveredItems(hospital.nonPaymentItems)
+        loadReviewPreviews() // 리뷰 데이터가 있다면 이 메서드를 구현하여 실제 리뷰를 표시
     }
 
     private fun setupClickListeners() {
@@ -154,9 +173,9 @@ class HospitalDetailFragment : Fragment() {
         addReviewPreview("이OO", "대기 시간이 좀 길었어요", 3f)
     }
 
-
-    private fun loadNonCoveredItems() {
-        hospital.nonPaymentItems.take(2).forEach { item ->
+    private fun loadNonCoveredItems(items: List<NonPaymentItem>) {
+        binding.layoutNonCoveredItems.removeAllViews()
+        items.take(2).forEach { item ->
             addNonCoveredItem(item)
         }
     }

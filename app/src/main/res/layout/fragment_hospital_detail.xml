@@ -59,6 +59,13 @@
                 android:textSize="14sp"
                 android:text="응급의료시설" />
 
+            <TextView
+                android:id="@+id/tvHospitalDepartment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                tools:text="내과, 외과, 소아과" />
+
             <RatingBar
                 android:id="@+id/ratingBar"
                 android:layout_width="wrap_content"

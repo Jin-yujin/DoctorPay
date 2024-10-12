@@ -10,6 +10,7 @@ import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.inferDepartments
 import com.project.doctorpay.network.NetworkModule
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -110,11 +111,14 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         _error.value = "데이터를 불러오는 중 오류가 발생했습니다: $errorMessage"
     }
 
-    fun getHospitalById(id: String): LiveData<HospitalInfo> {
-        return liveData {
-            val hospital = _hospitals.value.find { it.name == id }
-            emit(hospital ?: throw IllegalArgumentException("Hospital not found"))
+    fun getHospitalById(id: String): LiveData<HospitalInfo?> = liveData {
+        Log.d("HospitalViewModel", "Getting hospital by id: $id")
+        while (hospitals.value.isEmpty()) {
+            delay(100) // 데이터가 로드될 때까지 잠시 대기
         }
+        val hospital = hospitals.value.find { it.name == id }
+        Log.d("HospitalViewModel", "Found hospital: ${hospital?.name}")
+        emit(hospital)
     }
 
     fun searchHospitals(query: String) {
