@@ -1,18 +1,14 @@
 package com.project.doctorpay
 
+import NonPaymentItem
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.project.doctorpay.databinding.ItemNonPaymentBinding
-import com.project.doctorpay.api.Item
 
-class NonPaymentAdapter : RecyclerView.Adapter<NonPaymentAdapter.ViewHolder>() {
-    private var items: List<Item> = emptyList()
-
-    fun setItems(newItems: List<Item>) {
-        items = newItems
-        notifyDataSetChanged()
-    }
+class NonPaymentAdapter : ListAdapter<NonPaymentItem, NonPaymentAdapter.ViewHolder>(NonPaymentDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -21,16 +17,24 @@ class NonPaymentAdapter : RecyclerView.Adapter<NonPaymentAdapter.ViewHolder>() {
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(getItem(position))
     }
 
-    override fun getItemCount() = items.size
-
     class ViewHolder(private val binding: ItemNonPaymentBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: Item) {
-            binding.hospitalNameTextView.text = item.hospitalName
-            binding.itemNameTextView.text = item.itemName
-            binding.priceRangeTextView.text = "${item.minPrice} - ${item.maxPrice}원"
+        fun bind(item: NonPaymentItem) {
+            binding.hospitalNameTextView.text = item.yadmNm
+            binding.itemNameTextView.text = item.itemNm
+            binding.priceRangeTextView.text = "${item.cntrImpAmtMin ?: "N/A"} - ${item.cntrImpAmtMax ?: "N/A"}원"
+        }
+    }
+
+    private class NonPaymentDiffCallback : DiffUtil.ItemCallback<NonPaymentItem>() {
+        override fun areItemsTheSame(oldItem: NonPaymentItem, newItem: NonPaymentItem): Boolean {
+            return oldItem.yadmNm == newItem.yadmNm && oldItem.itemNm == newItem.itemNm
+        }
+
+        override fun areContentsTheSame(oldItem: NonPaymentItem, newItem: NonPaymentItem): Boolean {
+            return oldItem == newItem
         }
     }
 }

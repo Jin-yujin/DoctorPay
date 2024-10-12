@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
-import com.project.doctorpay.DB.UserProfile
+import com.project.doctorpay.db.UserProfile
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.ActivitySignUpBinding
 

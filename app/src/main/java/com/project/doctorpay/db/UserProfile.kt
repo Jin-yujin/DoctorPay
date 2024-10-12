@@ -1,4 +1,4 @@
-package com.project.doctorpay.DB
+package com.project.doctorpay.db
 
 data class UserProfile(
     val email: String,

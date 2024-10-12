@@ -41,6 +41,7 @@ android {
         viewBinding = true
         compose = true
         dataBinding = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"
@@ -72,6 +73,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Retrofit for API calls
+    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation ("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-simplexml:2.9.0")
 
@@ -114,6 +118,11 @@ dependencies {
     implementation ("com.kakao.sdk:v2-user:2.19.0" )    // 카카오 로그인
     implementation ("com.navercorp.nid:oauth:5.1.1")    // 네이버 로그인
     implementation ("com.google.android.gms:play-services-auth:20.5.0") // 구글 로그인
+
+    implementation ("androidx.fragment:fragment-ktx:1.5.5")
+    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.5.1")
+    implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.5.1")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
 
 }
 

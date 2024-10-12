@@ -14,7 +14,7 @@
         android:clickable="true">
 
         <TextView
-            android:id="@+id/tvheader"
+            android:id="@+id/tvCategoryTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="병원"
@@ -29,7 +29,7 @@
             android:layout_width="match_parent"
             android:layout_height="2dp"
             android:background="@drawable/border_round_"
-            app:layout_constraintTop_toBottomOf="@+id/tvheader"
+            app:layout_constraintTop_toBottomOf="@+id/tvCategoryTitle"
             app:layout_constraintStart_toStartOf="parent"/>
 
         <CheckBox
@@ -42,6 +42,8 @@
             android:textSize="13sp"
             app:layout_constraintTop_toBottomOf="@+id/view_header"
             app:layout_constraintStart_toStartOf="parent"/>
+
+
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -61,6 +63,23 @@
                 android:layout_height="match_parent"
                 android:visibility="gone" />
 
+            <TextView
+                android:id="@+id/emptyView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="No hospitals found"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/errorView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textColor="@android:color/holo_red_dark"
+                android:visibility="gone" />
+
         </FrameLayout>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

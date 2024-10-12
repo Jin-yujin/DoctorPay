@@ -4,20 +4,28 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.project.doctorpay.NonPaymentAdapter
 import com.project.doctorpay.R
-import com.project.doctorpay.api.MainViewModel
+import com.project.doctorpay.api.HospitalViewModel
+import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentHomeBinding
+import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
-    private lateinit var viewModel: MainViewModel
-    private val adapter = NonPaymentAdapter()
+    private val viewModel: HospitalViewModel by viewModels {
+        HospitalViewModelFactory(healthInsuranceApi)
+    }
+    private lateinit var adapter: HospitalAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -30,17 +38,18 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        viewModel = ViewModelProvider(this)[MainViewModel::class.java]
-
         setupRecyclerView()
         setupSearchButton()
         setupCategoryButtons()
         observeViewModel()
 
-        viewModel.fetchNonPaymentItems()
+        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
 
     private fun setupRecyclerView() {
+        adapter = HospitalAdapter { hospital ->
+            // Handle item click here
+        }
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
     }
@@ -48,12 +57,12 @@ class HomeFragment : Fragment() {
     private fun setupSearchButton() {
         binding.searchButton.setOnClickListener {
             val searchQuery = binding.searchEditText.text.toString()
-            viewModel.fetchNonPaymentItems(searchQuery)
+            viewModel.searchHospitals(searchQuery)
         }
     }
 
     private fun setupCategoryButtons() {
-        val buttons = listOf(
+        val categoryButtons = listOf(
             binding.btnInternalMedicine,
             binding.btnGeneralSurgery,
             binding.btnDentistry,
@@ -65,15 +74,16 @@ class HomeFragment : Fragment() {
             binding.btnPlasticSurgery
         )
 
-        buttons.forEach { button ->
-            button.setOnClickListener {
-                navigateToHospitalList(button.id)
+        categoryButtons.forEach { buttonLayout ->
+            buttonLayout.setOnClickListener {
+                val category = (buttonLayout.getChildAt(1) as? TextView)?.text.toString()
+                navigateToHospitalList(category)
             }
         }
     }
 
-    private fun navigateToHospitalList(categoryId: Int) {
-        val hospitalListFragment = HospitalListFragment.newInstance(categoryId)
+    private fun navigateToHospitalList(category: String) {
+        val hospitalListFragment = HospitalListFragment.newInstance()
         parentFragmentManager.beginTransaction()
             .replace(R.id.lyFrameLayout_home, hospitalListFragment)
             .addToBackStack(null)
@@ -81,9 +91,12 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.nonPaymentItems.observe(viewLifecycleOwner) { items ->
-            adapter.setItems(items)
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.hospitals.collectLatest { hospitals ->
+                adapter.submitList(hospitals)
+            }
         }
+
     }
 
     override fun onDestroyView() {
