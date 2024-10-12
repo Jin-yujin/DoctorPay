@@ -1,22 +1,25 @@
-package com.project.doctorpay.DB
+package com.project.doctorpay.db
 
 import HospitalInfoItem
 import NonPaymentItem
 import com.naver.maps.geometry.LatLng
 
+
 data class HospitalInfo(
-    val location: LatLng,
-    val name: String,
-    val address: String,
-    val department: String,
-    val time: String,
-    val phoneNumber: String,
-    val state: String,
-    val rating: Double,
+    val location: LatLng, //현 위치와 병원 사이 거리  나중에 추가 예정
+    val name: String, // 병원이름
+    val address: String, //병원 주소 ex) 서울 중랑구 ㅇㅇ동 ~
+    val department: String, //진료과목 ex)내과, 외과 ...
+    val time: String, //병원 운영 시간
+    val phoneNumber: String, //병원 전화번호
+    val state: String, // 병원 영업 여부 - 현재 시간과 운영시간 비교 예정
+    val rating: Double, //별점 - 이후 추가예정
     val latitude: Double,
     val longitude: Double,
-    val nonPaymentItems: List<NonPaymentItem>
+    val nonPaymentItems: List<NonPaymentItem>,
+    val clCdNm: String  // 병원 종류 (예: 종합병원, 병원, 의원 등)
 )
+
 
 // API 응답을 통합 모델로 변환하는 확장 함수
 fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): HospitalInfo {
@@ -27,11 +30,12 @@ fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): Hosp
         department = inferDepartments(this, nonPaymentItems),
         time = "",  // API에서 제공되지 않는 정보
         phoneNumber = this.telno ?: "",
-        state = "",  // API에서 제공되지 않는 정보
-        rating = 0.0,  // API에서 제공되지 않는 정보
+        state = "",  // API에서 제공되지 않는 정보. 필요하다면 별도로 처리 필요
+        rating = 0.0,  // API에서 제공되지 않는 정보. 필요하다면 별도로 처리 필요
         latitude = this.YPos?.toDoubleOrNull() ?: 0.0,
         longitude = this.XPos?.toDoubleOrNull() ?: 0.0,
-        nonPaymentItems = nonPaymentItems
+        nonPaymentItems = nonPaymentItems,
+        clCdNm = this.clCdNm ?: ""
     )
 }
 

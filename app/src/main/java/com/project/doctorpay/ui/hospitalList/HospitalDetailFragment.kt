@@ -14,11 +14,11 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
-import com.project.doctorpay.DB.HospitalInfo
+import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
-import com.project.doctorpay.api.healthInsuranceApi
+import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 
 class HospitalDetailFragment : Fragment() {
 
@@ -210,7 +210,7 @@ class HospitalDetailFragment : Fragment() {
             }
             else -> {
                 if (category.isNotEmpty()) {
-                    val hospitalListFragment = HospitalListFragment.newInstance(category)
+                    val hospitalListFragment = HospitalListFragment.newInstance()
                     parentFragmentManager.beginTransaction()
                         .replace(R.id.fragment_container, hospitalListFragment)
                         .commit()

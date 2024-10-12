@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
-import com.project.doctorpay.api.healthInsuranceApi
+import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
@@ -43,7 +43,7 @@ class HomeFragment : Fragment() {
         setupCategoryButtons()
         observeViewModel()
 
-        viewModel.fetchHospitalData()
+        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
 
     private fun setupRecyclerView() {
@@ -83,7 +83,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun navigateToHospitalList(category: String) {
-        val hospitalListFragment = HospitalListFragment.newInstance(category)
+        val hospitalListFragment = HospitalListFragment.newInstance()
         parentFragmentManager.beginTransaction()
             .replace(R.id.lyFrameLayout_home, hospitalListFragment)
             .addToBackStack(null)
@@ -97,9 +97,6 @@ class HomeFragment : Fragment() {
             }
         }
 
-        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-        }
     }
 
     override fun onDestroyView() {

@@ -14,11 +14,11 @@ import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.OnMapReadyCallback
 import com.naver.maps.map.overlay.Marker
-import com.project.doctorpay.DB.HospitalInfo
+import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
-import com.project.doctorpay.api.healthInsuranceApi
+import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentMapviewBinding
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
@@ -54,7 +54,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         setupBottomSheet()
         setupRecyclerView()
         setupObservers()
-        viewModel.fetchHospitalData()
+        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
 
     private fun setupBottomSheet() {

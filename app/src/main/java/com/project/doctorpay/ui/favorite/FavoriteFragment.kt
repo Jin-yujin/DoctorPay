@@ -9,12 +9,12 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.project.doctorpay.DB.HospitalInfo
+import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
-import com.project.doctorpay.api.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentFavoriteBinding
+import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
 import kotlinx.coroutines.flow.collectLatest
@@ -43,10 +43,10 @@ class FavoriteFragment : Fragment() {
 
         setupRecyclerView()
         setupObservers()
-        loadFavoriteHospitals()
+        loadHospitals()
 
         binding.swipeRefreshLayout.setOnRefreshListener {
-            loadFavoriteHospitals()
+            loadHospitals()
         }
     }
 
@@ -61,29 +61,47 @@ class FavoriteFragment : Fragment() {
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.hospitals.collectLatest { hospitals ->
-                // Assuming we have a way to determine favorite hospitals
-//                val favoriteHospitals = hospitals.filter { it.isFavorite }
-                val favoriteHospitals = hospitals.filter { true }
-                adapter.submitList(favoriteHospitals)
-                binding.swipeRefreshLayout.isRefreshing = false
+                updateUI(hospitals)
             }
         }
 
-        viewModel.error.observe(viewLifecycleOwner) { error ->
-            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.isLoading.collectLatest { isLoading ->
+                binding.swipeRefreshLayout.isRefreshing = isLoading
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.error.collectLatest { error ->
+                error?.let { showError(it) }
+            }
         }
     }
 
-    private fun loadFavoriteHospitals() {
-        binding.swipeRefreshLayout.isRefreshing = true
-        viewModel.fetchHospitalData() // This should fetch all hospitals including favorites
+    private fun updateUI(hospitals: List<HospitalInfo>) {
+        adapter.submitList(hospitals)
+        binding.swipeRefreshLayout.isRefreshing = false
+
+        if (hospitals.isEmpty()) {
+            binding.favoriteRecyclerView.visibility = View.GONE
+        } else {
+            binding.favoriteRecyclerView.visibility = View.VISIBLE
+        }
+    }
+
+    private fun showError(error: String) {
+        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+    }
+
+    private fun loadHospitals() {
+        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
 
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         val detailFragment = HospitalDetailFragment.newInstance(
-            hospitalId = hospital.name, // Assuming name is unique, otherwise use a proper ID
+            hospitalId = hospital.name,
             isFromMap = false,
-            category = "" // No specific category for favorites
+            category = ""
         )
 
         parentFragmentManager.beginTransaction()

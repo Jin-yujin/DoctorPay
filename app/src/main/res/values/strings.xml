@@ -19,6 +19,7 @@
     <string name="urology">비뇨기과</string>
     <string name="proctology">항문외과</string>
     <string name="plastic_surgery">성형외과</string>
+    <string name="no_hospitals_found">%s에 해당하는 병원을 찾을 수 없습니다.</string>
 
     <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>
 
