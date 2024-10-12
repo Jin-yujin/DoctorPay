@@ -7,6 +7,7 @@ import NonPaymentResponse
 import android.util.Log
 import androidx.lifecycle.*
 import com.naver.maps.geometry.LatLng
+import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.inferDepartments
 import com.project.doctorpay.network.NetworkModule
@@ -28,14 +29,16 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
     val error: StateFlow<String?> = _error
 
 
-    private suspend fun fetchHospitalInfo(sidoCd: String, sgguCd: String): Response<HospitalInfoResponse> {
-        return healthInsuranceApi.getHospitalInfo(
+    suspend fun fetchHospitalInfo(sidoCd: String, sgguCd: String): Response<HospitalInfoResponse> {
+        val response = healthInsuranceApi.getHospitalInfo(
             serviceKey = NetworkModule.getDecodedServiceKey(),
             pageNo = 1,
             numOfRows = 10,
             sidoCd = sidoCd,
             sgguCd = sgguCd
         )
+        Log.d("API_RESPONSE", "Raw Hospital Info Response: ${response.body()}")
+        return response
     }
 
     private suspend fun fetchNonPaymentInfo(): Response<NonPaymentResponse> {
@@ -75,23 +78,37 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         hospitalInfoItems: List<HospitalInfoItem>?,
         nonPaymentItems: List<NonPaymentItem>?
     ): List<HospitalInfo> {
-        Log.d("HospitalViewModel", "Hospital info items: ${hospitalInfoItems?.size}")
-        Log.d("HospitalViewModel", "Non-payment items: ${nonPaymentItems?.size}")
-
         val nonPaymentMap = nonPaymentItems?.groupBy { it.yadmNm } ?: emptyMap()
         return hospitalInfoItems?.mapNotNull { hospitalInfo ->
+            Log.d("HOSPITAL_INFO", "Hospital: ${hospitalInfo.yadmNm}, dgsbjtCd: ${hospitalInfo.dgsbjtCd}")
+
             val nonPaymentItemsForHospital = nonPaymentMap[hospitalInfo.yadmNm] ?: emptyList()
             val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: 0.0
             val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: 0.0
+            val departments = inferDepartments(hospitalInfo, nonPaymentItemsForHospital)
+            val departmentCategory = when {
+                departments.contains("치과") -> "DENTISTRY"
+                departments.contains("내과") -> "INTERNAL_MEDICINE"
+                departments.contains("외과") -> "SURGERY"
+                departments.contains("소아과") || departments.contains("산부인과") -> "PEDIATRICS_OBSTETRICS"
+                departments.contains("안과") || departments.contains("이비인후과") -> "SENSORY_ORGANS"
+                departments.contains("정형외과") -> "REHABILITATION"
+                departments.contains("정신과") || departments.contains("신경과") -> "MENTAL_NEUROLOGY"
+                departments.contains("피부과") || departments.contains("비뇨기과") -> "DERMATOLOGY_UROLOGY"
+                hospitalInfo.clCdNm == "종합병원" -> "GENERAL_MEDICINE"
+                hospitalInfo.clCdNm == "병원" -> "GENERAL_MEDICINE"
+                else -> "OTHER_SPECIALTIES"
+            }
             HospitalInfo(
                 location = LatLng(latitude, longitude),
                 name = hospitalInfo.yadmNm ?: "",
                 address = "${hospitalInfo.sidoCdNm ?: ""} ${hospitalInfo.sgguCdNm ?: ""} ${hospitalInfo.emdongNm ?: ""}".trim(),
-                department = inferDepartments(hospitalInfo, nonPaymentItemsForHospital),
-                time = "", // API에서 제공되지 않는 정보
+                department = departments,
+                departmentCategory = departmentCategory,
+                time = "",
                 phoneNumber = hospitalInfo.telno ?: "",
-                state = "", // API에서 제공되지 않는 정보
-                rating = 0.0, // API에서 제공되지 않는 정보
+                state = "",
+                rating = 0.0,
                 latitude = latitude,
                 longitude = longitude,
                 nonPaymentItems = nonPaymentItemsForHospital,
@@ -99,6 +116,8 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
             )
         } ?: emptyList()
     }
+
+
     private fun handleError(e: Exception) {
         Log.e("HospitalViewModel", "데이터 불러오기 오류", e)
         val errorMessage = when (e) {
@@ -108,6 +127,16 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         }
         Log.e("HospitalViewModel", errorMessage)
         _error.value = "데이터를 불러오는 중 오류가 발생했습니다: $errorMessage"
+    }
+
+    // 카테고리별로 병원 필터링
+    fun getHospitalsByCategory(category: DepartmentCategory): List<HospitalInfo> {
+        return _hospitals.value.filter { it.departmentCategory == category.categoryName }
+    }
+
+    // 카테고리별 병원 수 반환
+    fun getHospitalCountByCategory(): Map<String, Int> {
+        return _hospitals.value.groupingBy { it.departmentCategory }.eachCount()
     }
 
     fun getHospitalById(id: String): LiveData<HospitalInfo> {

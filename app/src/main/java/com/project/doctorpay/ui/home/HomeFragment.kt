@@ -14,6 +14,7 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentHomeBinding
+import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import kotlinx.coroutines.flow.collectLatest
@@ -61,29 +62,33 @@ class HomeFragment : Fragment() {
         }
     }
 
+
     private fun setupCategoryButtons() {
-        val categoryButtons = listOf(
-            binding.btnInternalMedicine,
-            binding.btnGeneralSurgery,
-            binding.btnDentistry,
-            binding.btnENT,
-            binding.btnOrthopedics,
-            binding.btnObGyn,
-            binding.btnUrology,
-            binding.btnProctology,
-            binding.btnPlasticSurgery
+        val categoryButtons = mapOf(
+            binding.btnInternalMedicine to DepartmentCategory.INTERNAL_MEDICINE,
+            binding.btnGeneralSurgery to DepartmentCategory.SURGERY,
+            binding.btnDentistry to DepartmentCategory.DENTISTRY,
+            binding.btnSensory to DepartmentCategory.SENSORY_ORGANS,
+            binding.btnREHABILITATION to DepartmentCategory.REHABILITATION,
+            binding.btnPEDIATRICSOBSTETRICS to DepartmentCategory.PEDIATRICS_OBSTETRICS,
+            binding.btnENT to DepartmentCategory.MENTAL_NEUROLOGY,
+            binding.btnGENERALMEDICINE to DepartmentCategory.GENERAL_MEDICINE,
+            binding.btnORIENTALMEDICINE to DepartmentCategory.ORIENTAL_MEDICINE,
+            binding.btnDIAGNOSTICS to DepartmentCategory.DIAGNOSTICS,
+            binding.btnDERMATOLOGYUROLOGY to DepartmentCategory.DERMATOLOGY_UROLOGY,
+            binding.btnOTHERSPECIALTIES to DepartmentCategory.OTHER_SPECIALTIES
         )
 
-        categoryButtons.forEach { buttonLayout ->
+        categoryButtons.forEach { (buttonLayout, category) ->
             buttonLayout.setOnClickListener {
-                val category = (buttonLayout.getChildAt(1) as? TextView)?.text.toString()
                 navigateToHospitalList(category)
             }
         }
     }
 
-    private fun navigateToHospitalList(category: String) {
-        val hospitalListFragment = HospitalListFragment.newInstance()
+
+    private fun navigateToHospitalList(category: DepartmentCategory) {
+        val hospitalListFragment = HospitalListFragment.newInstance(category.name)
         parentFragmentManager.beginTransaction()
             .replace(R.id.lyFrameLayout_home, hospitalListFragment)
             .addToBackStack(null)
@@ -96,7 +101,6 @@ class HomeFragment : Fragment() {
                 adapter.submitList(hospitals)
             }
         }
-
     }
 
     override fun onDestroyView() {
