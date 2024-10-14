@@ -66,6 +66,8 @@ class HospitalDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateUI(hospital)
+        setupClickListeners()
+        setupBackPressHandler()
     }
 
     private fun updateUI(hospital: HospitalInfo) {
