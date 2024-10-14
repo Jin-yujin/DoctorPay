@@ -33,7 +33,7 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         val response = healthInsuranceApi.getHospitalInfo(
             serviceKey = NetworkModule.getDecodedServiceKey(),
             pageNo = 1,
-            numOfRows = 10,
+            numOfRows = 100,
             sidoCd = sidoCd,
             sgguCd = sgguCd
         )
@@ -45,7 +45,7 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         return healthInsuranceApi.getNonPaymentInfo(
             serviceKey = NetworkModule.getDecodedServiceKey(),
             pageNo = 1,
-            numOfRows = 10
+            numOfRows = 100
         )
     }
 
@@ -90,22 +90,26 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
             val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: 0.0
             val departments = inferDepartments(hospitalInfo, nonPaymentItemsForHospital)
             val departmentCategory = when {
-                departments.contains("치과") -> "DENTISTRY"
                 departments.contains("내과") -> "INTERNAL_MEDICINE"
                 departments.contains("외과") -> "SURGERY"
-                departments.contains("소아과") || departments.contains("산부인과") -> "PEDIATRICS_OBSTETRICS"
-                departments.contains("안과") || departments.contains("이비인후과") -> "SENSORY_ORGANS"
+                departments.contains("치과") -> "DENTISTRY"
+
                 departments.contains("정형외과") -> "REHABILITATION"
-                departments.contains("정신과") || departments.contains("신경과") -> "MENTAL_NEUROLOGY"
-                departments.contains("피부과") || departments.contains("비뇨기과") -> "DERMATOLOGY_UROLOGY"
-                hospitalInfo.clCdNm == "종합병원" -> "GENERAL_MEDICINE"
-                hospitalInfo.clCdNm == "병원" -> "GENERAL_MEDICINE"
-                else -> "OTHER_SPECIALTIES"
+                departments.contains("이비인후과") -> "OTOLARYNGOLOGY"
+                departments.contains("안과") -> "OPHTHALMOLOGY"
+
+                departments.contains("소아과") || departments.contains("산부인과") -> "PEDIATRICS_OBSTETRICS"
+                departments.contains("신경과") -> "MENTAL_NEUROLOGY"
+                departments.contains("피부과") -> "DERMATOLOGY"
+
+                departments.contains("한의원") -> "ORIENTAL_MEDICINE"
+                departments.contains("성형외과") || departments.contains("흉부외과") || departments.contains("비뇨기과") ->  "OTHER_SPECIALTIES"
+                else -> "GENERAL_MEDICINE"
             }
             HospitalInfo(
                 location = LatLng(latitude, longitude),
                 name = hospitalInfo.yadmNm ?: "",
-                address = "${hospitalInfo.sidoCdNm ?: ""} ${hospitalInfo.sgguCdNm ?: ""} ${hospitalInfo.emdongNm ?: ""}".trim(),
+                address = hospitalInfo.addr ?: "",
                 department = departments,
                 departmentCategory = departmentCategory,
                 time = "",

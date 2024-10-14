@@ -12,18 +12,21 @@
 
     <string name="INTERNAL_MEDICINE">내과</string>
     <string name="SURGERY">외과</string>
-    <string name="SENSORY_ORGANS">감각기관</string>
+    <string name="DENTISTRY">치과</string>
+
+    <string name="REHABILITATION">정형외과</string>
+    <string name="OTOLARYNGOLOGY">이비인후과</string>
+    <string name="OPHTHALMOLOGY">안과</string>
+
     <string name="MENTAL_NEUROLOGY">정신/신경과</string>
     <string name="PEDIATRICS_OBSTETRICS">소아/산부인과</string>
-    <string name="DERMATOLOGY_UROLOGY">피부/비뇨기과</string>
-    <string name="REHABILITATION">재활/물리치료</string>
-    <string name="DIAGNOSTICS">진단/검사</string>
-    <string name="GENERAL_MEDICINE">일반의학</string>
-    <string name="ORIENTAL_MEDICINE">한방</string>
-    <string name="DENTISTRY">치과</string>
-    <string name="OTHER_SPECIALTIES">기타 전문과</string>
+    <string name="DERMATOLOGY">피부과</string>
 
-    <string name="no_hospitals_found">%s에 해당하는 병원을 찾을 수 없습니다.</string>
+    <string name="ORIENTAL_MEDICINE">한의원</string>
+    <string name="OTHER_SPECIALTIES">기타 전문과</string>
+    <string name="GENERAL_MEDICINE">기타 일반과</string>
+
+    <string name="no_hospitals_found">병원을 찾을 수 없습니다.</string>
     <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다.</string>
 
     <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>

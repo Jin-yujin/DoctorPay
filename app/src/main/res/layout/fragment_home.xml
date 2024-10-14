@@ -149,27 +149,6 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:orientation="horizontal">
-                    <!--안과/이비인후과-->
-                    <LinearLayout
-                        android:id="@+id/btnSensory"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:orientation="vertical">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_person" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:text="@string/SENSORY_ORGANS" />
-                    </LinearLayout>
 
                     <!--정형외과-->
                     <LinearLayout
@@ -192,10 +171,31 @@
                             android:layout_marginTop="8dp"
                             android:text="@string/REHABILITATION" />
                     </LinearLayout>
-
-                    <!--소아/산부인과-->
+                    <!--이비인후과-->
                     <LinearLayout
-                        android:id="@+id/btnPEDIATRICS_OBSTETRICS"
+                        android:id="@+id/btnOTOLARYNGOLOGY"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_person" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/OTOLARYNGOLOGY" />
+                    </LinearLayout>
+
+                    <!--안과-->
+                    <LinearLayout
+                        android:id="@+id/btnOPHTHALMOLOGY"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -213,7 +213,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="@string/PEDIATRICS_OBSTETRICS" />
+                            android:text="@string/OPHTHALMOLOGY" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -225,7 +225,7 @@
                     android:orientation="horizontal">
                     <!--정신,신경과-->
                     <LinearLayout
-                        android:id="@+id/btnENT"
+                        android:id="@+id/btnMENTAL_NEUROLOGY"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -245,9 +245,9 @@
                             android:text="@string/MENTAL_NEUROLOGY" />
                     </LinearLayout>
 
-                    <!--일반의학-->
+                    <!--소아/산부인과-->
                     <LinearLayout
-                        android:id="@+id/btnGENERAL_MEDICINE"
+                        android:id="@+id/btnPEDIATRICS_OBSTETRICS"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
                         android:layout_weight="1"
@@ -264,10 +264,40 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="@string/GENERAL_MEDICINE" />
+                            android:text="@string/PEDIATRICS_OBSTETRICS" />
                     </LinearLayout>
 
-                    <!--한방-->
+                    <!--피부과-->
+                    <LinearLayout
+                        android:id="@+id/btnDERMATOLOGY"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:layout_width="33dp"
+                            android:layout_height="31dp"
+                            android:layout_gravity="center"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/ic_person" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/DERMATOLOGY" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!--한의원-->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal">
+
                     <LinearLayout
                         android:id="@+id/btnORIENTAL_MEDICINE"
                         android:layout_width="0dp"
@@ -277,11 +307,10 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="33dp"
-                            android:layout_height="31dp"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:scaleType="fitCenter"
-                            android:src="@drawable/ic_person" />
+                            android:src="@drawable/ic_person"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -289,59 +318,8 @@
                             android:layout_marginTop="8dp"
                             android:text="@string/ORIENTAL_MEDICINE" />
                     </LinearLayout>
-                </LinearLayout>
 
-                <!--진단/검사-->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:orientation="horizontal">
-
-                    <LinearLayout
-                        android:id="@+id/btnDIAGNOSTICS"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:orientation="vertical">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_person"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:text="@string/DIAGNOSTICS" />
-                    </LinearLayout>
-
-                    <!--피부/비뇨기과-->
-                    <LinearLayout
-                        android:id="@+id/btnDERMATOLOGY_UROLOGY"
-                        android:layout_width="0dp"
-                        android:layout_height="match_parent"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:orientation="vertical">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="center"
-                            android:src="@drawable/ic_person"/>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:text="@string/DERMATOLOGY_UROLOGY" />
-                    </LinearLayout>
-
-                    <!--성형외과-->
+                    <!--기타 전문과-->
                     <LinearLayout
                         android:id="@+id/btnOTHER_SPECIALTIES"
                         android:layout_width="0dp"
@@ -351,6 +329,28 @@
                         android:orientation="vertical">
 
                         <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:layout_gravity="center"
+                            android:src="@drawable/ic_person"/>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:text="@string/OTHER_SPECIALTIES" />
+                    </LinearLayout>
+
+                    <!--기타 일반과-->
+                    <LinearLayout
+                        android:id="@+id/btnGENERAL_MEDICINE"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <ImageView
                             android:layout_width="33dp"
                             android:layout_height="31dp"
                             android:layout_gravity="center"
@@ -361,7 +361,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
-                            android:text="@string/OTHER_SPECIALTIES" />
+                            android:text="@string/GENERAL_MEDICINE" />
                     </LinearLayout>
                 </LinearLayout>
 

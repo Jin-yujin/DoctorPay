@@ -42,7 +42,7 @@ class HospitalAdapter(
             timeTextView.text = hospital.time
             phoneNumberTextView.text = hospital.phoneNumber
             stateTextView.text = hospital.state
-            distanceTextView.text = "거리 정보 준비 중"  // 향후 실제 거리로 대체될 예정
+            distanceTextView.text = "00m"  // 향후 실제 거리로 대체될 예정
         }
     }
 
