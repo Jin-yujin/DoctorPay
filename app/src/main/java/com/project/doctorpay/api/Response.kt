@@ -1,6 +1,8 @@
+import android.os.Parcelable
 import org.simpleframework.xml.Element
 import org.simpleframework.xml.ElementList
 import org.simpleframework.xml.Root
+import kotlinx.parcelize.Parcelize
 
 @Root(name = "response", strict = false)
 data class NonPaymentResponse(
@@ -62,19 +64,19 @@ data class HospitalInfoItems(
     var itemList: List<HospitalInfoItem>? = null
 )
 
-@Root(strict = false)
+@Parcelize
 data class NonPaymentItem(
-    @field:Element(name = "yadmNm", required = false) val yadmNm: String? = null,
-    @field:Element(name = "clCd", required = false) val clCd: String? = null,
-    @field:Element(name = "clCdNm", required = false) val clCdNm: String? = null,
-    @field:Element(name = "adrSido", required = false) val adrSido: String? = null,
-    @field:Element(name = "adrSgg", required = false) val adrSgg: String? = null,
-    @field:Element(name = "itemCd", required = false) val itemCd: String? = null,
-    @field:Element(name = "itemNm", required = false) val itemNm: String? = null,
-    @field:Element(name = "cntrImpAmtMin", required = false) val cntrImpAmtMin: String? = null,
-    @field:Element(name = "cntrImpAmtMax", required = false) val cntrImpAmtMax: String? = null,
-    @field:Element(name = "spcmfyCatn", required = false) val spcmfyCatn: String? = null
-)
+    val yadmNm: String?,
+    val clCd: String?,
+    val clCdNm: String?,
+    val adrSido: String?,
+    val adrSgg: String?,
+    val itemCd: String?,
+    val itemNm: String?,
+    val cntrImpAmtMin: String?,
+    val cntrImpAmtMax: String?,
+    val spcmfyCatn: String?
+) : Parcelable
 
 @Root(strict = false)
 data class HospitalInfoItem(

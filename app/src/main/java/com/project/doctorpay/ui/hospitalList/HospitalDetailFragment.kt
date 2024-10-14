@@ -51,49 +51,21 @@ class HospitalDetailFragment : Fragment() {
         this.listener = listener
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        arguments?.let {
+            hospital = it.getParcelable("hospital_info") ?: throw IllegalArgumentException("Hospital info must be provided")
+        }
+    }
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHospitalDetailBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d("HospitalDetailFragment", "onViewCreated called")
-
-        if (!shouldShowToolbar) {
-            binding.appBarLayout.visibility = View.GONE
-        }
-
-        arguments?.let {
-            val hospitalId = it.getString(ARG_HOSPITAL_ID, "")
-            Log.d("HospitalDetailFragment", "Hospital ID: $hospitalId")
-            isFromMap = it.getBoolean(ARG_IS_FROM_MAP, false)
-            category = it.getString(ARG_CATEGORY, "")
-
-            viewLifecycleOwner.lifecycleScope.launch {
-                viewModel.hospitals.collect { hospitals ->
-                    if (hospitals.isNotEmpty()) {
-                        val hospitalInfo = hospitals.find { it.name == hospitalId }
-                        if (hospitalInfo != null) {
-                            Log.d("HospitalDetailFragment", "Hospital info received: ${hospitalInfo.name}")
-                            hospital = hospitalInfo
-                            updateUI(hospitalInfo)
-                        } else {
-                            Log.e("HospitalDetailFragment", "Hospital info is null")
-                            Toast.makeText(context, "병원 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
-                            navigateBack()
-                        }
-                    }
-                }
-            }
-        }
-
-        setupClickListeners()
-        setupBackPressHandler()
+        updateUI(hospital)
     }
 
     private fun updateUI(hospital: HospitalInfo) {

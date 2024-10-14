@@ -2,9 +2,11 @@ package com.project.doctorpay.db
 
 import HospitalInfoItem
 import NonPaymentItem
+import android.os.Parcelable
 import com.naver.maps.geometry.LatLng
+import kotlinx.parcelize.Parcelize
 
-
+@Parcelize
 data class HospitalInfo(
     val location: LatLng, //현 위치와 병원 사이 거리  나중에 추가 예정
     val name: String, // 병원이름
@@ -18,7 +20,7 @@ data class HospitalInfo(
     val longitude: Double,
     val nonPaymentItems: List<NonPaymentItem>,
     val clCdNm: String  // 병원 종류 (예: 종합병원, 병원, 의원 등)
-)
+) : Parcelable
 
 
 // API 응답을 통합 모델로 변환하는 확장 함수
