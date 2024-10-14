@@ -1,6 +1,9 @@
 package com.project.doctorpay.ui.hospitalList
 
 import NonPaymentItem
+import android.app.AlertDialog
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,6 +11,8 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.EditText
 import android.widget.RatingBar
 import android.widget.TextView
 import android.widget.Toast
@@ -15,6 +20,8 @@ import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.textfield.TextInputLayout
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
 import com.project.doctorpay.db.HospitalInfo
@@ -22,7 +29,12 @@ import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
+import com.project.doctorpay.ui.calendar.Appointment
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class HospitalDetailFragment : Fragment() {
 
@@ -96,11 +108,78 @@ class HospitalDetailFragment : Fragment() {
             btnCall.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
             btnShare.setOnClickListener { shareHospitalInfo() }
             tvHospitalPhone.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
-            btnAppointment.setOnClickListener { /* TODO: Implement appointment functionality */ }
+            btnAppointment.setOnClickListener { showAppointmentDialog() }
             btnMoreReviews.setOnClickListener { navigateToReviewsFragment() }
             btnMoreNonCoveredItems.setOnClickListener { /* TODO: Implement non-covered items list functionality */ }
             btnBack.setOnClickListener { navigateBack() }
         }
+    }
+
+    private fun showAppointmentDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_appointment, null)
+        val hospitalNameTextView = dialogView.findViewById<TextView>(R.id.hospitalNameTextView)
+        val hospitalNameInputLayout = dialogView.findViewById<TextInputLayout>(R.id.hospitalNameInputLayout)
+        val dateEditText = dialogView.findViewById<EditText>(R.id.dateEditText)
+        val timeEditText = dialogView.findViewById<EditText>(R.id.timeEditText)
+        val notesEditText = dialogView.findViewById<EditText>(R.id.notesEditText)
+
+        hospitalNameTextView.text = hospital.name
+        hospitalNameTextView.visibility = View.VISIBLE
+        hospitalNameInputLayout.visibility = View.GONE
+
+        val calendar = Calendar.getInstance()
+
+        dateEditText.setOnClickListener {
+            DatePickerDialog(requireContext(), { _, year, month, day ->
+                calendar.set(year, month, day)
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                dateEditText.setText(dateFormat.format(calendar.time))
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        timeEditText.setOnClickListener {
+            TimePickerDialog(requireContext(), { _, hourOfDay, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                calendar.set(Calendar.MINUTE, minute)
+                val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                timeEditText.setText(timeFormat.format(calendar.time))
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
+        }
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.AppointmentDialogTheme)
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<Button>(R.id.addButton).setOnClickListener {
+            val appointmentDate = dateEditText.text.toString()
+            val appointmentTime = timeEditText.text.toString()
+            val notes = notesEditText.text.toString()
+
+            if (appointmentDate.isBlank() || appointmentTime.isBlank()) {
+                Toast.makeText(context, "날짜와 시간을 입력해주세요", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            val appointment = Appointment(
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH),
+                appointmentTime,
+                hospital.name,
+                notes
+            )
+
+            // CalendarFragment로 예약 정보 전달
+            (activity as? MainActivity)?.addAppointmentToCalendar(appointment)
+            Toast.makeText(context, "예약이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<Button>(R.id.cancelButton).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     private fun setupBackPressHandler() {

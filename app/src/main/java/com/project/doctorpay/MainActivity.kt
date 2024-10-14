@@ -9,6 +9,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.navercorp.nid.NaverIdLoginSDK
+import com.project.doctorpay.ui.calendar.Appointment
 import com.project.doctorpay.ui.calendar.CalendarFragment
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.ui.home.HomeFragment
@@ -106,6 +107,11 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, LoginActivity::class.java)
         startActivity(intent)
         finish()
+    }
+
+    fun addAppointmentToCalendar(appointment: Appointment) {
+        val calendarFragment = supportFragmentManager.findFragmentByTag("calendar") as? CalendarFragment
+        calendarFragment?.addAppointment(appointment)
     }
 
 }

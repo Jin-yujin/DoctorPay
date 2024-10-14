@@ -1,19 +1,27 @@
 package com.project.doctorpay.ui.calendar
 
 import android.app.AlertDialog
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.CalendarView
 import android.widget.EditText
 import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.textfield.TextInputLayout
 import com.project.doctorpay.R
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class CalendarFragment : Fragment() {
 
@@ -92,41 +100,84 @@ class CalendarFragment : Fragment() {
 
     private fun showAddAppointmentDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_appointment, null)
+        val hospitalNameTextView = dialogView.findViewById<TextView>(R.id.hospitalNameTextView)
+        val hospitalNameInputLayout = dialogView.findViewById<TextInputLayout>(R.id.hospitalNameInputLayout)
         val hospitalNameEditText = dialogView.findViewById<EditText>(R.id.hospitalNameEditText)
-        val appointmentTimeEditText = dialogView.findViewById<EditText>(R.id.appointmentTimeEditText)
+        val dateEditText = dialogView.findViewById<EditText>(R.id.dateEditText)
+        val timeEditText = dialogView.findViewById<EditText>(R.id.timeEditText)
         val notesEditText = dialogView.findViewById<EditText>(R.id.notesEditText)
 
-        AlertDialog.Builder(requireContext())
-            .setTitle("예약 추가")
+        hospitalNameTextView.visibility = View.GONE
+        hospitalNameInputLayout.visibility = View.VISIBLE
+
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = calendarView.date  // 현재 선택된 날짜 사용
+
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        dateEditText.setText(dateFormat.format(calendar.time))
+
+        dateEditText.setOnClickListener {
+            DatePickerDialog(requireContext(), { _, year, month, day ->
+                calendar.set(year, month, day)
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                dateEditText.setText(dateFormat.format(calendar.time))
+            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        timeEditText.setOnClickListener {
+            TimePickerDialog(requireContext(), { _, hourOfDay, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                calendar.set(Calendar.MINUTE, minute)
+                val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                timeEditText.setText(timeFormat.format(calendar.time))
+            }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
+        }
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.AppointmentDialogTheme)
             .setView(dialogView)
-            .setPositiveButton("추가") { _, _ ->
-                val hospitalName = hospitalNameEditText.text.toString()
-                val appointmentTime = appointmentTimeEditText.text.toString()
-                val notes = notesEditText.text.toString()
+            .create()
 
-                val calendar = Calendar.getInstance()
-                calendar.timeInMillis = calendarView.date
+        dialogView.findViewById<Button>(R.id.addButton).setOnClickListener {
+            val hospitalName = hospitalNameEditText.text.toString()
+            val appointmentDate = dateEditText.text.toString()
+            val appointmentTime = timeEditText.text.toString()
+            val notes = notesEditText.text.toString()
 
-                val newAppointment = Appointment(
-                    calendar.get(Calendar.YEAR),
-                    calendar.get(Calendar.MONTH),
-                    calendar.get(Calendar.DAY_OF_MONTH),
-                    appointmentTime,
-                    hospitalName,
-                    notes
-                )
-
-                appointmentData.add(newAppointment)
-                updateAppointmentList(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
-                Toast.makeText(context, "예약이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            if (hospitalName.isBlank() || appointmentDate.isBlank() || appointmentTime.isBlank()) {
+                Toast.makeText(context, "모든 필드를 입력해주세요", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
             }
-            .setNegativeButton("취소", null)
-            .show()
+
+            val newAppointment = Appointment(
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH),
+                appointmentTime,
+                hospitalName,
+                notes
+            )
+
+            appointmentData.add(newAppointment)
+            updateAppointmentList(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+            Toast.makeText(context, "예약이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialogView.findViewById<Button>(R.id.cancelButton).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
 
     override fun onResume() {
         super.onResume()
         todayDateView.updateDate()
+    }
+
+    fun addAppointment(appointment: Appointment) {
+        appointmentData.add(appointment)
+        updateAppointmentList(appointment.year, appointment.month, appointment.day)
     }
 
 }
