@@ -80,7 +80,10 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
     ): List<HospitalInfo> {
         val nonPaymentMap = nonPaymentItems?.groupBy { it.yadmNm } ?: emptyMap()
         return hospitalInfoItems?.mapNotNull { hospitalInfo ->
-            Log.d("HOSPITAL_INFO", "Hospital: ${hospitalInfo.yadmNm}, dgsbjtCd: ${hospitalInfo.dgsbjtCd}")
+            Log.d(
+                "HOSPITAL_INFO",
+                "Hospital: ${hospitalInfo.yadmNm}, dgsbjtCd: ${hospitalInfo.dgsbjtCd}"
+            )
 
             val nonPaymentItemsForHospital = nonPaymentMap[hospitalInfo.yadmNm] ?: emptyList()
             val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: 0.0
@@ -142,25 +145,26 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         return liveData {
             val hospital = _hospitals.value.find { it.name == id }
             emit(hospital ?: throw IllegalArgumentException("Hospital not found"))
-            
-        while (hospitals.value.isEmpty()) {
-            delay(100) // 데이터가 로드될 때까지 잠시 대기
-        }
-    }
-    
-    fun searchHospitals(query: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val filteredHospitals = _hospitals.value.filter {
-                    it.name.contains(query, ignoreCase = true)
-                }
-                _hospitals.value = filteredHospitals
-            } catch (e: Exception) {
-                _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
-            } finally {
-                _isLoading.value = false
+
+            while (hospitals.value.isEmpty()) {
+                delay(100) // 데이터가 로드될 때까지 잠시 대기
             }
         }
     }
-}
+
+        fun searchHospitals(query: String) {
+            viewModelScope.launch {
+                _isLoading.value = true
+                try {
+                    val filteredHospitals = _hospitals.value.filter {
+                        it.name.contains(query, ignoreCase = true)
+                    }
+                    _hospitals.value = filteredHospitals
+                } catch (e: Exception) {
+                    _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
+                } finally {
+                    _isLoading.value = false
+                }
+            }
+        }
+    }

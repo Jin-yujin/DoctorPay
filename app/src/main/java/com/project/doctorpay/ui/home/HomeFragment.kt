@@ -62,7 +62,6 @@ class HomeFragment : Fragment() {
         }
     }
 
-
     private fun setupCategoryButtons() {
         val categoryButtons = mapOf(
             binding.btnInternalMedicine to DepartmentCategory.INTERNAL_MEDICINE,
