@@ -67,15 +67,15 @@ class HomeFragment : Fragment() {
             binding.btnInternalMedicine to DepartmentCategory.INTERNAL_MEDICINE,
             binding.btnGeneralSurgery to DepartmentCategory.SURGERY,
             binding.btnDentistry to DepartmentCategory.DENTISTRY,
-            binding.btnSensory to DepartmentCategory.SENSORY_ORGANS,
             binding.btnREHABILITATION to DepartmentCategory.REHABILITATION,
+            binding.btnOTOLARYNGOLOGY to DepartmentCategory.OTOLARYNGOLOGY,
+            binding.btnOPHTHALMOLOGY to DepartmentCategory.OPHTHALMOLOGY,
+            binding.btnMENTALNEUROLOGY to DepartmentCategory.MENTAL_NEUROLOGY,
             binding.btnPEDIATRICSOBSTETRICS to DepartmentCategory.PEDIATRICS_OBSTETRICS,
-            binding.btnENT to DepartmentCategory.MENTAL_NEUROLOGY,
-            binding.btnGENERALMEDICINE to DepartmentCategory.GENERAL_MEDICINE,
+            binding.btnDERMATOLOGY to DepartmentCategory.DERMATOLOGY,
             binding.btnORIENTALMEDICINE to DepartmentCategory.ORIENTAL_MEDICINE,
-            binding.btnDIAGNOSTICS to DepartmentCategory.DIAGNOSTICS,
-            binding.btnDERMATOLOGYUROLOGY to DepartmentCategory.DERMATOLOGY_UROLOGY,
-            binding.btnOTHERSPECIALTIES to DepartmentCategory.OTHER_SPECIALTIES
+            binding.btnOTHERSPECIALTIES to DepartmentCategory.OTHER_SPECIALTIES,
+            binding.btnGENERALMEDICINE to DepartmentCategory.GENERAL_MEDICINE
         )
 
         categoryButtons.forEach { (buttonLayout, category) ->
