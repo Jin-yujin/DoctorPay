@@ -5,10 +5,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.naver.maps.map.MapView
-        android:id="@+id/map_view"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+
+        <com.naver.maps.map.MapView
+            android:id="@+id/map_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <android.widget.Button
+            android:id="@+id/returnToLocationButton"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="20dp"
+            android:layout_marginTop="100dp"
+            android:background="@drawable/ic_current_location" />
+
+    </FrameLayout>
+
 
     <LinearLayout
         android:id="@+id/bottomSheet"
@@ -45,7 +61,10 @@
                 android:padding="5dp"
                 android:contentDescription="Expand" />
 
+
         </LinearLayout>
+
+
 
         <FrameLayout
             android:layout_width="match_parent"

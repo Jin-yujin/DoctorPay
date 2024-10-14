@@ -83,8 +83,11 @@ class FavoriteFragment : Fragment() {
         binding.swipeRefreshLayout.isRefreshing = false
 
         if (hospitals.isEmpty()) {
+            binding.emptyView.visibility = View.VISIBLE
             binding.favoriteRecyclerView.visibility = View.GONE
+            binding.emptyView.text = getString(R.string.no_favorite_hospitals)
         } else {
+            binding.emptyView.visibility = View.GONE
             binding.favoriteRecyclerView.visibility = View.VISIBLE
         }
     }

@@ -203,7 +203,7 @@ class HospitalDetailFragment : Fragment() {
             }
             else -> {
                 if (category.isNotEmpty()) {
-                    val hospitalListFragment = HospitalListFragment.newInstance()
+                    val hospitalListFragment = HospitalListFragment.newInstance(category)
                     parentFragmentManager.beginTransaction()
                         .replace(R.id.fragment_container, hospitalListFragment)
                         .commit()

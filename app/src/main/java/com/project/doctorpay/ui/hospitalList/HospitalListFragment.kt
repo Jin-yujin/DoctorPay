@@ -16,6 +16,7 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.ViewHospitalListBinding
+import com.project.doctorpay.db.DepartmentCategory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -24,9 +25,20 @@ class HospitalListFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var adapter: HospitalAdapter
+    private var category: DepartmentCategory? = null
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(healthInsuranceApi)
+    }
+
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        arguments?.let {
+            val categoryName = it.getString(ARG_CATEGORY)
+            category = DepartmentCategory.values().find { it.name == categoryName }
+        }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -52,12 +64,13 @@ class HospitalListFragment : Fragment() {
             adapter = this@HospitalListFragment.adapter
         }
     }
+
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.hospitals.collectLatest { hospitals ->
                 Log.d("HospitalListFragment", "받은 병원 목록 크기: ${hospitals.size}")
-                adapter.submitList(hospitals)
-                updateUI(hospitals)
+                val filteredHospitals = filterHospitalsByCategory(hospitals)
+                updateUI(filteredHospitals)
             }
         }
 
@@ -74,6 +87,13 @@ class HospitalListFragment : Fragment() {
         }
     }
 
+    private fun filterHospitalsByCategory(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        return category?.let { cat ->
+            hospitals.filter { hospital ->
+                hospital.departmentCategory == cat.name
+            }
+        } ?: hospitals
+    }
 
     private fun updateUI(hospitals: List<HospitalInfo>) {
         adapter.submitList(hospitals)
@@ -88,7 +108,6 @@ class HospitalListFragment : Fragment() {
             binding.mListView.visibility = View.VISIBLE
         }
         Log.d("HospitalListFragment", "UI 업데이트 완료. 병원 수: ${hospitals.size}")
-
     }
 
     private fun showError(error: String) {
@@ -98,7 +117,6 @@ class HospitalListFragment : Fragment() {
             text = error
         }
     }
-
 
     private fun setupListeners() {
         binding.checkFilter.setOnCheckedChangeListener { _, isChecked ->
@@ -117,10 +135,8 @@ class HospitalListFragment : Fragment() {
     private fun filterHospitals(onlyAvailable: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
             val hospitals = viewModel.hospitals.value
-            val filteredHospitals = if (onlyAvailable) {
-                hospitals.filter { it.state == "영업중" }
-            } else {
-                hospitals
+            val filteredHospitals = filterHospitalsByCategory(hospitals).filter {
+                if (onlyAvailable) it.state == "영업중" else true
             }
             updateUI(filteredHospitals)
         }
@@ -131,7 +147,7 @@ class HospitalListFragment : Fragment() {
         val detailFragment = HospitalDetailFragment.newInstance(
             hospitalId = hospital.name,
             isFromMap = false,
-            category = ""
+            category = category?.name ?: ""
         )
 
         // 병원 정보를 Bundle에 추가
@@ -153,6 +169,12 @@ class HospitalListFragment : Fragment() {
     }
 
     companion object {
-        fun newInstance() = HospitalListFragment()
+        private const val ARG_CATEGORY = "category"
+
+        fun newInstance(category: String) = HospitalListFragment().apply {
+            arguments = Bundle().apply {
+                putString(ARG_CATEGORY, category)
+            }
+        }
     }
 }
