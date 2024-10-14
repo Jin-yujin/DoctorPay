@@ -143,16 +143,24 @@ class HospitalListFragment : Fragment() {
     }
 
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
+        Log.d("HospitalListFragment", "Navigating to detail for hospital: ${hospital.name}")
         val detailFragment = HospitalDetailFragment.newInstance(
             hospitalId = hospital.name,
             isFromMap = false,
             category = category?.name ?: ""
         )
 
+        // 병원 정보를 Bundle에 추가
+        val bundle = Bundle().apply {
+            putParcelable("hospital_info", hospital)
+        }
+        detailFragment.arguments = bundle
+
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, detailFragment)
             .addToBackStack(null)
             .commit()
+        Log.d("HospitalListFragment", "Fragment transaction committed")
     }
 
     override fun onDestroyView() {

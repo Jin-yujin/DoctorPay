@@ -269,6 +269,12 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             category = "" // 카테고리 정보가 없으므로 빈 문자열 전달
         )
 
+        // 병원 정보를 Bundle에 추가
+        val bundle = Bundle().apply {
+            putParcelable("hospital_info", hospital)
+        }
+        hospitalDetailFragment.arguments = bundle
+
         hospitalDetailFragment.setHospitalDetailListener(this)
 
         childFragmentManager.beginTransaction()

@@ -11,6 +11,7 @@ import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.inferDepartments
 import com.project.doctorpay.network.NetworkModule
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -27,7 +28,6 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
-
 
     suspend fun fetchHospitalInfo(sidoCd: String, sgguCd: String): Response<HospitalInfoResponse> {
         val response = healthInsuranceApi.getHospitalInfo(
@@ -117,7 +117,6 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         } ?: emptyList()
     }
 
-
     private fun handleError(e: Exception) {
         Log.e("HospitalViewModel", "데이터 불러오기 오류", e)
         val errorMessage = when (e) {
@@ -143,9 +142,12 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         return liveData {
             val hospital = _hospitals.value.find { it.name == id }
             emit(hospital ?: throw IllegalArgumentException("Hospital not found"))
+            
+        while (hospitals.value.isEmpty()) {
+            delay(100) // 데이터가 로드될 때까지 잠시 대기
         }
     }
-
+    
     fun searchHospitals(query: String) {
         viewModelScope.launch {
             _isLoading.value = true

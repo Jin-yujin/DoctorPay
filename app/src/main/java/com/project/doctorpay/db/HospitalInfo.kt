@@ -2,9 +2,10 @@ package com.project.doctorpay.db
 
 import HospitalInfoItem
 import NonPaymentItem
+import android.os.Parcelable
 import com.naver.maps.geometry.LatLng
+import kotlinx.parcelize.Parcelize
 import com.project.doctorpay.R
-
 
 enum class DepartmentCategory(val categoryName: String, val codes: List<String>) {
     GENERAL_MEDICINE(R.string.GENERAL_MEDICINE.toString(), listOf("00", "23", "41")),
@@ -27,6 +28,7 @@ enum class DepartmentCategory(val categoryName: String, val codes: List<String>)
     }
 }
 
+@Parcelize
 data class HospitalInfo(
     val location: LatLng,
     val name: String,
@@ -40,9 +42,8 @@ data class HospitalInfo(
     val latitude: Double,
     val longitude: Double,
     val nonPaymentItems: List<NonPaymentItem>,
-    val clCdNm: String
-)
-
+    val clCdNm: String  // 병원 종류 (예: 종합병원, 병원, 의원 등)
+) : Parcelable
 
 // API 응답을 통합 모델로 변환하는 확장 함수
 fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): HospitalInfo {

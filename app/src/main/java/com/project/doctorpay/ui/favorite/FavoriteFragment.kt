@@ -107,6 +107,12 @@ class FavoriteFragment : Fragment() {
             category = ""
         )
 
+        // 병원 정보를 Bundle에 추가
+        val bundle = Bundle().apply {
+            putParcelable("hospital_info", hospital)
+        }
+        detailFragment.arguments = bundle
+
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, detailFragment)
             .addToBackStack(null)
