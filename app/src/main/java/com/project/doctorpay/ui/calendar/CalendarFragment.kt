@@ -152,12 +152,19 @@ class CalendarFragment : Fragment() {
     }
 
     private fun setupTodayDateView() {
-        binding.todayDateView.updateDate()
-        binding.todayDateView.setOnClickListener {
+        updateTodayDateText()
+        binding.todayDateContainer.setOnClickListener {
             val today = Calendar.getInstance()
             binding.calendarView.date = today.timeInMillis
             loadAppointmentsForDate(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
+            updateTodayDateText()
         }
+    }
+
+    private fun updateTodayDateText() {
+        val today = Calendar.getInstance()
+        val dateFormat = SimpleDateFormat("dd", Locale.getDefault())
+        binding.todayDateText.text = dateFormat.format(today.time)
     }
 
     private fun showAddAppointmentDialog(selectedDate: Calendar) {
@@ -276,7 +283,7 @@ class CalendarFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        binding.todayDateView.updateDate()
+        updateTodayDateText()
         loadAppointments()
     }
 }
