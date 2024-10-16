@@ -93,12 +93,30 @@ class MyPageFragment : Fragment() {
     }
 
     private fun logout() {
-        (activity as? MainActivity)?.logout()
+        // 확인창(AlertDialog) 추가
+        val builder = android.app.AlertDialog.Builder(requireContext())
+        builder.setTitle("로그아웃")
+        builder.setMessage("로그아웃을 하시겠습니까?")
 
-        // MainActivity의 logout() 함수 호출 후 LoginActivity로 이동
-        val intent = Intent(activity, LoginActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        startActivity(intent)
-        activity?.finish()
+        // '확인' 버튼 클릭 시 로그아웃 처리
+        builder.setPositiveButton("확인") { _, _ ->
+            (activity as? MainActivity)?.logout()
+
+            // MainActivity의 logout() 함수 호출 후 LoginActivity로 이동
+            val intent = Intent(activity, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            activity?.finish()
+        }
+
+        // '취소' 버튼 클릭 시 아무 동작도 하지 않음
+        builder.setNegativeButton("취소") { dialog, _ ->
+            dialog.dismiss()
+        }
+
+        // 다이얼로그를 화면에 보여줌
+        val dialog = builder.create()
+        dialog.show()
     }
+
 }

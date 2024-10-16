@@ -8,7 +8,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="gray">#808080</color>
-    <color name="darkgray">#333131</color>
+    <color name="darkgray">#505050</color>
 
     <color name="signature_color">#f3fafd</color> <!-- 아이콘 배경 색상 -->
     <color name="signature_color1">#8BCFFF</color>

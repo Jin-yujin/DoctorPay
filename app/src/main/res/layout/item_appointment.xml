@@ -39,10 +39,10 @@
 
     <ImageButton
         android:id="@+id/editButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
         android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
+        android:layout_marginEnd="11dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="예약 수정"
         android:src="@drawable/ic_edit"

@@ -92,22 +92,33 @@ class MainActivity : AppCompatActivity() {
 
     fun logout() {
         auth.signOut()
+
         // Kakao logout
         LoginClient.instance.logout { error ->
             if (error != null) {
-                // Handle error
+                // Handle error if needed
             }
         }
+
         // Naver logout
         NaverIdLoginSDK.logout()
-        // Google logout
-        GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN).signOut()
 
+        // Google logout
+        val googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN)
+        googleSignInClient.signOut().addOnCompleteListener {
+            // 로그아웃 후 로그인 화면으로 이동
+            navigateToLoginScreen()
+        }
+    }
+
+    private fun navigateToLoginScreen() {
         // Clear login state
         val sharedPreferences = getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
         sharedPreferences.edit().putBoolean("is_logged_in", false).apply()
 
+        // LoginActivity로 이동
         val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()
     }
