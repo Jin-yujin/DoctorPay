@@ -61,11 +61,82 @@ class CalendarFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        appointmentAdapter = AppointmentAdapter()
+        appointmentAdapter = AppointmentAdapter(
+            onEditClick = { appointment -> showEditAppointmentDialog(appointment) },
+            onDeleteClick = { appointment -> showDeleteConfirmationDialog(appointment) }
+        )
         binding.appointmentRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = appointmentAdapter
         }
+    }
+
+    // 예약 수정 기능
+    private fun showEditAppointmentDialog(appointment: Appointment) {
+        val dialogBinding = DialogAddAppointmentBinding.inflate(layoutInflater)
+        val dialog = AlertDialog.Builder(requireContext())
+            .setView(dialogBinding.root)
+            .setTitle("예약 수정")
+            .create()
+
+        val calendar = Calendar.getInstance().apply {
+            set(appointment.year, appointment.month, appointment.day)
+        }
+
+        setupDateAndTimeEditTexts(dialogBinding, calendar)
+
+        dialogBinding.hospitalNameEditText.setText(appointment.hospitalName)
+        dialogBinding.notesEditText.setText(appointment.notes)
+
+        dialogBinding.addButton.text = "수정"
+        dialogBinding.addButton.setOnClickListener {
+            val updatedAppointment = Appointment(
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH),
+                dialogBinding.timeEditText.text.toString(),
+                dialogBinding.hospitalNameEditText.text.toString(),
+                dialogBinding.notesEditText.text.toString()
+            )
+
+            updateAppointment(appointment, updatedAppointment)
+            Toast.makeText(context, "예약이 수정되었습니다", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialogBinding.cancelButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    // 예약 삭제 기능
+    private fun showDeleteConfirmationDialog(appointment: Appointment) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("예약 삭제")
+            .setMessage("이 예약을 삭제하시겠습니까?")
+            .setPositiveButton("삭제") { _, _ ->
+                deleteAppointment(appointment)
+                Toast.makeText(context, "예약이 삭제되었습니다", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
+    private fun updateAppointment(oldAppointment: Appointment, newAppointment: Appointment) {
+        val index = appointmentList.indexOf(oldAppointment)
+        if (index != -1) {
+            appointmentList[index] = newAppointment
+            saveAppointments()
+            loadAppointmentsForDate(newAppointment.year, newAppointment.month, newAppointment.day)
+        }
+    }
+
+    private fun deleteAppointment(appointment: Appointment) {
+        appointmentList.remove(appointment)
+        saveAppointments()
+        loadAppointmentsForDate(appointment.year, appointment.month, appointment.day)
     }
 
     private fun setupAddAppointmentButton() {

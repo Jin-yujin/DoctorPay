@@ -16,22 +16,32 @@ data class Appointment(
     val notes: String
 )
 
-class AppointmentAdapter : ListAdapter<Appointment, AppointmentAdapter.AppointmentViewHolder>(AppointmentDiffCallback()) {
+class AppointmentAdapter(
+    private val onEditClick: (Appointment) -> Unit,
+    private val onDeleteClick: (Appointment) -> Unit
+) : ListAdapter<Appointment, AppointmentAdapter.AppointmentViewHolder>(AppointmentDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppointmentViewHolder {
         val binding = ItemAppointmentBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return AppointmentViewHolder(binding)
+        return AppointmentViewHolder(binding, onEditClick, onDeleteClick)
     }
 
     override fun onBindViewHolder(holder: AppointmentViewHolder, position: Int) {
         holder.bind(getItem(position))
     }
 
-    class AppointmentViewHolder(private val binding: ItemAppointmentBinding) : RecyclerView.ViewHolder(binding.root) {
+    class AppointmentViewHolder(
+        private val binding: ItemAppointmentBinding,
+        private val onEditClick: (Appointment) -> Unit,
+        private val onDeleteClick: (Appointment) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(appointment: Appointment) {
             binding.hospitalNameTextView.text = appointment.hospitalName
             binding.timeTextView.text = appointment.time
             binding.notesTextView.text = appointment.notes
+
+            binding.editButton.setOnClickListener { onEditClick(appointment) }
+            binding.deleteButton.setOnClickListener { onDeleteClick(appointment) }
         }
     }
 

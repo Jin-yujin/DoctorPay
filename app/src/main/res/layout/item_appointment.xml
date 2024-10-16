@@ -37,4 +37,29 @@
         app:layout_constraintTop_toBottomOf="@+id/hospitalNameTextView"
         tools:text="예약 메모" />
 
+    <ImageButton
+        android:id="@+id/editButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="예약 수정"
+        android:src="@drawable/ic_edit"
+        app:tint="@color/darkgray"
+        app:layout_constraintEnd_toStartOf="@id/deleteButton"
+        app:layout_constraintTop_toBottomOf="@id/notesTextView" />
+
+    <ImageButton
+        android:id="@+id/deleteButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_delete"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        app:tint="@color/darkgray"
+        app:layout_constraintTop_toBottomOf="@id/notesTextView"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="8dp"
+        android:contentDescription="예약 삭제" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
