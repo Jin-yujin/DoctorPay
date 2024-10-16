@@ -63,14 +63,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <androidx.appcompat.widget.AppCompatButton
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/addAppointmentButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="예약 추가"
-        android:textColor="#FFFFFF"
-        android:background="@drawable/rounded_button_background"
-        app:backgroundTint="#02354D"
+        android:src="@drawable/ic_add"
+        android:contentDescription="예약 추가"
+        app:backgroundTint="@color/signature_color4"
+        app:tint="@color/white"
         android:layout_marginBottom="16dp"
         android:layout_marginEnd="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
