@@ -23,6 +23,7 @@ class CalendarFragment : Fragment() {
     private lateinit var binding: FragmentCalendarBinding
     private lateinit var appointmentAdapter: AppointmentAdapter
     private val appointmentList = mutableListOf<Appointment>()
+    private var selectedDate: Calendar = Calendar.getInstance()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentCalendarBinding.inflate(inflater, container, false)
@@ -45,6 +46,7 @@ class CalendarFragment : Fragment() {
 
     private fun setupCalendarView() {
         binding.calendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
+            selectedDate.set(year, month, dayOfMonth)
             loadAppointmentsForDate(year, month, dayOfMonth)
         }
     }
@@ -59,7 +61,7 @@ class CalendarFragment : Fragment() {
 
     private fun setupAddAppointmentButton() {
         binding.addAppointmentButton.setOnClickListener {
-            showAddAppointmentDialog()
+            showAddAppointmentDialog(selectedDate)
         }
     }
 
@@ -78,13 +80,13 @@ class CalendarFragment : Fragment() {
         }
     }
 
-    private fun showAddAppointmentDialog() {
+    private fun showAddAppointmentDialog(selectedDate: Calendar) {
         val dialogBinding = DialogAddAppointmentBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogBinding.root)
             .create()
 
-        val calendar = Calendar.getInstance()
+        val calendar = selectedDate.clone() as Calendar
 
         setupDateAndTimeEditTexts(dialogBinding, calendar)
 
