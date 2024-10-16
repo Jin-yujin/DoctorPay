@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.databinding.FragmentCalendarBinding
 import com.project.doctorpay.databinding.DialogAddAppointmentBinding
 import java.text.SimpleDateFormat
@@ -34,6 +35,14 @@ class CalendarFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupViews()
         loadAppointments()
+
+        // MainActivity로부터 새 예약 데이터를 받기 위한 Observer 설정
+        (activity as? MainActivity)?.newAppointment?.observe(viewLifecycleOwner) { newAppointment ->
+            newAppointment?.let {
+                addAppointment(it)
+                (activity as? MainActivity)?.clearNewAppointment()
+            }
+        }
     }
 
     private fun setupViews() {
