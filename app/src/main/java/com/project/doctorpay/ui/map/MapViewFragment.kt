@@ -3,6 +3,7 @@ package com.project.doctorpay.ui.map
 import android.Manifest
 import android.app.AlertDialog
 import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -49,17 +50,17 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private lateinit var locationSource: FusedLocationSource
     private lateinit var locationOverlay: LocationOverlay
 
+    private var userLocation: LatLng? = null
+    private val markers = mutableListOf<Marker>()
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         when {
             permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                // 정확한 위치 권한이 허용됨
                 enableLocationTracking()
             }
             permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                // 대략적인 위치 권한만 허용됨
                 enableLocationTracking()
             }
             else -> {
@@ -88,9 +89,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         setupRecyclerView()
         setupObservers()
         setupReturnToLocationButton()
-
-        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
+
 
     private fun setupBottomSheet() {
         bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
@@ -117,15 +117,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.hospitalRecyclerView.adapter = adapter
     }
 
-
-    private fun setupObservers() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.hospitals.collectLatest { hospitals ->
-                adapter.submitList(hospitals)
-                addHospitalMarkers(hospitals)
-            }
-        }
-    }
 
 
     private fun toggleBottomSheetState() {
@@ -154,6 +145,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
+
     override fun onMapReady(map: NaverMap) {
         naverMap = map
         naverMap.locationSource = locationSource
@@ -161,23 +154,15 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         locationOverlay = naverMap.locationOverlay
         locationOverlay.isVisible = true
 
-        val initialPosition = LatLng(37.5666102, 126.9783881)
-        naverMap.moveCamera(CameraUpdate.scrollTo(initialPosition))
-
         checkLocationPermission()
 
         naverMap.addOnLocationChangeListener { location ->
-            locationOverlay.position = LatLng(location.latitude, location.longitude)
+            val newUserLocation = LatLng(location.latitude, location.longitude)
+            userLocation = newUserLocation
+            locationOverlay.position = newUserLocation
             locationOverlay.bearing = location.bearing
-            // 위치가 변경될 때마다 카메라 이동 (선택적)
-            naverMap.moveCamera(CameraUpdate.scrollTo(locationOverlay.position))
+            updateHospitalsBasedOnLocation(newUserLocation)
         }
-
-        // 위치 추적 모드 설정
-        naverMap.locationTrackingMode = LocationTrackingMode.Follow
-
-        // 맵이 준비되면 병원 데이터를 가져옵니다.
-        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019")
     }
 
 
@@ -190,7 +175,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 enableLocationTracking()
             }
             shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
-                // 권한 요청에 대한 설명이 필요한 경우
                 showLocationPermissionRationale()
             }
             else -> {
@@ -204,11 +188,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
     private fun showLocationPermissionRationale() {
-        // 사용자에게 위치 권한이 필요한 이유를 설명하는 다이얼로그 표시
         AlertDialog.Builder(requireContext())
             .setTitle("위치 권한 필요")
-            .setMessage("주변 병원 확인을 위해선 위치 권한이 필요합니다.")
+            .setMessage("주변 병원 확인을 위해 위치 권한이 필요합니다.")
             .setPositiveButton("권한 요청") { _, _ ->
                 requestPermissionLauncher.launch(
                     arrayOf(
@@ -224,37 +208,80 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             .show()
     }
 
+
     private fun enableLocationTracking() {
         try {
             naverMap.locationTrackingMode = LocationTrackingMode.Follow
             binding.returnToLocationButton.visibility = View.VISIBLE
             locationOverlay.isVisible = true
+
+            locationSource.activate { location ->
+                val newUserLocation = LatLng(location!!.latitude, location.longitude)
+                userLocation = newUserLocation
+                updateHospitalsBasedOnLocation(newUserLocation)
+            }
         } catch (e: SecurityException) {
-            // 위치 서비스가 비활성화된 경우
             Toast.makeText(context, "위치 서비스를 활성화해주세요.", Toast.LENGTH_SHORT).show()
         }
     }
 
+
+
+    private fun updateHospitalsBasedOnLocation(location: LatLng) {
+        viewModel.fetchNearbyHospitals(location.latitude, location.longitude)
+    }
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.hospitals.collectLatest { hospitals ->
+                val sortedHospitals = sortHospitalsByDistance(hospitals)
+                adapter.submitList(sortedHospitals)
+                addHospitalMarkers(sortedHospitals)
+            }
+        }
+    }
+
+    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            hospitals.sortedBy { hospital ->
+                val results = FloatArray(1)
+                Location.distanceBetween(
+                    currentLocation.latitude, currentLocation.longitude,
+                    hospital.latitude, hospital.longitude,
+                    results
+                )
+                results[0]
+            }
+        } else {
+            hospitals
+        }
+    }
+
     private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
+        // 기존 마커 제거
+        markers.forEach { it.map = null }
+        markers.clear()
+
         hospitals.forEachIndexed { index, hospital ->
             if (isValidCoordinate(hospital.latitude, hospital.longitude)) {
-                Marker().apply {
+                val marker = Marker().apply {
                     position = LatLng(hospital.latitude, hospital.longitude)
                     map = naverMap
                     captionText = hospital.name
                     tag = index
-                    isVisible = true  // 마커의 가시성을 명시적으로 설정
                     setOnClickListener {
                         showHospitalDetail(hospitals[it.tag as Int])
                         true
                     }
                 }
+                markers.add(marker)
             } else {
                 Log.e("MapViewFragment", "Invalid coordinates for hospital: ${hospital.name}")
             }
         }
-
     }
+
     private fun isValidCoordinate(latitude: Double, longitude: Double): Boolean {
         return latitude != 0.0 && longitude != 0.0 &&
                 latitude >= -90 && latitude <= 90 &&
@@ -300,6 +327,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     override fun onDestroyView() {
         super.onDestroyView()
+        // 프래그먼트가 파괴될 때 모든 마커 제거
+        markers.forEach { it.map = null }
+        markers.clear()
         _binding = null
     }
 

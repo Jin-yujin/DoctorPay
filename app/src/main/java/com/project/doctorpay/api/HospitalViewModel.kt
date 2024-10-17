@@ -20,6 +20,7 @@ import retrofit2.HttpException
 import retrofit2.Response
 
 class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : ViewModel() {
+
     private val _hospitals = MutableStateFlow<List<HospitalInfo>>(emptyList())
     val hospitals: StateFlow<List<HospitalInfo>> = _hospitals
 
@@ -28,6 +29,37 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
+
+
+
+    fun fetchNearbyHospitals(latitude: Double, longitude: Double) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val response: Response<HospitalInfoResponse> = healthInsuranceApi.getHospitalInfo(
+                    serviceKey = NetworkModule.getDecodedServiceKey(),
+                    pageNo = 1,
+                    numOfRows = 100,
+                    xPos = longitude.toString(),
+                    yPos = latitude.toString(),
+                    radius = 5000 // 5km 반경 내 병원 검색
+                )
+                if (response.isSuccessful) {
+                    val hospitalInfoItems = response.body()?.body?.items?.itemList ?: emptyList()
+                    val hospitalInfoList = combineHospitalData(hospitalInfoItems, emptyList())
+                    _hospitals.value = hospitalInfoList
+                } else {
+                    _error.value = "병원 정보를 불러오는데 실패했습니다: ${response.message()}"
+                }
+            } catch (e: Exception) {
+                handleError(e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
 
     suspend fun fetchHospitalInfo(sidoCd: String, sgguCd: String): Response<HospitalInfoResponse> {
         val response = healthInsuranceApi.getHospitalInfo(
@@ -40,6 +72,7 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         Log.d("API_RESPONSE", "Raw Hospital Info Response: ${response.body()}")
         return response
     }
+
 
     private suspend fun fetchNonPaymentInfo(): Response<NonPaymentResponse> {
         return healthInsuranceApi.getNonPaymentInfo(
@@ -89,23 +122,8 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
             val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: 0.0
             val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: 0.0
             val departments = inferDepartments(hospitalInfo, nonPaymentItemsForHospital)
-            val departmentCategory = when {
-                departments.contains("내과") -> "INTERNAL_MEDICINE"
-                departments.contains("외과") -> "SURGERY"
-                departments.contains("치과") -> "DENTISTRY"
+            val departmentCategory = getDepartmentCategory(departments)
 
-                departments.contains("정형외과") -> "REHABILITATION"
-                departments.contains("이비인후과") -> "OTOLARYNGOLOGY"
-                departments.contains("안과") -> "OPHTHALMOLOGY"
-
-                departments.contains("소아과") || departments.contains("산부인과") -> "PEDIATRICS_OBSTETRICS"
-                departments.contains("신경과") -> "MENTAL_NEUROLOGY"
-                departments.contains("피부과") -> "DERMATOLOGY"
-
-                departments.contains("한의원") -> "ORIENTAL_MEDICINE"
-                departments.contains("성형외과") || departments.contains("흉부외과") || departments.contains("비뇨기과") ->  "OTHER_SPECIALTIES"
-                else -> "GENERAL_MEDICINE"
-            }
             HospitalInfo(
                 location = LatLng(latitude, longitude),
                 name = hospitalInfo.yadmNm ?: "",
@@ -122,6 +140,23 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
                 clCdNm = hospitalInfo.clCdNm ?: ""
             )
         } ?: emptyList()
+    }
+
+    private fun getDepartmentCategory(departments: String): String {
+        return when {
+            departments.contains("내과") -> "INTERNAL_MEDICINE"
+            departments.contains("외과") -> "SURGERY"
+            departments.contains("치과") -> "DENTISTRY"
+            departments.contains("정형외과") -> "REHABILITATION"
+            departments.contains("이비인후과") -> "OTOLARYNGOLOGY"
+            departments.contains("안과") -> "OPHTHALMOLOGY"
+            departments.contains("소아과") || departments.contains("산부인과") -> "PEDIATRICS_OBSTETRICS"
+            departments.contains("신경과") -> "MENTAL_NEUROLOGY"
+            departments.contains("피부과") -> "DERMATOLOGY"
+            departments.contains("한의원") -> "ORIENTAL_MEDICINE"
+            departments.contains("성형외과") || departments.contains("흉부외과") || departments.contains("비뇨기과") -> "OTHER_SPECIALTIES"
+            else -> "GENERAL_MEDICINE"
+        }
     }
 
     private fun handleError(e: Exception) {
@@ -171,4 +206,6 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
                 }
             }
         }
+
+
     }
