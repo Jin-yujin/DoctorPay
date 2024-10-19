@@ -21,6 +21,7 @@ import com.project.doctorpay.db.DepartmentCategory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
+
 class HospitalListFragment : Fragment() {
     private var _binding: ViewHospitalListBinding? = null
     private val binding get() = _binding!!
@@ -33,25 +34,23 @@ class HospitalListFragment : Fragment() {
     }
 
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
             val categoryName = it.getString(ARG_CATEGORY)
             category = DepartmentCategory.values().find { it.name == categoryName }
+            Log.d("HospitalListFragment", "Category set to: ${category?.name}")
         }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = ViewHospitalListBinding.inflate(inflater, container, false)
 
-        // 뒤로가기 버튼 처리
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 requireActivity().supportFragmentManager.popBackStack()
             }
         })
-
 
         return binding.root
     }
@@ -65,6 +64,7 @@ class HospitalListFragment : Fragment() {
         loadHospitalList()
     }
 
+
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->
             navigateToHospitalDetail(hospital)
@@ -75,11 +75,16 @@ class HospitalListFragment : Fragment() {
         }
     }
 
+
+
+
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.hospitals.collectLatest { hospitals ->
                 Log.d("HospitalListFragment", "받은 병원 목록 크기: ${hospitals.size}")
-                val filteredHospitals = filterHospitalsByCategory(hospitals)
+                Log.d("HospitalListFragment", "현재 카테고리: ${category?.name}")
+                val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
+                Log.d("HospitalListFragment", "필터링된 병원 목록 크기: ${filteredHospitals.size}")
                 updateUI(filteredHospitals)
             }
         }
@@ -92,18 +97,14 @@ class HospitalListFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.error.collectLatest { error ->
-                error?.let { showError(it) }
+                error?.let {
+                    showError(it)
+                    updateUI(emptyList())  // 에러 발생 시 빈 리스트로 UI 업데이트
+                }
             }
         }
     }
 
-    private fun filterHospitalsByCategory(hospitals: List<HospitalInfo>): List<HospitalInfo> {
-        return category?.let { cat ->
-            hospitals.filter { hospital ->
-                hospital.departmentCategory == cat.name
-            }
-        } ?: hospitals
-    }
 
     private fun updateUI(hospitals: List<HospitalInfo>) {
         adapter.submitList(hospitals)
@@ -119,6 +120,7 @@ class HospitalListFragment : Fragment() {
         }
         Log.d("HospitalListFragment", "UI 업데이트 완료. 병원 수: ${hospitals.size}")
     }
+
 
     private fun showError(error: String) {
         Toast.makeText(context, error, Toast.LENGTH_LONG).show()
@@ -139,18 +141,20 @@ class HospitalListFragment : Fragment() {
     }
 
     private fun loadHospitalList() {
-        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
+        viewModel.fetchHospitalDataOptimized(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
+
 
     private fun filterHospitals(onlyAvailable: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
             val hospitals = viewModel.hospitals.value
-            val filteredHospitals = filterHospitalsByCategory(hospitals).filter {
+            val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category).filter {
                 if (onlyAvailable) it.state == "영업중" else true
             }
             updateUI(filteredHospitals)
         }
     }
+
 
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         Log.d("HospitalListFragment", "Navigating to detail for hospital: ${hospital.name}")
@@ -160,7 +164,6 @@ class HospitalListFragment : Fragment() {
             category = category?.name ?: ""
         )
 
-        // 병원 정보를 Bundle에 추가
         val bundle = Bundle().apply {
             putParcelable("hospital_info", hospital)
         }

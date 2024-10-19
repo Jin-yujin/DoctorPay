@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/swipeRefreshLayout"
@@ -11,7 +12,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/white"
-        android:clickable="true">
+        android:clickable="true"
+        android:focusable="true">
 
         <TextView
             android:id="@+id/tvCategoryTitle"
@@ -26,11 +28,12 @@
 
         <View
             android:id="@+id/view_header"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="2dp"
             android:background="@drawable/border_round_"
             app:layout_constraintTop_toBottomOf="@+id/tvCategoryTitle"
-            app:layout_constraintStart_toStartOf="parent"/>
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
         <CheckBox
             android:id="@+id/checkFilter"
@@ -43,43 +46,48 @@
             app:layout_constraintTop_toBottomOf="@+id/view_header"
             app:layout_constraintStart_toStartOf="parent"/>
 
-
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/mListView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:paddingBottom="55dp"
+            android:clipToPadding="false"
+            app:layout_constraintTop_toBottomOf="@+id/checkFilter"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
         <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:id="@+id/hospitalDetailContainer"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@+id/checkFilter"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/checkFilter">
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/mListView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="16dp" />
+        <TextView
+            android:id="@+id/emptyView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No hospitals found"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@+id/checkFilter"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
-            <FrameLayout
-                android:id="@+id/hospitalDetailContainer"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/emptyView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="No hospitals found"
-                android:visibility="gone" />
-
-            <TextView
-                android:id="@+id/errorView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:textColor="@android:color/holo_red_dark"
-                android:visibility="gone" />
-
-        </FrameLayout>
+        <TextView
+            android:id="@+id/errorView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/holo_red_dark"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@+id/checkFilter"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

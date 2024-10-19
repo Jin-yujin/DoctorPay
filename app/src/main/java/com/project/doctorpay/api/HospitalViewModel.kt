@@ -244,46 +244,6 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
     }
 
 
-    // API 호출 최적화를 위한 새로운 함수
-    fun fetchHospitalDataOptimized(sidoCd: String, sgguCd: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
-                val nonPaymentResponse = fetchNonPaymentInfo()
-
-                if (!hospitalInfoResponse.isSuccessful || !nonPaymentResponse.isSuccessful) {
-                    throw Exception("API Error")
-                }
-
-                val combinedHospitals = combineHospitalData(
-                    hospitalInfoResponse.body()?.body?.items?.itemList,
-                    nonPaymentResponse.body()?.body?.items
-                )
-
-                // 병원 목록을 100개씩 나누어 DgsbjtInfo API 호출
-                val chunkedHospitals = combinedHospitals.chunked(100)
-                val updatedHospitals = chunkedHospitals.flatMap { hospitalChunk ->
-                    val ykihos = hospitalChunk.map { it.ykiho }.joinToString(",")
-                    val dgsbjtInfoResponse = fetchDgsbjtInfoBatch(ykihos)
-                    if (dgsbjtInfoResponse.isSuccessful) {
-                        updateHospitalsWithDgsbjtInfo(hospitalChunk, dgsbjtInfoResponse.body()?.body?.items)
-                    } else {
-                        hospitalChunk
-                    }
-                }
-
-                _hospitals.value = updatedHospitals
-                Log.d("HospitalViewModel", "Combined hospitals size: ${updatedHospitals.size}")
-            } catch (e: Exception) {
-                Log.e("HospitalViewModel", "Error fetching data", e)
-                _error.value = "데이터를 불러오는 중 오류가 발생했습니다: ${e.message}"
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
 
 
     private suspend fun fetchDgsbjtInfoBatch(ykihos: String): Response<DgsbjtInfoResponse> {
@@ -295,6 +255,64 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         )
     }
 
+    fun filterHospitalsByCategory(hospitals: List<HospitalInfo>, category: DepartmentCategory?): List<HospitalInfo> {
+        Log.d("HospitalViewModel", "Filtering hospitals. Total hospitals: ${hospitals.size}, Category: ${category?.name}")
+
+        return if (category == null) {
+            Log.d("HospitalViewModel", "No category specified, returning all hospitals")
+            hospitals
+        } else {
+            val filteredList = hospitals.filter { hospital ->
+                Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Category: ${hospital.departmentCategory}")
+                hospital.departmentCategory == category.name
+            }
+            Log.d("HospitalViewModel", "Filtered hospitals for category ${category.name}: ${filteredList.size}")
+            filteredList
+        }
+    }
+
+
+    fun fetchHospitalDataOptimized(sidoCd: String, sgguCd: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
+                val nonPaymentResponse = fetchNonPaymentInfo()
+
+                if (!hospitalInfoResponse.isSuccessful || !nonPaymentResponse.isSuccessful) {
+                    throw Exception("API Error: Hospital Info or Non-Payment Info request failed")
+                }
+
+                val combinedHospitals = combineHospitalData(
+                    hospitalInfoResponse.body()?.body?.items?.itemList,
+                    nonPaymentResponse.body()?.body?.items
+                )
+
+                // Fetch DgsbjtInfo for each hospital
+                val updatedHospitals = combinedHospitals.map { hospital ->
+                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospital.ykiho)
+                    if (dgsbjtInfoResponse.isSuccessful) {
+                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtInfoResponse.body()?.body?.items)
+                    } else {
+                        hospital
+                    }
+                }
+
+                Log.d("HospitalViewModel", "Combined hospitals: ${updatedHospitals.size}")
+                updatedHospitals.forEach { hospital ->
+                    Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Category: ${hospital.departmentCategory}")
+                }
+
+                _hospitals.value = updatedHospitals
+            } catch (e: Exception) {
+                Log.e("HospitalViewModel", "Error fetching data", e)
+                _error.value = "데이터를 불러오는 중 오류가 발생했습니다: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 
 
     private fun updateHospitalsWithDgsbjtInfo(hospitals: List<HospitalInfo>, dgsbjtItems: List<DgsbjtInfoItem>?): List<HospitalInfo> {

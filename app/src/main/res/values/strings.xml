@@ -24,7 +24,7 @@
 
     <string name="ORIENTAL_MEDICINE">한의원</string>
     <string name="OTHER_SPECIALTIES">기타 전문과</string>
-    <string name="GENERAL_MEDICINE">기타 일반과</string>
+    <string name="GENERAL_MEDICINE">일반의</string>
 
     <string name="no_hospitals_found">병원을 찾을 수 없습니다.</string>
     <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다.</string>

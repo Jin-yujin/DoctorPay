@@ -8,18 +8,18 @@ import kotlinx.parcelize.Parcelize
 import com.project.doctorpay.R
 
 enum class DepartmentCategory(val categoryName: String, val codes: List<String>) {
-    GENERAL_MEDICINE(R.string.GENERAL_MEDICINE.toString(), listOf("00", "23", "41")),
-    INTERNAL_MEDICINE(R.string.INTERNAL_MEDICINE.toString(), listOf("01", "20")),
-    SURGERY(R.string.SURGERY.toString(), listOf("04", "05", "06", "07", "08")),
-    PEDIATRICS_OBSTETRICS(R.string.PEDIATRICS_OBSTETRICS.toString(), listOf("10", "11")),
-    MENTAL_NEUROLOGY(R.string.MENTAL_NEUROLOGY.toString(), listOf("02", "03")),
-    OTOLARYNGOLOGY(R.string.OTOLARYNGOLOGY.toString(), listOf("12")),
-    OPHTHALMOLOGY(R.string.OPHTHALMOLOGY.toString(), listOf("13")),
-    DERMATOLOGY(R.string.DERMATOLOGY.toString(), listOf("14")),
-    REHABILITATION(R.string.REHABILITATION.toString(), listOf("21")),
-    DENTISTRY(R.string.DENTISTRY.toString(), listOf("27", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61")),
-    ORIENTAL_MEDICINE(R.string.ORIENTAL_MEDICINE.toString(), listOf("28", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90")),
-    OTHER_SPECIALTIES(R.string.OTHER_SPECIALTIES.toString(), listOf("09","15", "24", "25", "26", "31", "40", "42", "43", "44"));
+        GENERAL_MEDICINE("일반의", listOf("00", "23", "41")),
+        INTERNAL_MEDICINE("내과", listOf("01", "20")),
+        SURGERY("외과", listOf("04", "05", "06", "07", "08")),
+        PEDIATRICS_OBSTETRICS("소아/산부인과", listOf("10", "11")),
+        MENTAL_NEUROLOGY("정신/신경과", listOf("02", "03")),
+        OTOLARYNGOLOGY("이비인후과", listOf("12")),
+        OPHTHALMOLOGY("안과", listOf("13")),
+        DERMATOLOGY("피부과", listOf("14")),
+        REHABILITATION("정형외과", listOf("21")),
+        DENTISTRY("치과", listOf("27", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61")),
+        ORIENTAL_MEDICINE("한의원", listOf("28", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90")),
+        OTHER_SPECIALTIES("기타", listOf("09","15", "24", "25", "26", "31", "40", "42", "43", "44"));
 
     companion object {
         fun getCategory(code: String): DepartmentCategory {
