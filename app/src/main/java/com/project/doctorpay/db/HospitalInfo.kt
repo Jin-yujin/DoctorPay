@@ -42,7 +42,8 @@ data class HospitalInfo(
     val latitude: Double,
     val longitude: Double,
     val nonPaymentItems: List<NonPaymentItem>,
-    val clCdNm: String  // 병원 종류 (예: 종합병원, 병원, 의원 등)
+    val clCdNm: String,  // 병원 종류 (예: 종합병원, 병원, 의원 등)
+    val ykiho: String
 ) : Parcelable
 
 // API 응답을 통합 모델로 변환하는 확장 함수
@@ -62,7 +63,7 @@ fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): Hosp
         location = LatLng(this.YPos?.toDoubleOrNull() ?: 0.0, this.XPos?.toDoubleOrNull() ?: 0.0),
         name = this.yadmNm ?: "",
         address = "${this.sidoCdNm ?: ""} ${this.sgguCdNm ?: ""} ${this.emdongNm ?: ""}".trim(),
-        department = inferDepartments(this, nonPaymentItems),
+        department = inferDepartments(this.yadmNm ?: "", nonPaymentItems, this.dgsbjtCd ?: ""),
         departmentCategory = departmentCategory,
         time = "영업 시간 준비중",
         phoneNumber = this.telno ?: "",
@@ -71,32 +72,31 @@ fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): Hosp
         latitude = this.YPos?.toDoubleOrNull() ?: 0.0,
         longitude = this.XPos?.toDoubleOrNull() ?: 0.0,
         nonPaymentItems = nonPaymentItems,
-        clCdNm = this.clCdNm ?: ""
+        clCdNm = this.clCdNm ?: "",
+        ykiho = this.ykiho ?: ""
     )
 }
 
-
-fun inferDepartments(hospitalInfo: HospitalInfoItem, nonPaymentItems: List<NonPaymentItem>): String {
+// inferDepartments 함수 추가
+fun inferDepartments(hospitalName: String, nonPaymentItems: List<NonPaymentItem>, dgsbjtCodes: String): String {
     val departments = mutableSetOf<String>()
 
-            // 병원 이름에서 과 추론
-    val name = hospitalInfo.yadmNm
+    // 병원 이름에서 과 추론
     when {
-        name!!.contains("내과") -> departments.add("내과")
-        name.contains("외과") || !name.contains("흉부")-> departments.add("외과")
-        name.contains("이비인후과") -> departments.add("이비인후과")
-        name.contains("안과") -> departments.add("안과")
-        name.contains("정신") || name.contains("신경") -> departments.add("신경과")
-        name.contains("소아") -> departments.add("소아과")
-        name.contains("산부인과")|| name.contains("여성") -> departments.add("산부인과")
-        name.contains("피부") -> departments.add("피부과")
-        name.contains("재활") || name.contains("물리치료")|| name.contains("정형") -> departments.add("정형외과")
-        name.contains("한방") || name.contains("한의원") -> departments.add("한의원")
-        name.contains("치과") -> departments.add("치과")
-        name.contains("비뇨") -> departments.add("비뇨기과")
-        name.contains("성형") -> departments.add("성형외과")
-        name.contains("흉부") -> departments.add("흉부외과")
-
+        hospitalName.contains("내과") -> departments.add("내과")
+        hospitalName.contains("외과") && !hospitalName.contains("흉부") -> departments.add("외과")
+        hospitalName.contains("이비인후과") -> departments.add("이비인후과")
+        hospitalName.contains("안과") -> departments.add("안과")
+        hospitalName.contains("정신") || hospitalName.contains("신경") -> departments.add("신경과")
+        hospitalName.contains("소아") -> departments.add("소아과")
+        hospitalName.contains("산부인과") || hospitalName.contains("여성") -> departments.add("산부인과")
+        hospitalName.contains("피부") -> departments.add("피부과")
+        hospitalName.contains("재활") || hospitalName.contains("물리치료") || hospitalName.contains("정형") -> departments.add("정형외과")
+        hospitalName.contains("한방") || hospitalName.contains("한의원") -> departments.add("한의원")
+        hospitalName.contains("치과") -> departments.add("치과")
+        hospitalName.contains("비뇨") -> departments.add("비뇨기과")
+        hospitalName.contains("성형") -> departments.add("성형외과")
+        hospitalName.contains("흉부") -> departments.add("흉부외과")
         else -> departments.add("기타 일반과")
     }
 
@@ -112,41 +112,11 @@ fun inferDepartments(hospitalInfo: HospitalInfoItem, nonPaymentItems: List<NonPa
         }
     }
 
-    return departments.joinToString(", ")
-}
-
-
-private fun getDepartmentName(code: String): String? {
-    return when (code) {
-        "00" -> "일반의"
-        "01" -> "내과"
-        "02" -> "신경과"
-        "03" -> "정신건강의학과"
-        "04" -> "외과"
-        "05" -> "정형외과"
-        "06" -> "신경외과"
-        "07" -> "심장혈관흉부외과"
-        "08" -> "성형외과"
-        "09" -> "마취통증의학과"
-        "10" -> "산부인과"
-        "11" -> "소아청소년과"
-        "12" -> "안과"
-        "13" -> "이비인후과"
-        "14" -> "피부과"
-        "15" -> "비뇨의학과"
-        "16" -> "영상의학과"
-        "17" -> "방사선종양학과"
-        "18" -> "병리과"
-        "19" -> "진단검사의학과"
-        "20" -> "결핵과"
-        "21" -> "재활의학과"
-        "22" -> "핵의학과"
-        "23" -> "가정의학과"
-        "24" -> "응급의학과"
-        "25" -> "직업환경의학과"
-        "26" -> "예방의학과"
-        "49" -> "치과"
-        "80" -> "한방내과"
-        else -> null
+    // dgsbjtCd로 진료과 추론
+    dgsbjtCodes.split(",").forEach { code ->
+        val departmentCategory = DepartmentCategory.getCategory(code)
+        departments.add(departmentCategory.categoryName)
     }
+
+    return departments.joinToString(", ")
 }

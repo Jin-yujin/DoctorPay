@@ -41,19 +41,35 @@ object NetworkModule {
         chain.proceed(request)
     }
 
-    private val client = OkHttpClient.Builder()
-        .addInterceptor(loggingInterceptor)
-        .addInterceptor(urlLoggingInterceptor)
-        .addInterceptor(serviceKeyInterceptor)
-        .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        })
+    val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("Connection", "close")
+            val request = requestBuilder.build()
+            chain.proceed(request)
+        }
         .build()
 
-    val retrofit = Retrofit.Builder()
+
+    private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(serviceKeyInterceptor)
+        .addInterceptor(urlLoggingInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
+
+    private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
-        .addConverterFactory(SimpleXmlConverterFactory.createNonStrict())
-        .client(client)
+        .client(okHttpClient)
+        .addConverterFactory(SimpleXmlConverterFactory.create())
         .build()
 
     val healthInsuranceApi: HealthInsuranceApi = retrofit.create(HealthInsuranceApi::class.java)
