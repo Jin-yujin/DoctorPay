@@ -50,6 +50,7 @@
             android:id="@+id/mListView"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            android:layout_margin="10dp"
             android:paddingBottom="55dp"
             android:clipToPadding="false"
             app:layout_constraintTop_toBottomOf="@+id/checkFilter"
