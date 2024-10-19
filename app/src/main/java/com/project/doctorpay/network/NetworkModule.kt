@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 
 object NetworkModule {
     private const val BASE_URL = "http://apis.data.go.kr/B551182/"
-    private const val SERVICE_KEY = "0H0upZmR4M4DyfwLLid%2F7qyTNc%2BVxA0cg0mMk9zOU6V4zdapEmdXA10%2Fz69RvH4ey70OMYofiJ%2FEtqZlT3JC0w%3D%3D"
+    private const val SERVICE_KEY = "rctk2eXwpdEoBK9zhzZpm%2BlyA9%2BAJByBI8T8SlgPgIWlhrwsQu%2B1Ayx7UBIvZd5oLNsccSTf5Hw2OY6dW3lo5A%3D%3D"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
