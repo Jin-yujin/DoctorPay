@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.databinding.FragmentCalendarBinding
 import com.project.doctorpay.databinding.DialogAddAppointmentBinding
@@ -36,7 +35,6 @@ class CalendarFragment : Fragment() {
         setupViews()
         loadAppointments()
 
-        // MainActivity로부터 새 예약 데이터를 받기 위한 Observer 설정
         (activity as? MainActivity)?.newAppointment?.observe(viewLifecycleOwner) { newAppointment ->
             newAppointment?.let {
                 addAppointment(it)
@@ -46,18 +44,28 @@ class CalendarFragment : Fragment() {
     }
 
     private fun setupViews() {
-        setupCalendarView()
+        binding.calendarView.setDate(selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH))
+        binding.calendarView.setOnDateClickListener { year, month, day ->
+            selectedDate.set(year, month, day)
+            loadAppointmentsForDate(year, month, day)
+        }
+        binding.calendarView.setOnMonthChangeListener { year, month ->
+            selectedDate.set(year, month, 1)
+            loadAppointments()
+        }
+
+        binding.previousMonthButton.setOnClickListener {
+            binding.calendarView.moveToPreviousMonth()
+        }
+
+        binding.nextMonthButton.setOnClickListener {
+            binding.calendarView.moveToNextMonth()
+        }
+
         setupRecyclerView()
         setupAddAppointmentButton()
         setupSearchIcon()
         setupTodayDateView()
-    }
-
-    private fun setupCalendarView() {
-        binding.calendarView.setOnDateChangeListener { _, year, month, dayOfMonth ->
-            selectedDate.set(year, month, dayOfMonth)
-            loadAppointmentsForDate(year, month, dayOfMonth)
-        }
     }
 
     private fun setupRecyclerView() {
@@ -155,7 +163,6 @@ class CalendarFragment : Fragment() {
         updateTodayDateText()
         binding.todayDateContainer.setOnClickListener {
             val today = Calendar.getInstance()
-            binding.calendarView.date = today.timeInMillis
             loadAppointmentsForDate(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
             updateTodayDateText()
         }
@@ -270,8 +277,8 @@ class CalendarFragment : Fragment() {
             }
         }
 
-        val calendar = Calendar.getInstance()
-        loadAppointmentsForDate(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+        binding.calendarView.setAppointments(appointmentList)
+        loadAppointmentsForDate(selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH), selectedDate.get(Calendar.DAY_OF_MONTH))
     }
 
     private fun loadAppointmentsForDate(year: Int, month: Int, dayOfMonth: Int) {
