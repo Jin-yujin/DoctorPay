@@ -81,10 +81,9 @@ class HospitalListFragment : Fragment() {
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.hospitals.collectLatest { hospitals ->
-                Log.d("HospitalListFragment", "받은 병원 목록 크기: ${hospitals.size}")
-                Log.d("HospitalListFragment", "현재 카테고리: ${category?.name}")
+                Log.d("HospitalListFragment", "Received hospitals: ${hospitals.size}")
                 val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
-                Log.d("HospitalListFragment", "필터링된 병원 목록 크기: ${filteredHospitals.size}")
+                Log.d("HospitalListFragment", "Filtered hospitals: ${filteredHospitals.size}")
                 updateUI(filteredHospitals)
             }
         }

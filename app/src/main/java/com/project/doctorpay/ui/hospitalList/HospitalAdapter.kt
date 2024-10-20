@@ -38,7 +38,7 @@ class HospitalAdapter(
         fun bind(hospital: HospitalInfo) {
             nameTextView.text = hospital.name
             addressTextView.text = hospital.address
-            departmentTextView.text = hospital.department
+            departmentTextView.text = hospital.departments.joinToString(", ")
             timeTextView.text = hospital.time
             phoneNumberTextView.text = hospital.phoneNumber
             stateTextView.text = hospital.state
@@ -48,7 +48,7 @@ class HospitalAdapter(
 
     private class HospitalDiffCallback : DiffUtil.ItemCallback<HospitalInfo>() {
         override fun areItemsTheSame(oldItem: HospitalInfo, newItem: HospitalInfo): Boolean {
-            return oldItem.name == newItem.name && oldItem.address == newItem.address
+            return oldItem.ykiho == newItem.ykiho
         }
 
         override fun areContentsTheSame(oldItem: HospitalInfo, newItem: HospitalInfo): Boolean {

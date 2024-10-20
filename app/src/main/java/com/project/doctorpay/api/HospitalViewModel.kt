@@ -13,6 +13,7 @@ import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.inferDepartments
+import com.project.doctorpay.db.toHospitalInfo
 import com.project.doctorpay.network.NetworkModule
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -176,16 +177,24 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
     }
 
 
-    private fun updateHospitalWithDgsbjtInfo(hospital: HospitalInfo, dgsbjtItems: List<DgsbjtInfoItem>?): HospitalInfo {
-        val dgsbjtCodes = dgsbjtItems?.mapNotNull { it.dgsbjtCd }?.joinToString(",") ?: ""
-        val updatedDepartments = inferDepartments(hospital.name, hospital.nonPaymentItems, dgsbjtCodes)
-        val updatedDepartmentCategory = getDepartmentCategory(updatedDepartments)
-        return hospital.copy(
-            department = updatedDepartments,
-            departmentCategory = updatedDepartmentCategory
-        )
-    }
 
+    fun filterHospitalsByCategory(hospitals: List<HospitalInfo>, category: DepartmentCategory?): List<HospitalInfo> {
+        val filteredHospitals = if (category == null) {
+            hospitals
+        } else {
+            hospitals.filter { hospital ->
+                hospital.departmentCategories.contains(category.name)
+            }
+        }
+
+        Log.d("HospitalViewModel", "Filtering for category: ${category?.name}, Results: ${filteredHospitals.size}")
+
+        filteredHospitals.forEach { hospital ->
+            Log.d("HospitalViewModel", "Filtered Hospital: ${hospital.name}, Categories: ${hospital.departmentCategories.joinToString()}")
+        }
+
+        return filteredHospitals
+    }
 
     private fun combineHospitalData(
         hospitalInfoItems: List<HospitalInfoItem>?,
@@ -196,15 +205,15 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
             val nonPaymentItemsForHospital = nonPaymentMap[hospitalInfo.yadmNm] ?: emptyList()
             val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: 0.0
             val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: 0.0
-            val departments = inferDepartments(hospitalInfo.yadmNm ?: "", nonPaymentItemsForHospital, hospitalInfo.dgsbjtCd ?: "")
-            val departmentCategory = getDepartmentCategory(departments)
+            val departments = inferDepartments(hospitalInfo.yadmNm ?: "", nonPaymentItemsForHospital, hospitalInfo.dgsbjtCd?.split(",") ?: emptyList())
+            val departmentCategories = getDepartmentCategories(departments)
 
             HospitalInfo(
                 location = LatLng(latitude, longitude),
                 name = hospitalInfo.yadmNm ?: "",
                 address = hospitalInfo.addr ?: "",
-                department = departments,
-                departmentCategory = departmentCategory,
+                departments = departments,
+                departmentCategories = departmentCategories,
                 time = "",
                 phoneNumber = hospitalInfo.telno ?: "",
                 state = "",
@@ -245,37 +254,25 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
 
 
 
-
-    private suspend fun fetchDgsbjtInfoBatch(ykihos: String): Response<DgsbjtInfoResponse> {
-        return healthInsuranceApi.getDgsbjtInfo(
-            serviceKey = NetworkModule.getDecodedServiceKey(),
-            ykiho = ykihos,
-            pageNo = 1,
-            numOfRows = 100
+    private fun updateHospitalWithDgsbjtInfo(hospital: HospitalInfo, dgsbjtItems: List<DgsbjtInfoItem>?): HospitalInfo {
+        val dgsbjtCodes = dgsbjtItems?.mapNotNull { it.dgsbjtCd } ?: emptyList()
+        val updatedDepartments = inferDepartments(hospital.name, hospital.nonPaymentItems, dgsbjtCodes)
+        val updatedDepartmentCategories = getDepartmentCategories(updatedDepartments)
+        return hospital.copy(
+            departments = updatedDepartments,
+            departmentCategories = updatedDepartmentCategories
         )
     }
 
-    fun filterHospitalsByCategory(hospitals: List<HospitalInfo>, category: DepartmentCategory?): List<HospitalInfo> {
-        Log.d("HospitalViewModel", "Filtering hospitals. Total hospitals: ${hospitals.size}, Category: ${category?.name}")
-
-        return if (category == null) {
-            Log.d("HospitalViewModel", "No category specified, returning all hospitals")
-            hospitals
-        } else {
-            val filteredList = hospitals.filter { hospital ->
-                Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Category: ${hospital.departmentCategory}")
-                hospital.departmentCategory == category.name
-            }
-            Log.d("HospitalViewModel", "Filtered hospitals for category ${category.name}: ${filteredList.size}")
-            filteredList
-        }
+    private fun getDepartmentCategories(departments: List<String>): List<String> {
+        return departments.map { dept ->
+            DepartmentCategory.values().find { it.categoryName == dept }?.name ?: DepartmentCategory.OTHER_SPECIALTIES.name
+        }.distinct()
     }
 
 
     fun fetchHospitalDataOptimized(sidoCd: String, sgguCd: String) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
             try {
                 val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
                 val nonPaymentResponse = fetchNonPaymentInfo()
@@ -284,24 +281,20 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
                     throw Exception("API Error: Hospital Info or Non-Payment Info request failed")
                 }
 
-                val combinedHospitals = combineHospitalData(
-                    hospitalInfoResponse.body()?.body?.items?.itemList,
-                    nonPaymentResponse.body()?.body?.items
-                )
+                val hospitalInfoItems = hospitalInfoResponse.body()?.body?.items?.itemList ?: emptyList()
+                val nonPaymentItems = nonPaymentResponse.body()?.body?.items ?: emptyList()
 
-                // Fetch DgsbjtInfo for each hospital
-                val updatedHospitals = combinedHospitals.map { hospital ->
-                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospital.ykiho)
-                    if (dgsbjtInfoResponse.isSuccessful) {
-                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtInfoResponse.body()?.body?.items)
+                val updatedHospitals = hospitalInfoItems.map { hospitalInfo ->
+                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospitalInfo.ykiho ?: "")
+                    val dgsbjtItems = if (dgsbjtInfoResponse.isSuccessful) {
+                        dgsbjtInfoResponse.body()?.body?.items ?: emptyList()
                     } else {
-                        hospital
+                        emptyList()
                     }
-                }
-
-                Log.d("HospitalViewModel", "Combined hospitals: ${updatedHospitals.size}")
-                updatedHospitals.forEach { hospital ->
-                    Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Category: ${hospital.departmentCategory}")
+                    hospitalInfo.toHospitalInfo(
+                        nonPaymentItems.filter { it.yadmNm == hospitalInfo.yadmNm },
+                        dgsbjtItems
+                    )
                 }
 
                 _hospitals.value = updatedHospitals
@@ -314,21 +307,6 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         }
     }
 
-
-    private fun updateHospitalsWithDgsbjtInfo(hospitals: List<HospitalInfo>, dgsbjtItems: List<DgsbjtInfoItem>?): List<HospitalInfo> {
-        val dgsbjtMap = dgsbjtItems?.groupBy { it.dgsbjtCd }?.mapValues { (_, items) -> items.firstOrNull() } ?: emptyMap()
-        return hospitals.map { hospital ->
-            val dgsbjtCodes = hospital.ykiho.split(",").mapNotNull { ykiho ->
-                dgsbjtMap[ykiho]?.dgsbjtCd
-            }.joinToString(",")
-            val updatedDepartments = inferDepartments(hospital.name, hospital.nonPaymentItems, dgsbjtCodes)
-            val updatedDepartmentCategory = getDepartmentCategory(updatedDepartments)
-            hospital.copy(
-                department = updatedDepartments,
-                departmentCategory = updatedDepartmentCategory
-            )
-        }
-    }
 
 
     fun searchHospitals(query: String) {

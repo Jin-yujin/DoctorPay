@@ -93,7 +93,23 @@ class HospitalDetailFragment : Fragment() {
             tvHospitalHoliday.text = "휴일: 정보 없음" // 실제 데이터가 있다면 그것을 사용
             tvNightCare.text = "야간진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
             tvFemaleDoctors.text = "여의사 진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
-            tvHospitalDepartment.text = hospital.department
+
+            // 진료과목 표시 방식 변경
+            val departmentsText = hospital.departments.joinToString(", ")
+            tvHospitalDepartment.text = if (departmentsText.isNotEmpty()) {
+                departmentsText
+            } else {
+                "진료과목 정보 없음"
+            }
+
+//
+//            // 진료과목 카테고리 표시 (선택적)
+//            val categoriesText = hospital.departmentCategories.joinToString(", ")
+//            tvHospitalCategories.text = if (categoriesText.isNotEmpty()) {
+//                "카테고리: $categoriesText"
+//            } else {
+//                "카테고리 정보 없음"
+//            }
         }
 
         loadNonCoveredItems(hospital.nonPaymentItems)

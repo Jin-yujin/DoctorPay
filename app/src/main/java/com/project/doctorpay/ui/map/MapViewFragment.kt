@@ -181,6 +181,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
     private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
         markers.forEach { it.map = null }
         markers.clear()
@@ -202,11 +203,12 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
     private fun showHospitalDetail(hospital: HospitalInfo) {
         val hospitalDetailFragment = HospitalDetailFragment.newInstance(
             hospitalId = hospital.name,
             isFromMap = true,
-            category = ""
+            category = hospital.departmentCategories.firstOrNull() ?: ""
         )
 
         val bundle = Bundle().apply {
@@ -251,10 +253,18 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isLoading.collectLatest { isLoading ->
                 isLoadingMore = isLoading
-                // Update UI to show loading state
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.error.collectLatest { error ->
+                error?.let {
+                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
+
 
     private fun setupResearchButton() {
         binding.researchButton.setOnClickListener {
@@ -266,6 +276,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
     private fun updateBottomSheet(hospitals: List<HospitalInfo>) {
         adapter.submitList(hospitals)
         if (hospitals.isEmpty()) {
@@ -274,6 +285,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             binding.hospitalRecyclerView.visibility = View.VISIBLE
         }
     }
+
+
 
     private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
         val currentLocation = userLocation
