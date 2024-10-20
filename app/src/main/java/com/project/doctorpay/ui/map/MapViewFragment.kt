@@ -16,8 +16,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.naver.maps.geometry.LatLng
+import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.LocationTrackingMode
 import com.naver.maps.map.NaverMap
@@ -51,32 +53,36 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private lateinit var locationOverlay: LocationOverlay
 
     private var userLocation: LatLng? = null
+
+    private lateinit var researchButton: View
+    private var isInitialLocationSet = false
+    private var isMapMoved = false
+    private var isLoadingMore = false
+
     private val markers = mutableListOf<Marker>()
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         when {
-            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true -> {
                 enableLocationTracking()
             }
-            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true -> {
                 enableLocationTracking()
             }
             else -> {
-                // 위치 권한이 거부됨
+                showLocationPermissionRationale()
             }
         }
     }
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentMapviewBinding.inflate(inflater, container, false)
         return binding.root
     }
+
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -89,6 +95,261 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         setupRecyclerView()
         setupObservers()
         setupReturnToLocationButton()
+        setupResearchButton()
+    }
+
+
+
+    override fun onMapReady(map: NaverMap) {
+        naverMap = map
+        naverMap.locationSource = locationSource
+
+        locationOverlay = naverMap.locationOverlay
+        locationOverlay.isVisible = true
+
+        checkLocationPermission()
+
+        naverMap.addOnCameraIdleListener {
+            if (isInitialLocationSet) {
+                showResearchButton()
+                loadHospitalsForVisibleRegion()
+            }
+        }
+
+        naverMap.addOnCameraChangeListener { _, _ ->
+            if (isInitialLocationSet) {
+                isMapMoved = true
+                hideResearchButton()
+            }
+        }
+    }
+
+    private fun loadHospitalsForVisibleRegion() {
+        val center = naverMap.cameraPosition.target
+        val visibleRegion = naverMap.contentBounds
+        val radius = calculateRadius(visibleRegion)
+
+        viewModel.resetPagination()
+        viewModel.fetchNearbyHospitals(center.latitude, center.longitude, radius.toInt())
+    }
+
+
+    private fun calculateRadius(bounds: LatLngBounds): Double {
+        val center = bounds.center
+        val northeast = bounds.northEast
+        return center.distanceTo(northeast)
+    }
+
+    private fun enableLocationTracking() {
+        try {
+            naverMap.locationTrackingMode = LocationTrackingMode.Follow
+            binding.returnToLocationButton.visibility = View.VISIBLE
+            locationOverlay.isVisible = true
+
+            locationSource.activate { location ->
+                val newUserLocation = LatLng(location!!.latitude, location.longitude)
+                userLocation = newUserLocation
+
+                if (!isInitialLocationSet) {
+                    isInitialLocationSet = true
+                    naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
+                    updateHospitalsBasedOnLocation(newUserLocation)
+                }
+            }
+        } catch (e: SecurityException) {
+            Toast.makeText(context, "위치 서비스를 활성화해주세요.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showResearchButton() {
+        binding.researchButton.visibility = View.VISIBLE
+    }
+
+    private fun hideResearchButton() {
+        binding.researchButton.visibility = View.GONE
+    }
+
+
+    private fun setupReturnToLocationButton() {
+        binding.returnToLocationButton.setOnClickListener {
+            userLocation?.let { position ->
+                naverMap.moveCamera(CameraUpdate.scrollTo(position))
+                isMapMoved = false
+                hideResearchButton()
+                updateHospitalsBasedOnLocation(position)
+            }
+        }
+    }
+
+
+    private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
+        markers.forEach { it.map = null }
+        markers.clear()
+
+        hospitals.forEachIndexed { index, hospital ->
+            if (isValidCoordinate(hospital.latitude, hospital.longitude)) {
+                val marker = Marker().apply {
+                    position = LatLng(hospital.latitude, hospital.longitude)
+                    map = naverMap
+                    captionText = hospital.name
+                    tag = index
+                    setOnClickListener {
+                        showHospitalDetail(hospitals[it.tag as Int])
+                        true
+                    }
+                }
+                markers.add(marker)
+            }
+        }
+    }
+
+
+    private fun showHospitalDetail(hospital: HospitalInfo) {
+        val hospitalDetailFragment = HospitalDetailFragment.newInstance(
+            hospitalId = hospital.name,
+            isFromMap = true,
+            category = hospital.departmentCategories.firstOrNull() ?: ""
+        )
+
+        val bundle = Bundle().apply {
+            putParcelable("hospital_info", hospital)
+        }
+        hospitalDetailFragment.arguments = bundle
+
+        hospitalDetailFragment.setHospitalDetailListener(this)
+
+        childFragmentManager.beginTransaction()
+            .replace(R.id.hospitalDetailContainer, hospitalDetailFragment)
+            .addToBackStack(null)
+            .commit()
+
+        binding.hospitalRecyclerView.visibility = View.GONE
+        binding.hospitalDetailContainer.visibility = View.VISIBLE
+
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_HALF_EXPANDED
+    }
+
+    override fun onBackFromHospitalDetail() {
+        showHospitalList()
+    }
+
+    private fun showHospitalList() {
+        binding.hospitalRecyclerView.visibility = View.VISIBLE
+        binding.hospitalDetailContainer.visibility = View.GONE
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+    }
+
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.filteredHospitals.collectLatest { hospitals ->
+                val sortedHospitals = sortHospitalsByDistance(hospitals)
+                adapter.submitList(sortedHospitals)
+                addHospitalMarkers(sortedHospitals)
+                updateBottomSheet(sortedHospitals)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.isLoading.collectLatest { isLoading ->
+                isLoadingMore = isLoading
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.error.collectLatest { error ->
+                error?.let {
+                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+
+    private fun setupResearchButton() {
+        binding.researchButton.setOnClickListener {
+            val mapCenter = naverMap.cameraPosition.target
+            viewModel.resetPagination()
+            viewModel.fetchNearbyHospitals(mapCenter.latitude, mapCenter.longitude)
+            hideResearchButton()
+            isMapMoved = false
+        }
+    }
+
+
+    private fun updateBottomSheet(hospitals: List<HospitalInfo>) {
+        adapter.submitList(hospitals)
+        if (hospitals.isEmpty()) {
+            binding.hospitalRecyclerView.visibility = View.GONE
+        } else {
+            binding.hospitalRecyclerView.visibility = View.VISIBLE
+        }
+    }
+
+
+
+    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            hospitals.sortedBy { hospital ->
+                val results = FloatArray(1)
+                Location.distanceBetween(
+                    currentLocation.latitude, currentLocation.longitude,
+                    hospital.latitude, hospital.longitude,
+                    results
+                )
+                results[0]
+            }
+        } else {
+            hospitals
+        }
+    }
+
+    private fun checkLocationPermission() {
+        when {
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                enableLocationTracking()
+            }
+            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
+                showLocationPermissionRationale()
+            }
+            else -> {
+                requestPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
+        }
+    }
+
+    private fun showLocationPermissionRationale() {
+        AlertDialog.Builder(requireContext())
+            .setTitle("위치 권한 필요")
+            .setMessage("주변 병원 확인을 위해 위치 권한이 필요합니다.")
+            .setPositiveButton("권한 요청") { _, _ ->
+                requestPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
+            .setNegativeButton("취소") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .create()
+            .show()
+    }
+
+
+
+    private fun updateHospitalsBasedOnLocation(location: LatLng) {
+        viewModel.fetchNearbyHospitals(location.latitude, location.longitude)
     }
 
 
@@ -104,6 +365,22 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
 
             override fun onSlide(bottomSheet: View, slideOffset: Float) {}
+        })
+
+        binding.hospitalRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                val visibleItemCount = layoutManager.childCount
+                val totalItemCount = layoutManager.itemCount
+                val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
+
+                if (!isLoadingMore && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount
+                    && firstVisibleItemPosition >= 0) {
+                    val mapCenter = naverMap.cameraPosition.target
+                    viewModel.loadMoreHospitals(mapCenter.latitude, mapCenter.longitude)
+                }
+            }
         })
 
         binding.expandButton.setOnClickListener { toggleBottomSheetState() }
@@ -137,193 +414,12 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         )
     }
 
-    private fun setupReturnToLocationButton() {
-        binding.returnToLocationButton.setOnClickListener {
-            locationOverlay.position?.let { position ->
-                naverMap.moveCamera(CameraUpdate.scrollTo(position))
-            }
-        }
-    }
-
-
-
-    override fun onMapReady(map: NaverMap) {
-        naverMap = map
-        naverMap.locationSource = locationSource
-
-        locationOverlay = naverMap.locationOverlay
-        locationOverlay.isVisible = true
-
-        checkLocationPermission()
-
-        naverMap.addOnLocationChangeListener { location ->
-            val newUserLocation = LatLng(location.latitude, location.longitude)
-            userLocation = newUserLocation
-            locationOverlay.position = newUserLocation
-            locationOverlay.bearing = location.bearing
-            updateHospitalsBasedOnLocation(newUserLocation)
-        }
-    }
-
-
-    private fun checkLocationPermission() {
-        when {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                enableLocationTracking()
-            }
-            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
-                showLocationPermissionRationale()
-            }
-            else -> {
-                requestPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
-        }
-    }
-
-
-    private fun showLocationPermissionRationale() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("위치 권한 필요")
-            .setMessage("주변 병원 확인을 위해 위치 권한이 필요합니다.")
-            .setPositiveButton("권한 요청") { _, _ ->
-                requestPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
-            .setNegativeButton("취소") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .create()
-            .show()
-    }
-
-
-    private fun enableLocationTracking() {
-        try {
-            naverMap.locationTrackingMode = LocationTrackingMode.Follow
-            binding.returnToLocationButton.visibility = View.VISIBLE
-            locationOverlay.isVisible = true
-
-            locationSource.activate { location ->
-                val newUserLocation = LatLng(location!!.latitude, location.longitude)
-                userLocation = newUserLocation
-                updateHospitalsBasedOnLocation(newUserLocation)
-            }
-        } catch (e: SecurityException) {
-            Toast.makeText(context, "위치 서비스를 활성화해주세요.", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-
-
-    private fun updateHospitalsBasedOnLocation(location: LatLng) {
-        viewModel.fetchNearbyHospitals(location.latitude, location.longitude)
-    }
-
-    private fun setupObservers() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.hospitals.collectLatest { hospitals ->
-                val sortedHospitals = sortHospitalsByDistance(hospitals)
-                adapter.submitList(sortedHospitals)
-                addHospitalMarkers(sortedHospitals)
-            }
-        }
-    }
-
-    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
-        val currentLocation = userLocation
-        return if (currentLocation != null) {
-            hospitals.sortedBy { hospital ->
-                val results = FloatArray(1)
-                Location.distanceBetween(
-                    currentLocation.latitude, currentLocation.longitude,
-                    hospital.latitude, hospital.longitude,
-                    results
-                )
-                results[0]
-            }
-        } else {
-            hospitals
-        }
-    }
-
-    private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
-        // 기존 마커 제거
-        markers.forEach { it.map = null }
-        markers.clear()
-
-        hospitals.forEachIndexed { index, hospital ->
-            if (isValidCoordinate(hospital.latitude, hospital.longitude)) {
-                val marker = Marker().apply {
-                    position = LatLng(hospital.latitude, hospital.longitude)
-                    map = naverMap
-                    captionText = hospital.name
-                    tag = index
-                    setOnClickListener {
-                        showHospitalDetail(hospitals[it.tag as Int])
-                        true
-                    }
-                }
-                markers.add(marker)
-            } else {
-                Log.e("MapViewFragment", "Invalid coordinates for hospital: ${hospital.name}")
-            }
-        }
-    }
-
     private fun isValidCoordinate(latitude: Double, longitude: Double): Boolean {
         return latitude != 0.0 && longitude != 0.0 &&
                 latitude >= -90 && latitude <= 90 &&
                 longitude >= -180 && longitude <= 180
     }
 
-
-    private fun showHospitalDetail(hospital: HospitalInfo) {
-        val hospitalDetailFragment = HospitalDetailFragment.newInstance(
-            hospitalId = hospital.name, // 고유 ID가 없으므로 이름을 사용
-            isFromMap = true,
-            category = "" // 카테고리 정보가 없으므로 빈 문자열 전달
-        )
-
-        // 병원 정보를 Bundle에 추가
-        val bundle = Bundle().apply {
-            putParcelable("hospital_info", hospital)
-        }
-        hospitalDetailFragment.arguments = bundle
-
-        hospitalDetailFragment.setHospitalDetailListener(this)
-
-        childFragmentManager.beginTransaction()
-            .replace(R.id.hospitalDetailContainer, hospitalDetailFragment)
-            .addToBackStack(null)
-            .commit()
-
-        binding.hospitalRecyclerView.visibility = View.GONE
-        binding.hospitalDetailContainer.visibility = View.VISIBLE
-
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
-    }
-
-    override fun onBackFromHospitalDetail() {
-        showHospitalList()
-    }
-
-    private fun showHospitalList() {
-        binding.hospitalRecyclerView.visibility = View.VISIBLE
-        binding.hospitalDetailContainer.visibility = View.GONE
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
-    }
 
     override fun onDestroyView() {
         super.onDestroyView()

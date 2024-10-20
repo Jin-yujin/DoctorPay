@@ -1,5 +1,6 @@
 package com.project.doctorpay.api
 
+import DgsbjtInfoResponse
 import HospitalInfoResponse
 import NonPaymentResponse
 import okhttp3.OkHttpClient
@@ -38,6 +39,22 @@ interface HealthInsuranceApi {
         @Query("dgsbjtCd") dgsbjtCd: String? = null,
         @Query("xPos") xPos: String? = null,
         @Query("yPos") yPos: String? = null,
-        @Query("radius") radius: Int? = null
+        @Query("radius") radius: Int? = null,
+        @Query("ykiho") ykiho: String? = null
     ):  Response<HospitalInfoResponse>
+
+
+
+    @GET("MadmDtlInfoService2.7/getDgsbjtInfo2.7")
+    suspend fun getDgsbjtInfo(
+        @Query("serviceKey") serviceKey: String,
+        @Query("ykiho ") ykiho: String,
+        @Query("pageNo") pageNo: Int,
+        @Query("numOfRows") numOfRows: Int,
+        @Query("_type") type: String? = null,
+        @Query("dgsbjtCd") dgsbjtCd: String? = null,
+        @Query("dgsbjtCdNm") dgsbjtCdNm: String? = null,
+        @Query("dgsbjtPrSdrCnt") dgsbjtPrSdrCnt: String? = null,
+        @Query("cdiagDrCnt") cdiagDrCnt: String? = null
+    ):  Response<DgsbjtInfoResponse>
 }

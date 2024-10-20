@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 
 object NetworkModule {
     private const val BASE_URL = "http://apis.data.go.kr/B551182/"
-    private const val SERVICE_KEY = "0H0upZmR4M4DyfwLLid%2F7qyTNc%2BVxA0cg0mMk9zOU6V4zdapEmdXA10%2Fz69RvH4ey70OMYofiJ%2FEtqZlT3JC0w%3D%3D"
+    private const val SERVICE_KEY = "rctk2eXwpdEoBK9zhzZpm%2BlyA9%2BAJByBI8T8SlgPgIWlhrwsQu%2B1Ayx7UBIvZd5oLNsccSTf5Hw2OY6dW3lo5A%3D%3D"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
@@ -41,19 +41,35 @@ object NetworkModule {
         chain.proceed(request)
     }
 
-    private val client = OkHttpClient.Builder()
-        .addInterceptor(loggingInterceptor)
-        .addInterceptor(urlLoggingInterceptor)
-        .addInterceptor(serviceKeyInterceptor)
-        .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        })
+    val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .addInterceptor { chain ->
+            val original = chain.request()
+            val requestBuilder = original.newBuilder()
+                .header("Connection", "close")
+            val request = requestBuilder.build()
+            chain.proceed(request)
+        }
         .build()
 
-    val retrofit = Retrofit.Builder()
+
+    private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor(loggingInterceptor)
+        .addInterceptor(serviceKeyInterceptor)
+        .addInterceptor(urlLoggingInterceptor)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
+
+    private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
-        .addConverterFactory(SimpleXmlConverterFactory.createNonStrict())
-        .client(client)
+        .client(okHttpClient)
+        .addConverterFactory(SimpleXmlConverterFactory.create())
         .build()
 
     val healthInsuranceApi: HealthInsuranceApi = retrofit.create(HealthInsuranceApi::class.java)
