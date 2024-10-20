@@ -13,7 +13,6 @@ import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.inferDepartments
-import com.project.doctorpay.db.toHospitalInfo
 import com.project.doctorpay.network.NetworkModule
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -273,6 +272,8 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
 
     fun fetchHospitalDataOptimized(sidoCd: String, sgguCd: String) {
         viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
             try {
                 val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
                 val nonPaymentResponse = fetchNonPaymentInfo()
@@ -281,20 +282,28 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
                     throw Exception("API Error: Hospital Info or Non-Payment Info request failed")
                 }
 
-                val hospitalInfoItems = hospitalInfoResponse.body()?.body?.items?.itemList ?: emptyList()
-                val nonPaymentItems = nonPaymentResponse.body()?.body?.items ?: emptyList()
+                val combinedHospitals = combineHospitalData(
+                    hospitalInfoResponse.body()?.body?.items?.itemList,
+                    nonPaymentResponse.body()?.body?.items
+                )
 
-                val updatedHospitals = hospitalInfoItems.map { hospitalInfo ->
-                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospitalInfo.ykiho ?: "")
-                    val dgsbjtItems = if (dgsbjtInfoResponse.isSuccessful) {
-                        dgsbjtInfoResponse.body()?.body?.items ?: emptyList()
+                // Fetch DgsbjtInfo for each hospital
+                val updatedHospitals = combinedHospitals.map { hospital ->
+                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospital.ykiho)
+                    if (dgsbjtInfoResponse.isSuccessful) {
+                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtInfoResponse.body()?.body?.items)
                     } else {
-                        emptyList()
+                        hospital
                     }
-                    hospitalInfo.toHospitalInfo(
-                        nonPaymentItems.filter { it.yadmNm == hospitalInfo.yadmNm },
-                        dgsbjtItems
-                    )
+                }
+
+                Log.d("HospitalViewModel", "Combined hospitals: ${updatedHospitals.size}")
+                updatedHospitals.forEach { hospital ->
+                    Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Categories: ${hospital.departmentCategories.joinToString()}")
+                }
+
+                combinedHospitals.forEach { hospital ->
+                    Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Codes: ${hospital.departments.joinToString()}, Categories: ${hospital.departmentCategories.joinToString()}")
                 }
 
                 _hospitals.value = updatedHospitals
