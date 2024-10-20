@@ -28,6 +28,7 @@
 
     <string name="no_hospitals_found">병원을 찾을 수 없습니다.</string>
     <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다.</string>
+    <string name="hospital_list_header">병원 목록</string>
 
     <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>
 

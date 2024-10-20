@@ -44,17 +44,12 @@ interface HealthInsuranceApi {
     ):  Response<HospitalInfoResponse>
 
 
-
     @GET("MadmDtlInfoService2.7/getDgsbjtInfo2.7")
     suspend fun getDgsbjtInfo(
         @Query("serviceKey") serviceKey: String,
-        @Query("ykiho ") ykiho: String,
-        @Query("pageNo") pageNo: Int,
-        @Query("numOfRows") numOfRows: Int,
-        @Query("_type") type: String? = null,
-        @Query("dgsbjtCd") dgsbjtCd: String? = null,
-        @Query("dgsbjtCdNm") dgsbjtCdNm: String? = null,
-        @Query("dgsbjtPrSdrCnt") dgsbjtPrSdrCnt: String? = null,
-        @Query("cdiagDrCnt") cdiagDrCnt: String? = null
-    ):  Response<DgsbjtInfoResponse>
+        @Query("ykiho") ykiho: String,
+        @Query("pageNo") pageNo: Int = 1,
+        @Query("numOfRows") numOfRows: Int = 100,
+        @Query("_type") type: String = "json"
+    ): Response<DgsbjtInfoResponse>
 }

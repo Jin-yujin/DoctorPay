@@ -1,6 +1,5 @@
 package com.project.doctorpay.network
 
-
 import android.util.Log
 import com.project.doctorpay.api.HealthInsuranceApi
 import okhttp3.HttpUrl
@@ -22,7 +21,12 @@ object NetworkModule {
 
     private val urlLoggingInterceptor = Interceptor { chain ->
         val request = chain.request()
-        Log.d("API_CALL", "URL: ${request.url}")
+        val url = request.url.toString()
+        if (url.contains("MadmDtlInfoService2.7")) {
+            Log.d("DgsbjtInfo_API_CALL", "URL: $url")
+        } else {
+            Log.d("API_CALL", "URL: $url")
+        }
         chain.proceed(request)
     }
 
@@ -41,6 +45,20 @@ object NetworkModule {
         chain.proceed(request)
     }
 
+
+
+    private val responseLoggingInterceptor = Interceptor { chain ->
+        val request = chain.request()
+        val response = chain.proceed(request)
+
+        if (request.url.toString().contains("MadmDtlInfoService2.7")) {
+            Log.d("DgsbjtInfo_API_RESPONSE", "Response Code: ${response.code}")
+            Log.d("DgsbjtInfo_API_RESPONSE", "Response Body: ${response.peekBody(Long.MAX_VALUE).string()}")
+        }
+
+        response
+    }
+
     val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -55,11 +73,11 @@ object NetworkModule {
         }
         .build()
 
-
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
         .addInterceptor(serviceKeyInterceptor)
         .addInterceptor(urlLoggingInterceptor)
+        .addInterceptor(responseLoggingInterceptor)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
@@ -74,8 +92,6 @@ object NetworkModule {
 
     val healthInsuranceApi: HealthInsuranceApi = retrofit.create(HealthInsuranceApi::class.java)
 
-    // 디코딩된 서비스 키를 반환하는 함수
-    fun getDecodedServiceKey(): String {
-        return URLDecoder.decode(SERVICE_KEY, "UTF-8")
-    }
+    fun getServiceKey(): String = SERVICE_KEY
+
 }
