@@ -44,6 +44,8 @@ class HospitalListFragment : Fragment() {
             category = DepartmentCategory.values().find { it.name == categoryName }
             Log.d("HospitalListFragment", "Category set to: ${category?.name}")
         }
+
+
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -65,8 +67,17 @@ class HospitalListFragment : Fragment() {
         setupObservers()
         setupListeners()
         loadHospitalList()
+        updateHeaderText()
     }
 
+
+    private fun updateHeaderText() {
+        val headerText = when (category) {
+            null -> getString(R.string.hospital_list_header)
+            else -> getString(R.string.category_header_format, category?.categoryName)
+        }
+        binding.tvCategoryTitle.text = headerText // ViewHospitalListBinding에 tvHeader가 있다고 가정
+    }
 
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->

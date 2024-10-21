@@ -76,7 +76,7 @@ class HomeFragment : Fragment() {
             binding.btnOTOLARYNGOLOGY to DepartmentCategory.OTOLARYNGOLOGY,
             binding.btnOPHTHALMOLOGY to DepartmentCategory.OPHTHALMOLOGY,
             binding.btnMENTALNEUROLOGY to DepartmentCategory.MENTAL_NEUROLOGY,
-            binding.btnPEDIATRICSOBSTETRICS to DepartmentCategory.PEDIATRICS_OBSTETRICS,
+            binding.btnOBSTETRICS to DepartmentCategory.OBSTETRICS,
             binding.btnDERMATOLOGY to DepartmentCategory.DERMATOLOGY,
             binding.btnORIENTALMEDICINE to DepartmentCategory.ORIENTAL_MEDICINE,
             binding.btnOTHERSPECIALTIES to DepartmentCategory.OTHER_SPECIALTIES,
@@ -89,7 +89,6 @@ class HomeFragment : Fragment() {
             }
         }
     }
-
 
     private fun navigateToHospitalList(category: DepartmentCategory) {
         val hospitalListFragment = HospitalListFragment.newInstance(category.name)
