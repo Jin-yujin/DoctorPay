@@ -7,8 +7,10 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 object NetworkModule {
@@ -84,14 +86,19 @@ object NetworkModule {
         .retryOnConnectionFailure(true)
         .build()
 
+
     private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
         .client(okHttpClient)
         .addConverterFactory(SimpleXmlConverterFactory.create())
+        .addConverterFactory(SimpleXmlConverterFactory.createNonStrict())
         .build()
+
 
     val healthInsuranceApi: HealthInsuranceApi = retrofit.create(HealthInsuranceApi::class.java)
 
-    fun getServiceKey(): String = SERVICE_KEY
+    fun getServiceKey(): String = URLDecoder.decode(SERVICE_KEY, "UTF-8")
+
+    private fun getEncodedServiceKey(): String = URLEncoder.encode(getServiceKey(), "UTF-8")
 
 }

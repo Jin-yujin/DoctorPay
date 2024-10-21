@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.project.doctorpay.R
@@ -15,6 +17,7 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.db.DepartmentCategory
+import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import kotlinx.coroutines.flow.collectLatest
@@ -23,9 +26,11 @@ import kotlinx.coroutines.launch
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
+
     private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(healthInsuranceApi)
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
+
     private lateinit var adapter: HospitalAdapter
 
     override fun onCreateView(

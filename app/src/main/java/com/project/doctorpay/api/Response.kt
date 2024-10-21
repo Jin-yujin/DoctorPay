@@ -23,11 +23,12 @@ data class HospitalInfoResponse(
 @Root(name = "response", strict = false)
 data class DgsbjtInfoResponse(
     @field:Element(name = "header", required = false)
-    var header: DgsbjtInfoHeader? = null,
+    var header: Header? = null,
 
     @field:Element(name = "body", required = false)
     var body: DgsbjtInfoBody? = null
 )
+
 
 
 @Root(strict = false)
@@ -38,6 +39,17 @@ data class Header(
     @field:Element(name = "resultMsg", required = false)
     var resultMsg: String? = null
 )
+
+
+@Root(strict = false)
+data class DgsbjtInfoHeader(
+    @field:Element(name = "resultCode", required = false)
+    var resultCode: String? = null,
+
+    @field:Element(name = "resultMsg", required = false)
+    var resultMsg: String? = null
+)
+
 
 @Root(strict = false)
 data class NonPaymentBody(
@@ -69,26 +81,12 @@ data class HospitalInfoBody(
     var totalCount: Int = 0
 )
 
-@Root(strict = false)
-data class HospitalInfoItems(
-    @field:ElementList(inline = true, entry = "item", required = false)
-    var itemList: List<HospitalInfoItem>? = null
-)
 
-
-@Root(strict = false)
-data class DgsbjtInfoHeader(
-    @field:Element(name = "resultCode", required = false)
-    var resultCode: String? = null,
-
-    @field:Element(name = "resultMsg", required = false)
-    var resultMsg: String? = null
-)
 
 @Root(strict = false)
 data class DgsbjtInfoBody(
-    @field:ElementList(inline = true, entry = "item", required = false)
-    var items: List<DgsbjtInfoItem>? = null,
+    @field:Element(name = "items", required = false)
+    var items: DgsbjtInfoItems? = null,
 
     @field:Element(name = "numOfRows", required = false)
     var numOfRows: Int = 0,
@@ -100,6 +98,18 @@ data class DgsbjtInfoBody(
     var totalCount: Int = 0
 )
 
+@Root(strict = false)
+data class HospitalInfoItems(
+    @field:ElementList(inline = true, entry = "item", required = false)
+    var itemList: List<HospitalInfoItem>? = null
+)
+
+
+@Root(strict = false)
+data class DgsbjtInfoItems(
+    @field:ElementList(inline = true, entry = "item", required = false)
+    var itemList: List<DgsbjtInfoItem>? = null
+)
 
 @Parcelize
 data class NonPaymentItem(
@@ -134,11 +144,18 @@ data class HospitalInfoItem(
 )
 
 
-@Parcelize
+
+@Root(name = "item", strict = false)
 data class DgsbjtInfoItem(
-    val dgsbjtCd: String?,
-    val dgsbjtCdNm: String?,
-    val dgsbjtPrSdrCnt: String?,
-    val cdiagDrCnt: String?,
-    val ykiho: String?
-) : Parcelable
+    @field:Element(name = "dgsbjtCd", required = false)
+    var dgsbjtCd: String? = null,
+
+    @field:Element(name = "dgsbjtCdNm", required = false)
+    var dgsbjtCdNm: String? = null,
+
+    @field:Element(name = "dgsbjtPrSdrCnt", required = false)
+    var dgsbjtPrSdrCnt: String? = null,
+
+    @field:Element(name = "cdiagDrCnt", required = false)
+    var cdiagDrCnt: String? = null
+)

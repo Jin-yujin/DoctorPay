@@ -14,6 +14,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -33,6 +35,7 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentMapviewBinding
+import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
 import kotlinx.coroutines.flow.collectLatest
@@ -45,8 +48,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private lateinit var naverMap: NaverMap
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
+
     private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(healthInsuranceApi)
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
     private lateinit var adapter: HospitalAdapter
     private lateinit var locationSource: FusedLocationSource

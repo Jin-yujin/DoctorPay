@@ -19,6 +19,8 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import com.project.doctorpay.MainActivity
@@ -28,6 +30,7 @@ import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.calendar.Appointment
 import kotlinx.coroutines.launch
@@ -40,8 +43,9 @@ class HospitalDetailFragment : Fragment() {
 
     private var _binding: FragmentHospitalDetailBinding? = null
     private val binding get() = _binding!!
+
     private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(healthInsuranceApi)
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
 
     private var isFromMap: Boolean = false

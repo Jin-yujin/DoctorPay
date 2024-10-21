@@ -9,6 +9,8 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.project.doctorpay.db.HospitalInfo
@@ -18,6 +20,7 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.ViewHospitalListBinding
 import com.project.doctorpay.db.DepartmentCategory
+import com.project.doctorpay.network.NetworkModule
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -29,10 +32,10 @@ class HospitalListFragment : Fragment() {
     private lateinit var adapter: HospitalAdapter
     private var category: DepartmentCategory? = null
 
-    private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(healthInsuranceApi)
-    }
 
+    private val viewModel: HospitalViewModel by viewModels {
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -140,7 +143,7 @@ class HospitalListFragment : Fragment() {
     }
 
     private fun loadHospitalList() {
-        viewModel.fetchHospitalDataOptimized(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
+        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
     }
 
 

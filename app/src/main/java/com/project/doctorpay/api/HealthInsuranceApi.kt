@@ -3,14 +3,9 @@ package com.project.doctorpay.api
 import DgsbjtInfoResponse
 import HospitalInfoResponse
 import NonPaymentResponse
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Query
-import java.util.concurrent.TimeUnit
 
 interface HealthInsuranceApi {
     @GET("nonPaymentDamtInfoService/getNonPaymentItemHospList")
@@ -44,12 +39,12 @@ interface HealthInsuranceApi {
     ):  Response<HospitalInfoResponse>
 
 
+
     @GET("MadmDtlInfoService2.7/getDgsbjtInfo2.7")
     suspend fun getDgsbjtInfo(
         @Query("serviceKey") serviceKey: String,
         @Query("ykiho") ykiho: String,
         @Query("pageNo") pageNo: Int = 1,
-        @Query("numOfRows") numOfRows: Int = 100,
-        @Query("_type") type: String = "json"
+        @Query("numOfRows") numOfRows: Int = 100
     ): Response<DgsbjtInfoResponse>
 }

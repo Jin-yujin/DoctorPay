@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.project.doctorpay.db.HospitalInfo
@@ -14,6 +16,7 @@ import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentFavoriteBinding
+import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
@@ -25,8 +28,9 @@ class FavoriteFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var adapter: HospitalAdapter
+
     private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(healthInsuranceApi)
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
 
     override fun onCreateView(
