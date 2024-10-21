@@ -107,6 +107,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     override fun onMapReady(map: NaverMap) {
         naverMap = map
         naverMap.locationSource = locationSource
+        naverMap.locationTrackingMode = LocationTrackingMode.Follow
 
         locationOverlay = naverMap.locationOverlay
         locationOverlay.isVisible = true
@@ -137,12 +138,37 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         viewModel.fetchNearbyHospitals(center.latitude, center.longitude, radius.toInt())
     }
 
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.filteredHospitals.collectLatest { hospitals ->
+                val sortedHospitals = sortHospitalsByDistance(hospitals)
+                adapter.submitList(sortedHospitals)
+                addHospitalMarkers(sortedHospitals)
+                updateBottomSheet(sortedHospitals)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.isLoading.collectLatest { isLoading ->
+                isLoadingMore = isLoading
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.error.collectLatest { error ->
+                error?.let {
+                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     private fun calculateRadius(bounds: LatLngBounds): Double {
         val center = bounds.center
         val northeast = bounds.northEast
         return center.distanceTo(northeast)
     }
+
 
     private fun enableLocationTracking() {
         try {
@@ -164,6 +190,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             Toast.makeText(context, "위치 서비스를 활성화해주세요.", Toast.LENGTH_SHORT).show()
         }
     }
+
 
     private fun showResearchButton() {
         binding.researchButton.visibility = View.VISIBLE
@@ -207,6 +234,24 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+    private fun setupBottomSheet() {
+        bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
+        bottomSheetBehavior.apply {
+            isFitToContents = false
+            halfExpandedRatio = 0.5f
+            state = BottomSheetBehavior.STATE_COLLAPSED
+        }
+
+        bottomSheetBehavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
+            override fun onStateChanged(bottomSheet: View, newState: Int) {
+                updateExpandButtonIcon(newState)
+            }
+
+            override fun onSlide(bottomSheet: View, slideOffset: Float) {}
+        })
+
+        binding.expandButton.setOnClickListener { toggleBottomSheetState() }
+    }
 
     private fun showHospitalDetail(hospital: HospitalInfo) {
         val hospitalDetailFragment = HospitalDetailFragment.newInstance(
@@ -242,33 +287,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.hospitalDetailContainer.visibility = View.GONE
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
-
-
-    private fun setupObservers() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.filteredHospitals.collectLatest { hospitals ->
-                val sortedHospitals = sortHospitalsByDistance(hospitals)
-                adapter.submitList(sortedHospitals)
-                addHospitalMarkers(sortedHospitals)
-                updateBottomSheet(sortedHospitals)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collectLatest { isLoading ->
-                isLoadingMore = isLoading
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.error.collectLatest { error ->
-                error?.let {
-                    Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
-
 
     private fun setupResearchButton() {
         binding.researchButton.setOnClickListener {
@@ -308,6 +326,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             hospitals
         }
     }
+
 
     private fun checkLocationPermission() {
         when {
@@ -356,39 +375,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         viewModel.fetchNearbyHospitals(location.latitude, location.longitude)
     }
 
-
-    private fun setupBottomSheet() {
-        bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
-        bottomSheetBehavior.saveFlags = BottomSheetBehavior.SAVE_ALL
-        bottomSheetBehavior.isFitToContents = false
-        bottomSheetBehavior.halfExpandedRatio = 0.5f
-
-        bottomSheetBehavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
-            override fun onStateChanged(bottomSheet: View, newState: Int) {
-                updateExpandButtonIcon(newState)
-            }
-
-            override fun onSlide(bottomSheet: View, slideOffset: Float) {}
-        })
-
-        binding.hospitalRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-                val visibleItemCount = layoutManager.childCount
-                val totalItemCount = layoutManager.itemCount
-                val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
-
-                if (!isLoadingMore && (visibleItemCount + firstVisibleItemPosition) >= totalItemCount
-                    && firstVisibleItemPosition >= 0) {
-                    val mapCenter = naverMap.cameraPosition.target
-                    viewModel.loadMoreHospitals(mapCenter.latitude, mapCenter.longitude)
-                }
-            }
-        })
-
-        binding.expandButton.setOnClickListener { toggleBottomSheetState() }
-    }
 
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->

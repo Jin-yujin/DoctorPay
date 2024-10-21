@@ -236,7 +236,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="예약하기"
+                android:text="일정 추가"
                 android:textColor="#FFFFFF"
                 app:backgroundTint="#8BCFFF" />
 
