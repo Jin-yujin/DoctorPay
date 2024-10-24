@@ -45,10 +45,18 @@ class CalendarFragment : Fragment() {
 
     private fun setupViews() {
         binding.calendarView.setDate(selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH))
+        binding.calendarView.setSelectedDate(
+            selectedDate.get(Calendar.YEAR),
+            selectedDate.get(Calendar.MONTH),
+            selectedDate.get(Calendar.DAY_OF_MONTH)
+        )
+
         binding.calendarView.setOnDateClickListener { year, month, day ->
             selectedDate.set(year, month, day)
+            binding.calendarView.setSelectedDate(year, month, day)
             loadAppointmentsForDate(year, month, day)
         }
+
         binding.calendarView.setOnMonthChangeListener { year, month ->
             selectedDate.set(year, month, 1)
             loadAppointments()

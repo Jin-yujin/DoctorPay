@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -35,10 +36,17 @@ class CalendarView @JvmOverloads constructor(
         textAlign = Paint.Align.CENTER
     }
 
+    private val selectedDatePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#BDBDBD")
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+    }
+
     private var cellWidth = 0f
     private var cellHeight = 0f
     private val calendar = Calendar.getInstance()
     private val today = Calendar.getInstance()
+    private var selectedDate: Triple<Int, Int, Int>? = null  // 선택된 날짜 저장
     private val appointments = mutableSetOf<Triple<Int, Int, Int>>()
     private var onMonthChangeListener: ((Int, Int) -> Unit)? = null
     private var onDateClickListener: ((Int, Int, Int) -> Unit)? = null
@@ -77,12 +85,33 @@ class CalendarView @JvmOverloads constructor(
                 if (dayNumber in 1..daysInMonth) {
                     val x = j * cellWidth + cellWidth / 2
                     val y = i * cellHeight + cellHeight / 2 + 150f // 헤더 높이 고려
+
+                    // 선택된 날짜 배경 그리기
+                    val isSelected = selectedDate?.let { (year, month, day) ->
+                        year == calendar.get(Calendar.YEAR) &&
+                                month == calendar.get(Calendar.MONTH) &&
+                                day == dayNumber
+                    } ?: false
+
+                    if (isSelected) {
+                        val rect = RectF(
+                            j * cellWidth + 5f,
+                            i * cellHeight + 150f,
+                            (j + 1) * cellWidth - 5f,
+                            (i + 1) * cellHeight + 150f
+                        )
+                        val cornerRadius = 15f
+                        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, selectedDatePaint)
+                    }
+
+                    // 오늘 날짜 표시
                     val isToday = (calendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
                             calendar.get(Calendar.MONTH) == today.get(Calendar.MONTH) &&
                             dayNumber == today.get(Calendar.DAY_OF_MONTH))
 
                     canvas.drawText(dayNumber.toString(), x, y, if (isToday) todayPaint else textPaint)
 
+                    // 일정 표시
                     if (appointments.contains(Triple(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), dayNumber))) {
                         canvas.drawRect(
                             j * cellWidth + cellWidth * 0.1f,
@@ -99,6 +128,11 @@ class CalendarView @JvmOverloads constructor(
 
     fun setDate(year: Int, month: Int) {
         calendar.set(year, month, 1)
+        invalidate()
+    }
+
+    fun setSelectedDate(year: Int, month: Int, day: Int) {
+        selectedDate = Triple(year, month, day)
         invalidate()
     }
 
@@ -130,7 +164,7 @@ class CalendarView @JvmOverloads constructor(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_UP) {
-            val row = ((event.y - 120f) / cellHeight).toInt()
+            val row = ((event.y - 150f) / cellHeight).toInt()
             val col = (event.x / cellWidth).toInt()
 
             calendar.set(Calendar.DAY_OF_MONTH, 1)
@@ -138,11 +172,17 @@ class CalendarView @JvmOverloads constructor(
             val dayNumber = row * 7 + col - monthStartDayOfWeek + 1
 
             if (dayNumber in 1..calendar.getActualMaximum(Calendar.DAY_OF_MONTH)) {
+                selectedDate = Triple(
+                    calendar.get(Calendar.YEAR),
+                    calendar.get(Calendar.MONTH),
+                    dayNumber
+                )
                 onDateClickListener?.invoke(
                     calendar.get(Calendar.YEAR),
                     calendar.get(Calendar.MONTH),
                     dayNumber
                 )
+                invalidate()
             }
         }
         return true
