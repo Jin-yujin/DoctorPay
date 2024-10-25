@@ -19,15 +19,19 @@
     <string name="OPHTHALMOLOGY">안과</string>
 
     <string name="MENTAL_NEUROLOGY">정신/신경과</string>
-    <string name="PEDIATRICS_OBSTETRICS">소아/산부인과</string>
+    <string name="OBSTETRICS">산부인과</string>
     <string name="DERMATOLOGY">피부과</string>
 
     <string name="ORIENTAL_MEDICINE">한의원</string>
     <string name="OTHER_SPECIALTIES">기타 전문과</string>
-    <string name="GENERAL_MEDICINE">기타 일반과</string>
+    <string name="GENERAL_MEDICINE">일반의</string>
 
     <string name="no_hospitals_found">병원을 찾을 수 없습니다.</string>
     <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다.</string>
+    <string name="hospital_list_header">병원 목록</string>
+    <string name="category_header_format">%s</string>
+
+
 
     <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>
 

@@ -1,9 +1,12 @@
 package com.project.doctorpay.api
 
+import DgsbjtInfoItem
+import DgsbjtInfoResponse
 import HospitalInfoItem
 import HospitalInfoResponse
 import NonPaymentItem
 import NonPaymentResponse
+import android.location.Location
 import android.util.Log
 import androidx.lifecycle.*
 import com.naver.maps.geometry.LatLng
@@ -11,6 +14,8 @@ import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.inferDepartments
 import com.project.doctorpay.network.NetworkModule
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,9 +24,15 @@ import org.simpleframework.xml.core.ElementException
 import retrofit2.HttpException
 import retrofit2.Response
 
-class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : ViewModel() {
+class HospitalViewModel(
+    private val healthInsuranceApi: HealthInsuranceApi
+) : ViewModel() {
+
     private val _hospitals = MutableStateFlow<List<HospitalInfo>>(emptyList())
     val hospitals: StateFlow<List<HospitalInfo>> = _hospitals
+
+    private val _filteredHospitals = MutableStateFlow<List<HospitalInfo>>(emptyList())
+    val filteredHospitals: StateFlow<List<HospitalInfo>> = _filteredHospitals
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
@@ -29,9 +40,75 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    private var currentPage = 1
+    private val pageSize = 100
+    private var isLastPage = false
+
+    fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = 10000) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val response = healthInsuranceApi.getHospitalInfo(
+                    serviceKey = NetworkModule.getServiceKey(),
+                    pageNo = currentPage,
+                    numOfRows = pageSize,
+                    xPos = longitude.toString(),
+                    yPos = latitude.toString(),
+                    radius = radius
+                )
+                if (response.isSuccessful) {
+                    val newHospitals = response.body()?.body?.items?.itemList ?: emptyList()
+                    val combinedHospitals = combineHospitalData(newHospitals, emptyList())
+
+                    if (currentPage == 1) {
+                        _hospitals.value = combinedHospitals
+                    } else {
+                        _hospitals.value = _hospitals.value + combinedHospitals
+                    }
+
+                    isLastPage = newHospitals.size < pageSize
+                    currentPage++
+
+                    filterHospitalsWithin5km(latitude, longitude, _hospitals.value)
+                } else {
+                    _error.value = "병원 정보를 불러오는데 실패했습니다: ${response.message()}"
+                }
+            } catch (e: Exception) {
+                handleError(e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun resetPagination() {
+        currentPage = 1
+        isLastPage = false
+        _hospitals.value = emptyList()
+    }
+
+    private fun filterHospitalsWithin5km(latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
+        val filteredList = hospitals.filter { hospital ->
+            val distance = calculateDistance(
+                latitude, longitude,
+                hospital.latitude, hospital.longitude
+            )
+            distance <= 5000 // 5km = 5000m
+        }
+        _filteredHospitals.value = filteredList
+    }
+
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0]
+    }
+
     suspend fun fetchHospitalInfo(sidoCd: String, sgguCd: String): Response<HospitalInfoResponse> {
         val response = healthInsuranceApi.getHospitalInfo(
-            serviceKey = NetworkModule.getDecodedServiceKey(),
+            serviceKey = NetworkModule.getServiceKey(),
             pageNo = 1,
             numOfRows = 100,
             sidoCd = sidoCd,
@@ -41,37 +118,74 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         return response
     }
 
+
     private suspend fun fetchNonPaymentInfo(): Response<NonPaymentResponse> {
         return healthInsuranceApi.getNonPaymentInfo(
-            serviceKey = NetworkModule.getDecodedServiceKey(),
+            serviceKey = NetworkModule.getServiceKey(),
             pageNo = 1,
             numOfRows = 100
         )
     }
 
-    fun fetchHospitalData(sidoCd: String, sgguCd: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
-                val nonPaymentResponse = fetchNonPaymentInfo()
 
-                Log.d("HospitalViewModel", "Hospital Info Response: ${hospitalInfoResponse.body()}")
-                Log.d("HospitalViewModel", "Non-Payment Response: ${nonPaymentResponse.body()}")
 
-                val combinedHospitals = combineHospitalData(
-                    hospitalInfoResponse.body()?.body?.items?.itemList,
-                    nonPaymentResponse.body()?.body?.items
-                )
-                _hospitals.value = combinedHospitals
-                Log.d("HospitalViewModel", "Combined hospitals size: ${combinedHospitals.size}")
-            } catch (e: Exception) {
-                handleError(e)
-            } finally {
-                _isLoading.value = false
+    private suspend fun fetchDgsbjtInfo(ykiho: String): Response<DgsbjtInfoResponse> {
+        return healthInsuranceApi.getDgsbjtInfo(
+            serviceKey = NetworkModule.getServiceKey(),
+            ykiho = ykiho.trim(),
+            pageNo = 1,
+            numOfRows = 100
+        )
+    }
+
+//
+//    suspend fun fetchHospitalAndDgsbjtInfo(sidoCd: String, sgguCd: String) {
+//        val hospitalResponse = fetchHospitalInfo(sidoCd, sgguCd)
+//        if (hospitalResponse.isSuccessful) {
+//            val hospitals = hospitalResponse.body()?.body?.items?.itemList ?: emptyList()
+//            hospitals.forEach { hospital ->
+//                hospital.ykiho?.let { ykiho ->
+//                    val dgsbjtResponse = fetchDgsbjtInfo(ykiho)
+//                    if (dgsbjtResponse.isSuccessful) {
+//                        // DgsbjtInfo 처리 로직
+//                        val dgsbjtItems = dgsbjtResponse.body()?.body?.items ?: emptyList()
+//                        // 여기서 hospital 정보와 dgsbjtItems를 결합하거나 처리합니다.
+//                    } else {
+//                        Log.e("API", "Failed to fetch DgsbjtInfo for ykiho: $ykiho")
+//                    }
+//                }
+//            }
+//        } else {
+//            Log.e("API", "Failed to fetch HospitalInfo")
+//        }
+//    }
+
+    private fun updateHospitalWithDgsbjtInfo(hospital: HospitalInfo, dgsbjtItems: List<DgsbjtInfoItem>?): HospitalInfo {
+        val dgsbjtCodes = dgsbjtItems?.mapNotNull { it.dgsbjtCd } ?: emptyList()
+        val updatedDepartments = inferDepartments(hospital.name, hospital.nonPaymentItems, dgsbjtCodes)
+        val updatedDepartmentCategories = getDepartmentCategories(updatedDepartments)
+        return hospital.copy(
+            departments = updatedDepartments,
+            departmentCategories = updatedDepartmentCategories
+        )
+    }
+
+    fun filterHospitalsByCategory(hospitals: List<HospitalInfo>, category: DepartmentCategory?): List<HospitalInfo> {
+        val filteredHospitals = if (category == null) {
+            hospitals
+        } else {
+            hospitals.filter { hospital ->
+                hospital.departmentCategories.contains(category.name)
             }
         }
+
+        Log.d("HospitalViewModel", "Filtering for category: ${category?.name}, Results: ${filteredHospitals.size}")
+
+        filteredHospitals.forEach { hospital ->
+            Log.d("HospitalViewModel", "Filtered Hospital: ${hospital.name}, Categories: ${hospital.departmentCategories.joinToString()}")
+        }
+
+        return filteredHospitals
     }
 
     private fun combineHospitalData(
@@ -80,38 +194,18 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
     ): List<HospitalInfo> {
         val nonPaymentMap = nonPaymentItems?.groupBy { it.yadmNm } ?: emptyMap()
         return hospitalInfoItems?.mapNotNull { hospitalInfo ->
-            Log.d(
-                "HOSPITAL_INFO",
-                "Hospital: ${hospitalInfo.yadmNm}, dgsbjtCd: ${hospitalInfo.dgsbjtCd}"
-            )
-
             val nonPaymentItemsForHospital = nonPaymentMap[hospitalInfo.yadmNm] ?: emptyList()
             val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: 0.0
             val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: 0.0
-            val departments = inferDepartments(hospitalInfo, nonPaymentItemsForHospital)
-            val departmentCategory = when {
-                departments.contains("내과") -> "INTERNAL_MEDICINE"
-                departments.contains("외과") -> "SURGERY"
-                departments.contains("치과") -> "DENTISTRY"
+            val departments = inferDepartments(hospitalInfo.yadmNm ?: "", nonPaymentItemsForHospital, hospitalInfo.dgsbjtCd?.split(",") ?: emptyList())
+            val departmentCategories = getDepartmentCategories(departments)
 
-                departments.contains("정형외과") -> "REHABILITATION"
-                departments.contains("이비인후과") -> "OTOLARYNGOLOGY"
-                departments.contains("안과") -> "OPHTHALMOLOGY"
-
-                departments.contains("소아과") || departments.contains("산부인과") -> "PEDIATRICS_OBSTETRICS"
-                departments.contains("신경과") -> "MENTAL_NEUROLOGY"
-                departments.contains("피부과") -> "DERMATOLOGY"
-
-                departments.contains("한의원") -> "ORIENTAL_MEDICINE"
-                departments.contains("성형외과") || departments.contains("흉부외과") || departments.contains("비뇨기과") ->  "OTHER_SPECIALTIES"
-                else -> "GENERAL_MEDICINE"
-            }
             HospitalInfo(
                 location = LatLng(latitude, longitude),
                 name = hospitalInfo.yadmNm ?: "",
                 address = hospitalInfo.addr ?: "",
-                department = departments,
-                departmentCategory = departmentCategory,
+                departments = departments,
+                departmentCategories = departmentCategories,
                 time = "",
                 phoneNumber = hospitalInfo.telno ?: "",
                 state = "",
@@ -119,10 +213,26 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
                 latitude = latitude,
                 longitude = longitude,
                 nonPaymentItems = nonPaymentItemsForHospital,
-                clCdNm = hospitalInfo.clCdNm ?: ""
+                clCdNm = hospitalInfo.clCdNm ?: "",
+                ykiho = hospitalInfo.ykiho ?: ""
             )
         } ?: emptyList()
     }
+
+
+    fun loadMoreHospitals(latitude: Double, longitude: Double) {
+        if (!isLoading.value && !isLastPage) {
+            fetchNearbyHospitals(latitude, longitude)
+        }
+    }
+
+    private fun getDepartmentCategory(departments: String): String {
+        val departmentSet = departments.split(", ").toSet()
+        return DepartmentCategory.values().find { category ->
+            departmentSet.any { dept -> dept == category.categoryName }
+        }?.name ?: DepartmentCategory.OTHER_SPECIALTIES.name
+    }
+
 
     private fun handleError(e: Exception) {
         Log.e("HospitalViewModel", "데이터 불러오기 오류", e)
@@ -135,40 +245,71 @@ class HospitalViewModel(private val healthInsuranceApi: HealthInsuranceApi) : Vi
         _error.value = "데이터를 불러오는 중 오류가 발생했습니다: $errorMessage"
     }
 
-    // 카테고리별로 병원 필터링
-    fun getHospitalsByCategory(category: DepartmentCategory): List<HospitalInfo> {
-        return _hospitals.value.filter { it.departmentCategory == category.categoryName }
+    private fun getDepartmentCategories(departments: List<String>): List<String> {
+        return departments.map { dept ->
+            DepartmentCategory.values().find { it.categoryName == dept }?.name ?: DepartmentCategory.OTHER_SPECIALTIES.name
+        }.distinct()
     }
 
-    // 카테고리별 병원 수 반환
-    fun getHospitalCountByCategory(): Map<String, Int> {
-        return _hospitals.value.groupingBy { it.departmentCategory }.eachCount()
-    }
 
-    fun getHospitalById(id: String): LiveData<HospitalInfo> {
-        return liveData {
-            val hospital = _hospitals.value.find { it.name == id }
-            emit(hospital ?: throw IllegalArgumentException("Hospital not found"))
+    fun fetchHospitalData(sidoCd: String, sgguCd: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
+                val nonPaymentResponse = fetchNonPaymentInfo()
 
-            while (hospitals.value.isEmpty()) {
-                delay(100) // 데이터가 로드될 때까지 잠시 대기
-            }
-        }
-    }
-
-        fun searchHospitals(query: String) {
-            viewModelScope.launch {
-                _isLoading.value = true
-                try {
-                    val filteredHospitals = _hospitals.value.filter {
-                        it.name.contains(query, ignoreCase = true)
-                    }
-                    _hospitals.value = filteredHospitals
-                } catch (e: Exception) {
-                    _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
-                } finally {
-                    _isLoading.value = false
+                if (!hospitalInfoResponse.isSuccessful || !nonPaymentResponse.isSuccessful) {
+                    throw Exception("API Error: Hospital Info or Non-Payment Info request failed")
                 }
+
+                val combinedHospitals = combineHospitalData(
+                    hospitalInfoResponse.body()?.body?.items?.itemList,
+                    nonPaymentResponse.body()?.body?.items
+                )
+
+                val updatedHospitals = combinedHospitals.map { hospital ->
+                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospital.ykiho)
+                    if (dgsbjtInfoResponse.isSuccessful) {
+                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtInfoResponse.body()?.body?.items?.itemList)
+                    } else {
+                        Log.e("HospitalViewModel", "Failed to fetch DgsbjtInfo for ykiho: ${hospital.ykiho}")
+                        hospital
+                    }
+                }
+
+                Log.d("HospitalViewModel", "Combined hospitals: ${updatedHospitals.size}")
+                updatedHospitals.forEach { hospital ->
+                    Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Categories: ${hospital.departmentCategories.joinToString()}")
+                }
+
+                _hospitals.value = updatedHospitals
+            } catch (e: Exception) {
+                handleError(e)
+            } finally {
+                _isLoading.value = false
             }
         }
     }
+
+
+
+    fun searchHospitals(query: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val filteredHospitals = _hospitals.value.filter {
+                    it.name.contains(query, ignoreCase = true)
+                }
+                _hospitals.value = filteredHospitals
+            } catch (e: Exception) {
+                _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+
+}

@@ -19,6 +19,8 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import com.project.doctorpay.MainActivity
@@ -28,6 +30,7 @@ import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.calendar.Appointment
 import kotlinx.coroutines.launch
@@ -40,8 +43,9 @@ class HospitalDetailFragment : Fragment() {
 
     private var _binding: FragmentHospitalDetailBinding? = null
     private val binding get() = _binding!!
+
     private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(healthInsuranceApi)
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
 
     private var isFromMap: Boolean = false
@@ -93,7 +97,23 @@ class HospitalDetailFragment : Fragment() {
             tvHospitalHoliday.text = "휴일: 정보 없음" // 실제 데이터가 있다면 그것을 사용
             tvNightCare.text = "야간진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
             tvFemaleDoctors.text = "여의사 진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
-            tvHospitalDepartment.text = hospital.department
+
+            // 진료과목 표시 방식 변경
+            val departmentsText = hospital.departments.joinToString(", ")
+            tvHospitalDepartment.text = if (departmentsText.isNotEmpty()) {
+                departmentsText
+            } else {
+                "진료과목 정보 없음"
+            }
+
+//
+//            // 진료과목 카테고리 표시 (선택적)
+//            val categoriesText = hospital.departmentCategories.joinToString(", ")
+//            tvHospitalCategories.text = if (categoriesText.isNotEmpty()) {
+//                "카테고리: $categoriesText"
+//            } else {
+//                "카테고리 정보 없음"
+//            }
         }
 
         loadNonCoveredItems(hospital.nonPaymentItems)

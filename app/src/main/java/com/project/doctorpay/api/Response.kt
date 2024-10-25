@@ -3,6 +3,7 @@ import org.simpleframework.xml.Element
 import org.simpleframework.xml.ElementList
 import org.simpleframework.xml.Root
 import kotlinx.parcelize.Parcelize
+import retrofit2.http.Query
 
 @Root(name = "response", strict = false)
 data class NonPaymentResponse(
@@ -19,6 +20,17 @@ data class HospitalInfoResponse(
     var body: HospitalInfoBody? = null
 )
 
+@Root(name = "response", strict = false)
+data class DgsbjtInfoResponse(
+    @field:Element(name = "header", required = false)
+    var header: Header? = null,
+
+    @field:Element(name = "body", required = false)
+    var body: DgsbjtInfoBody? = null
+)
+
+
+
 @Root(strict = false)
 data class Header(
     @field:Element(name = "resultCode", required = false)
@@ -27,6 +39,17 @@ data class Header(
     @field:Element(name = "resultMsg", required = false)
     var resultMsg: String? = null
 )
+
+
+@Root(strict = false)
+data class DgsbjtInfoHeader(
+    @field:Element(name = "resultCode", required = false)
+    var resultCode: String? = null,
+
+    @field:Element(name = "resultMsg", required = false)
+    var resultMsg: String? = null
+)
+
 
 @Root(strict = false)
 data class NonPaymentBody(
@@ -58,10 +81,34 @@ data class HospitalInfoBody(
     var totalCount: Int = 0
 )
 
+
+
+@Root(strict = false)
+data class DgsbjtInfoBody(
+    @field:Element(name = "items", required = false)
+    var items: DgsbjtInfoItems? = null,
+
+    @field:Element(name = "numOfRows", required = false)
+    var numOfRows: Int = 0,
+
+    @field:Element(name = "pageNo", required = false)
+    var pageNo: Int = 0,
+
+    @field:Element(name = "totalCount", required = false)
+    var totalCount: Int = 0
+)
+
 @Root(strict = false)
 data class HospitalInfoItems(
     @field:ElementList(inline = true, entry = "item", required = false)
     var itemList: List<HospitalInfoItem>? = null
+)
+
+
+@Root(strict = false)
+data class DgsbjtInfoItems(
+    @field:ElementList(inline = true, entry = "item", required = false)
+    var itemList: List<DgsbjtInfoItem>? = null
 )
 
 @Parcelize
@@ -92,5 +139,23 @@ data class HospitalInfoItem(
     @field:Element(name = "sgguCdNm", required = false) var sgguCdNm: String? = null,
     @field:Element(name = "emdongNm", required = false) var emdongNm: String? = null,
     @field:Element(name = "dgsbjtCd", required = false) var dgsbjtCd: String? = null,
-    @field:Element(name = "clCd", required = false) var clCd: String? = null
+    @field:Element(name = "clCd", required = false) var clCd: String? = null,
+    @field:Element(name = "ykiho", required = false) var ykiho: String? = null
+)
+
+
+
+@Root(name = "item", strict = false)
+data class DgsbjtInfoItem(
+    @field:Element(name = "dgsbjtCd", required = false)
+    var dgsbjtCd: String? = null,
+
+    @field:Element(name = "dgsbjtCdNm", required = false)
+    var dgsbjtCdNm: String? = null,
+
+    @field:Element(name = "dgsbjtPrSdrCnt", required = false)
+    var dgsbjtPrSdrCnt: String? = null,
+
+    @field:Element(name = "cdiagDrCnt", required = false)
+    var cdiagDrCnt: String? = null
 )

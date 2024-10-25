@@ -15,6 +15,20 @@
             android:layout_height="match_parent" />
 
         <android.widget.Button
+            android:id="@+id/researchButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="현 지도에서 재검색"
+            android:paddingHorizontal="10dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/border_round_"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            />
+
+        <android.widget.Button
             android:id="@+id/returnToLocationButton"
             android:layout_width="30dp"
             android:layout_height="30dp"
