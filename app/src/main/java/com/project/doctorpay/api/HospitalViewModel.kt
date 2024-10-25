@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import org.simpleframework.xml.core.ElementException
 import retrofit2.HttpException
 import retrofit2.Response
+import java.io.EOFException
 
 class HospitalViewModel(
     private val healthInsuranceApi: HealthInsuranceApi
@@ -44,36 +45,78 @@ class HospitalViewModel(
     private val pageSize = 100
     private var isLastPage = false
 
+    private fun formatCoordinate(value: Double): String {
+        return String.format("%.8f", value)  // 좌표 정밀도 유지
+    }
+
     fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = 10000) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+
             try {
-                val response = healthInsuranceApi.getHospitalInfo(
-                    serviceKey = NetworkModule.getServiceKey(),
-                    pageNo = currentPage,
-                    numOfRows = pageSize,
-                    xPos = longitude.toString(),
-                    yPos = latitude.toString(),
-                    radius = radius
-                )
-                if (response.isSuccessful) {
-                    val newHospitals = response.body()?.body?.items?.itemList ?: emptyList()
-                    val combinedHospitals = combineHospitalData(newHospitals, emptyList())
+                // 재시도 로직 추가
+                var retryCount = 0
+                var success = false
+                var lastException: Exception? = null
 
-                    if (currentPage == 1) {
-                        _hospitals.value = combinedHospitals
-                    } else {
-                        _hospitals.value = _hospitals.value + combinedHospitals
+                while (retryCount < 3 && !success) {
+                    try {
+                        val response = healthInsuranceApi.getHospitalInfo(
+                            serviceKey = NetworkModule.getServiceKey(),
+                            pageNo = currentPage,
+                            numOfRows = pageSize,
+                            xPos = formatCoordinate(longitude),
+                            yPos = formatCoordinate(latitude),
+                            radius = radius
+                        )
+
+                        when {
+                            response.isSuccessful -> {
+                                val body = response.body()
+                                if (body == null) {
+                                    _error.value = "서버 응답이 비어있습니다"
+                                    return@launch
+                                }
+
+                                val newHospitals = body.body?.items?.itemList ?: emptyList()
+                                val combinedHospitals = combineHospitalData(newHospitals, emptyList())
+
+                                if (currentPage == 1) {
+                                    _hospitals.value = combinedHospitals
+                                } else {
+                                    _hospitals.value = _hospitals.value + combinedHospitals
+                                }
+
+                                isLastPage = newHospitals.size < pageSize
+                                currentPage++
+
+                                filterHospitalsWithin5km(latitude, longitude, _hospitals.value)
+                                success = true
+                            }
+                            response.code() == 429 -> {
+                                // Too Many Requests - 잠시 대기 후 재시도
+                                delay(1000L * (retryCount + 1))
+                            }
+                            else -> {
+                                _error.value = "서버 오류: ${response.code()} - ${response.message()}"
+                                Log.e("HospitalViewModel", "API Error: ${response.errorBody()?.string()}")
+                                return@launch
+                            }
+                        }
+                    } catch (e: Exception) {
+                        lastException = e
+                        retryCount++
+                        if (retryCount < 3) {
+                            delay(1000L * retryCount)
+                        }
                     }
-
-                    isLastPage = newHospitals.size < pageSize
-                    currentPage++
-
-                    filterHospitalsWithin5km(latitude, longitude, _hospitals.value)
-                } else {
-                    _error.value = "병원 정보를 불러오는데 실패했습니다: ${response.message()}"
                 }
+
+                if (!success && lastException != null) {
+                    handleError(lastException)
+                }
+
             } catch (e: Exception) {
                 handleError(e)
             } finally {
@@ -112,7 +155,10 @@ class HospitalViewModel(
             pageNo = 1,
             numOfRows = 100,
             sidoCd = sidoCd,
-            sgguCd = sgguCd
+            sgguCd = sgguCd,
+            xPos = "0",
+            yPos = "0",
+            radius = 0
         )
         Log.d("API_RESPONSE", "Raw Hospital Info Response: ${response.body()}")
         return response
@@ -234,15 +280,24 @@ class HospitalViewModel(
     }
 
 
+
     private fun handleError(e: Exception) {
         Log.e("HospitalViewModel", "데이터 불러오기 오류", e)
         val errorMessage = when (e) {
-            is HttpException -> "HTTP 오류: ${e.code()}"
-            is ElementException -> "XML 파싱 오류: ${e.message}"
+            is HttpException -> {
+                when (e.code()) {
+                    429 -> "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+                    500, 502, 503, 504 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+                    else -> "HTTP 오류: ${e.code()}"
+                }
+            }
+            is ElementException -> "데이터 형식 오류: ${e.message}"
+            is EOFException -> "서버 응답이 불완전합니다. 다시 시도해주세요."
             else -> "알 수 없는 오류: ${e.message}"
         }
+
         Log.e("HospitalViewModel", errorMessage)
-        _error.value = "데이터를 불러오는 중 오류가 발생했습니다: $errorMessage"
+        _error.value = errorMessage
     }
 
     private fun getDepartmentCategories(departments: List<String>): List<String> {
