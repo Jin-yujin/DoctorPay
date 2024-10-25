@@ -134,6 +134,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         val visibleRegion = naverMap.contentBounds
         val radius = calculateRadius(visibleRegion)
 
+        // 지도 중심이 변경될 때마다 어댑터에 새로운 기준 위치 전달
+        adapter.updateUserLocation(center)
+
         viewModel.resetPagination()
         viewModel.fetchNearbyHospitals(center.latitude, center.longitude, radius.toInt())
     }
@@ -141,10 +144,19 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.filteredHospitals.collectLatest { hospitals ->
-                val sortedHospitals = sortHospitalsByDistance(hospitals)
-                adapter.submitList(sortedHospitals)
-                addHospitalMarkers(sortedHospitals)
-                updateBottomSheet(sortedHospitals)
+                Log.d("MapViewFragment", "Received ${hospitals.size} hospitals")
+                userLocation?.let { currentLocation ->
+                    // 거리 기준으로 정렬
+                    val sortedHospitals = sortHospitalsByDistance(hospitals)
+                    adapter.submitList(sortedHospitals)
+                    addHospitalMarkers(sortedHospitals)
+                    updateBottomSheet(sortedHospitals)
+                } ?: run {
+                    // 현재 위치가 없는 경우 정렬하지 않고 표시
+                    adapter.submitList(hospitals)
+                    addHospitalMarkers(hospitals)
+                    updateBottomSheet(hospitals)
+                }
             }
         }
 
@@ -170,6 +182,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
+
     private fun enableLocationTracking() {
         try {
             naverMap.locationTrackingMode = LocationTrackingMode.Follow
@@ -179,6 +192,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             locationSource.activate { location ->
                 val newUserLocation = LatLng(location!!.latitude, location.longitude)
                 userLocation = newUserLocation
+
+                // 어댑터에 현재 위치 전달
+                adapter.updateUserLocation(newUserLocation)
 
                 if (!isInitialLocationSet) {
                     isInitialLocationSet = true
@@ -200,10 +216,10 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.researchButton.visibility = View.GONE
     }
 
-
     private fun setupReturnToLocationButton() {
         binding.returnToLocationButton.setOnClickListener {
             userLocation?.let { position ->
+                adapter.updateUserLocation(position)  // 현재 위치로 돌아갈 때도 어댑터에 위치 전달
                 naverMap.moveCamera(CameraUpdate.scrollTo(position))
                 isMapMoved = false
                 hideResearchButton()
@@ -211,7 +227,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
         }
     }
-
 
     private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
         markers.forEach { it.map = null }
@@ -288,9 +303,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
+
     private fun setupResearchButton() {
         binding.researchButton.setOnClickListener {
             val mapCenter = naverMap.cameraPosition.target
+            adapter.updateUserLocation(mapCenter)  // 재검색 시에도 어댑터에 위치 전달
             viewModel.resetPagination()
             viewModel.fetchNearbyHospitals(mapCenter.latitude, mapCenter.longitude)
             hideResearchButton()
@@ -315,12 +332,17 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         return if (currentLocation != null) {
             hospitals.sortedBy { hospital ->
                 val results = FloatArray(1)
-                Location.distanceBetween(
-                    currentLocation.latitude, currentLocation.longitude,
-                    hospital.latitude, hospital.longitude,
-                    results
-                )
-                results[0]
+                try {
+                    Location.distanceBetween(
+                        currentLocation.latitude, currentLocation.longitude,
+                        hospital.latitude, hospital.longitude,
+                        results
+                    )
+                    results[0]
+                } catch (e: Exception) {
+                    Log.e("MapViewFragment", "Error calculating distance for ${hospital.name}", e)
+                    Float.MAX_VALUE // 오류 발생시 가장 멀리 정렬
+                }
             }
         } else {
             hospitals
@@ -370,8 +392,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
-
     private fun updateHospitalsBasedOnLocation(location: LatLng) {
+        adapter.updateUserLocation(location)  // 위치 업데이트시 어댑터에도 전달
         viewModel.fetchNearbyHospitals(location.latitude, location.longitude)
     }
 
@@ -380,8 +402,16 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         adapter = HospitalAdapter { hospital ->
             showHospitalDetail(hospital)
         }
-        binding.hospitalRecyclerView.layoutManager = LinearLayoutManager(context)
-        binding.hospitalRecyclerView.adapter = adapter
+        binding.hospitalRecyclerView.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = this@MapViewFragment.adapter
+            setHasFixedSize(true)
+        }
+
+        // 현재 위치가 있다면 어댑터에 전달
+        userLocation?.let { location ->
+            adapter.updateUserLocation(location)
+        }
     }
 
 

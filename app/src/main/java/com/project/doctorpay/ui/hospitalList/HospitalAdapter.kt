@@ -1,6 +1,7 @@
 package com.project.doctorpay.ui.hospitalList
 
 import android.location.Location
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,9 +20,24 @@ class HospitalAdapter(
 
     private var userLocation: LatLng? = null
 
+
     fun updateUserLocation(location: LatLng) {
+        Log.d("HospitalAdapter", "Updating user location to: ${location.latitude}, ${location.longitude}")
         userLocation = location
         notifyDataSetChanged()
+    }
+
+    override fun onBindViewHolder(holder: HospitalViewHolder, position: Int) {
+        val hospital = getItem(position)
+        Log.d("HospitalAdapter", "Binding hospital: ${hospital.name}")
+        Log.d("HospitalAdapter", "User location: $userLocation")
+        Log.d("HospitalAdapter", "Hospital location: (${hospital.latitude}, ${hospital.longitude})")
+
+        val distance = calculateDistance(hospital)
+        Log.d("HospitalAdapter", "Calculated distance: $distance")
+
+        holder.bind(hospital, distance)
+        holder.itemView.setOnClickListener { onItemClick(hospital) }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HospitalViewHolder {
@@ -30,30 +46,30 @@ class HospitalAdapter(
         return HospitalViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: HospitalViewHolder, position: Int) {
-        val hospital = getItem(position)
-        val distance = calculateDistance(hospital)
-        holder.bind(hospital, distance)
-        holder.itemView.setOnClickListener { onItemClick(hospital) }
-    }
-
     private fun calculateDistance(hospital: HospitalInfo): String {
         return userLocation?.let { currentLocation ->
             val results = FloatArray(1)
-            Location.distanceBetween(
-                currentLocation.latitude,
-                currentLocation.longitude,
-                hospital.latitude,
-                hospital.longitude,
-                results
-            )
+            try {
+                Location.distanceBetween(
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                    hospital.latitude,
+                    hospital.longitude,
+                    results
+                )
 
-            // Convert distance to appropriate unit (m or km)
-            when {
-                results[0] < 1000 -> "${results[0].roundToInt()}m"
-                else -> String.format("%.1fkm", results[0] / 1000)
+                when {
+                    results[0] < 1000 -> "${results[0].roundToInt()}m"
+                    else -> String.format("%.1fkm", results[0] / 1000)
+                }
+            } catch (e: Exception) {
+                Log.e("HospitalAdapter", "Error calculating distance for ${hospital.name}", e)
+                "거리 계산 오류"
             }
-        } ?: "거리 정보 없음"
+        } ?: run {
+            Log.d("HospitalAdapter", "User location is null")
+            "거리 정보 없음"
+        }
     }
 
     class HospitalViewHolder(view: View) : RecyclerView.ViewHolder(view) {
