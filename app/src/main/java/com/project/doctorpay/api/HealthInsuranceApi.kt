@@ -32,9 +32,9 @@ interface HealthInsuranceApi {
         @Query("zipCd") zipCd: String? = null,
         @Query("clCd") clCd: String? = null,
         @Query("dgsbjtCd") dgsbjtCd: String? = null,
-        @Query("xPos") xPos: String? = null,
-        @Query("yPos") yPos: String? = null,
-        @Query("radius") radius: Int? = null,
+        @Query("xPos") xPos: String,
+        @Query("yPos") yPos: String,
+        @Query("radius") radius: Int,
         @Query("ykiho") ykiho: String? = null
     ):  Response<HospitalInfoResponse>
 

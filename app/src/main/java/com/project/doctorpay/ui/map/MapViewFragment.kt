@@ -58,7 +58,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private var userLocation: LatLng? = null
 
-    private lateinit var researchButton: View
+
     private var isInitialLocationSet = false
     private var isMapMoved = false
     private var isLoadingMore = false
