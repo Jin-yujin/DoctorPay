@@ -189,9 +189,9 @@ class HospitalDetailFragment : Fragment() {
                 notes
             )
 
-            // MainActivity를 통해 CalendarFragment로 예약 정보 전달
+            // MainActivity를 통해 CalendarFragment로 일정 정보 전달
             (activity as? MainActivity)?.addAppointmentToCalendar(appointment)
-            Toast.makeText(context, "예약이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
         }
 

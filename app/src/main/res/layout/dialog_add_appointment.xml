@@ -15,10 +15,11 @@
         android:padding="24dp">
 
         <TextView
+            android:id="@+id/titleTextView"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="예약 추가"
-            android:textSize="24sp"
+            android:text=" 일정 추가"
+            android:textSize="20sp"
             android:textStyle="bold"
             android:layout_marginBottom="16dp"/>
 
