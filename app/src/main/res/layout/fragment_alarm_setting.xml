@@ -87,7 +87,7 @@
                 android:layout_marginStart="10dp"
                 android:layout_toStartOf="@id/switchReserveNotification"
                 android:layout_alignParentStart="true"
-                android:text="예약 일자 알림"
+                android:text="일정 일자 알림"
                 />
 
             <androidx.appcompat.widget.SwitchCompat

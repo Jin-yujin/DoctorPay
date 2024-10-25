@@ -9,11 +9,13 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.Gson
 import com.project.doctorpay.MainActivity
+import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentCalendarBinding
 import com.project.doctorpay.databinding.DialogAddAppointmentBinding
 import java.text.SimpleDateFormat
@@ -45,10 +47,18 @@ class CalendarFragment : Fragment() {
 
     private fun setupViews() {
         binding.calendarView.setDate(selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH))
+        binding.calendarView.setSelectedDate(
+            selectedDate.get(Calendar.YEAR),
+            selectedDate.get(Calendar.MONTH),
+            selectedDate.get(Calendar.DAY_OF_MONTH)
+        )
+
         binding.calendarView.setOnDateClickListener { year, month, day ->
             selectedDate.set(year, month, day)
+            binding.calendarView.setSelectedDate(year, month, day)
             loadAppointmentsForDate(year, month, day)
         }
+
         binding.calendarView.setOnMonthChangeListener { year, month ->
             selectedDate.set(year, month, 1)
             loadAppointments()
@@ -79,13 +89,16 @@ class CalendarFragment : Fragment() {
         }
     }
 
-    // 예약 수정 기능
+    // 일정 수정 기능
     private fun showEditAppointmentDialog(appointment: Appointment) {
         val dialogBinding = DialogAddAppointmentBinding.inflate(layoutInflater)
         val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogBinding.root)
-            .setTitle("예약 수정")
+            .setTitle(" 일정 수정")
             .create()
+
+        // "일정 추가" 문구 숨기기
+        dialogBinding.root.findViewById<TextView>(R.id.titleTextView)?.visibility = View.GONE
 
         val calendar = Calendar.getInstance().apply {
             set(appointment.year, appointment.month, appointment.day)
@@ -108,7 +121,7 @@ class CalendarFragment : Fragment() {
             )
 
             updateAppointment(appointment, updatedAppointment)
-            Toast.makeText(context, "예약이 수정되었습니다", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "일정이 수정되었습니다", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
         }
 
@@ -119,14 +132,14 @@ class CalendarFragment : Fragment() {
         dialog.show()
     }
 
-    // 예약 삭제 기능
+    // 일정 삭제 기능
     private fun showDeleteConfirmationDialog(appointment: Appointment) {
         AlertDialog.Builder(requireContext())
-            .setTitle("예약 삭제")
-            .setMessage("이 예약을 삭제하시겠습니까?")
+            .setTitle("일정 삭제")
+            .setMessage("이 일정을 삭제하시겠습니까?")
             .setPositiveButton("삭제") { _, _ ->
                 deleteAppointment(appointment)
-                Toast.makeText(context, "예약이 삭제되었습니다", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "일정이 삭제되었습니다", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("취소", null)
             .show()
@@ -161,10 +174,17 @@ class CalendarFragment : Fragment() {
 
     private fun setupTodayDateView() {
         updateTodayDateText()
-        binding.todayDateContainer.setOnClickListener {
+        binding.todayDateIcon.setOnClickListener {
             val today = Calendar.getInstance()
-            loadAppointmentsForDate(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
-            updateTodayDateText()
+            binding.calendarView.setDate(
+                today.get(Calendar.YEAR),
+                today.get(Calendar.MONTH)
+            )
+            binding.calendarView.setSelectedDate(
+                today.get(Calendar.YEAR),
+                today.get(Calendar.MONTH),
+                today.get(Calendar.DAY_OF_MONTH)
+            )
         }
     }
 
@@ -205,7 +225,7 @@ class CalendarFragment : Fragment() {
             )
 
             addAppointment(newAppointment)
-            Toast.makeText(context, "예약이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
             dialog.dismiss()
         }
 
