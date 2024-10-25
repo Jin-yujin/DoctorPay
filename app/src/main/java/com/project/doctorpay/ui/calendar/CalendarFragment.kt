@@ -169,10 +169,17 @@ class CalendarFragment : Fragment() {
 
     private fun setupTodayDateView() {
         updateTodayDateText()
-        binding.todayDateContainer.setOnClickListener {
+        binding.todayDateIcon.setOnClickListener {
             val today = Calendar.getInstance()
-            loadAppointmentsForDate(today.get(Calendar.YEAR), today.get(Calendar.MONTH), today.get(Calendar.DAY_OF_MONTH))
-            updateTodayDateText()
+            binding.calendarView.setDate(
+                today.get(Calendar.YEAR),
+                today.get(Calendar.MONTH)
+            )
+            binding.calendarView.setSelectedDate(
+                today.get(Calendar.YEAR),
+                today.get(Calendar.MONTH),
+                today.get(Calendar.DAY_OF_MONTH)
+            )
         }
     }
 
