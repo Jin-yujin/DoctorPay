@@ -85,8 +85,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_internal_stethoscope"/>
 
@@ -107,8 +107,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_surgery_scalpel" />
 
@@ -160,8 +160,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_ortho_bone"/>
 
@@ -182,8 +182,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_ent_ear" />
 
@@ -235,8 +235,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_brain_neuro" />
 
@@ -257,8 +257,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="28dp"
+                            android:layout_height="28dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_obstetrics_mother"/>
 
@@ -279,8 +279,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="33dp"
-                            android:layout_height="31dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:src="@drawable/ic_person" />
@@ -309,8 +309,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_oriental_needle"/>
 
@@ -331,8 +331,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:src="@drawable/ic_person"/>
 
@@ -353,8 +353,8 @@
                         android:orientation="vertical">
 
                         <ImageView
-                            android:layout_width="33dp"
-                            android:layout_height="31dp"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             android:src="@drawable/ic_person" />
