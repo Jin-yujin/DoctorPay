@@ -88,7 +88,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"/>
+                            android:src="@drawable/ic_internal_stethoscope"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -97,7 +97,7 @@
                             android:text="@string/INTERNAL_MEDICINE" />
                     </LinearLayout>
 
-                    <!--내과-->
+                    <!--외과-->
                     <LinearLayout
                         android:id="@+id/btnGeneralSurgery"
                         android:layout_width="0dp"
@@ -110,7 +110,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person" />
+                            android:src="@drawable/ic_surgery_scalpel" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -133,7 +133,7 @@
                             android:layout_height="30dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
-                            android:src="@drawable/ic_person" />
+                            android:src="@drawable/ic_dental_tooth" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -163,7 +163,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"/>
+                            android:src="@drawable/ic_ortho_bone"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -171,6 +171,7 @@
                             android:layout_marginTop="8dp"
                             android:text="@string/REHABILITATION" />
                     </LinearLayout>
+
                     <!--이비인후과-->
                     <LinearLayout
                         android:id="@+id/btnOTOLARYNGOLOGY"
@@ -184,7 +185,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person" />
+                            android:src="@drawable/ic_ent_ear" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -207,7 +208,7 @@
                             android:layout_height="31dp"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
-                            android:src="@drawable/ic_person" />
+                            android:src="@drawable/ic_eye_ophthalmology" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -223,6 +224,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:orientation="horizontal">
+
                     <!--정신,신경과-->
                     <LinearLayout
                         android:id="@+id/btnMENTAL_NEUROLOGY"
@@ -236,7 +238,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person" />
+                            android:src="@drawable/ic_brain_neuro" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -258,7 +260,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"/>
+                            android:src="@drawable/ic_obstetrics_mother"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -310,7 +312,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:layout_gravity="center"
-                            android:src="@drawable/ic_person"/>
+                            android:src="@drawable/ic_oriental_needle"/>
 
                         <TextView
                             android:layout_width="wrap_content"
