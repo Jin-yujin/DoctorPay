@@ -36,6 +36,7 @@ class HospitalListFragment : Fragment() {
     private lateinit var adapter: HospitalAdapter
     private var category: DepartmentCategory? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var userLocation: LatLng? = null
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -66,6 +67,7 @@ class HospitalListFragment : Fragment() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
     }
 
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = ViewHospitalListBinding.inflate(inflater, container, false)
 
@@ -90,6 +92,7 @@ class HospitalListFragment : Fragment() {
         updateHeaderText()
     }
 
+
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->
             navigateToHospitalDetail(hospital)
@@ -107,7 +110,9 @@ class HospitalListFragment : Fragment() {
                 Log.d(TAG, "Received hospitals: ${hospitals.size}")
                 val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
                 Log.d(TAG, "Filtered hospitals: ${filteredHospitals.size}")
-                updateUI(filteredHospitals)
+                // 거리 기준으로 정렬된 병원 목록을 사용
+                val sortedHospitals = sortHospitalsByDistance(filteredHospitals)
+                updateUI(sortedHospitals)
             }
         }
 
@@ -123,6 +128,28 @@ class HospitalListFragment : Fragment() {
                     showError(it)
                 }
             }
+        }
+    }
+
+    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            hospitals.sortedBy { hospital ->
+                val results = FloatArray(1)
+                try {
+                    Location.distanceBetween(
+                        currentLocation.latitude, currentLocation.longitude,
+                        hospital.latitude, hospital.longitude,
+                        results
+                    )
+                    results[0]
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error calculating distance for ${hospital.name}", e)
+                    Float.MAX_VALUE // 오류 발생시 가장 멀리 정렬
+                }
+            }
+        } else {
+            hospitals
         }
     }
 
@@ -154,8 +181,8 @@ class HospitalListFragment : Fragment() {
             fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
                 location?.let {
                     Log.d(TAG, "Current location: ${it.latitude}, ${it.longitude}")
-                    val userLocation = LatLng(it.latitude, it.longitude)
-                    adapter.updateUserLocation(userLocation)  // 어댑터에 위치 정보 전달
+                    userLocation = LatLng(it.latitude, it.longitude)
+                    adapter.updateUserLocation(userLocation!!)
                     viewModel.fetchNearbyHospitals(it.latitude, it.longitude)
                 } ?: loadDefaultLocationData()
             }.addOnFailureListener {
@@ -167,10 +194,13 @@ class HospitalListFragment : Fragment() {
             loadDefaultLocationData()
         }
     }
+
+
     private fun loadDefaultLocationData() {
         // 서울 시청 좌표 (기본값)
         val defaultLocation = LatLng(37.5666805, 126.9784147)
-        adapter.updateUserLocation(defaultLocation)  // 기본 위치도 어댑터에 전달
+        userLocation = defaultLocation
+        adapter.updateUserLocation(defaultLocation)
         viewModel.fetchNearbyHospitals(defaultLocation.latitude, defaultLocation.longitude, 5000)
     }
 
@@ -217,13 +247,14 @@ class HospitalListFragment : Fragment() {
             else -> getString(R.string.category_header_format, category?.categoryName)
         }
     }
-
     private fun filterHospitals(onlyAvailable: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
             val hospitals = viewModel.hospitals.value
             val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
                 .filter { if (onlyAvailable) it.state == "영업중" else true }
-            updateUI(filteredHospitals)
+            // 필터링 후에도 거리 순으로 정렬
+            val sortedHospitals = sortHospitalsByDistance(filteredHospitals)
+            updateUI(sortedHospitals)
         }
     }
 
