@@ -13,6 +13,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -26,6 +27,7 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.ViewHospitalListBinding
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.network.NetworkModule
+import com.project.doctorpay.ui.home.HomeFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -75,7 +77,13 @@ class HospitalListFragment : Fragment() {
             viewLifecycleOwner,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    requireActivity().supportFragmentManager.popBackStack()
+                    // 백스택을 전부 비우고 홈화면으로 이동
+                    requireActivity().supportFragmentManager.apply {
+                        popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                        beginTransaction()
+                            .replace(R.id.fragment_container, HomeFragment())
+                            .commit()
+                    }
                 }
             }
         )
