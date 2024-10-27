@@ -131,14 +131,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private fun loadHospitalsForVisibleRegion() {
         val center = naverMap.cameraPosition.target
-        val visibleRegion = naverMap.contentBounds
-        val radius = calculateRadius(visibleRegion)
-
-        // 지도 중심이 변경될 때마다 어댑터에 새로운 기준 위치 전달
         adapter.updateUserLocation(center)
-
         viewModel.resetPagination()
-        viewModel.fetchNearbyHospitals(center.latitude, center.longitude, radius.toInt())
+        viewModel.fetchNearbyHospitals(center.latitude, center.longitude, HospitalViewModel.DEFAULT_RADIUS)
     }
 
     private fun setupObservers() {

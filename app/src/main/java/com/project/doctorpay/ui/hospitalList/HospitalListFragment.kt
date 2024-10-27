@@ -106,7 +106,7 @@ class HospitalListFragment : Fragment() {
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.hospitals.collectLatest { hospitals ->
+            viewModel.filteredHospitals.collectLatest { hospitals ->
                 Log.d(TAG, "Received hospitals: ${hospitals.size}")
                 val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
                 Log.d(TAG, "Filtered hospitals: ${filteredHospitals.size}")

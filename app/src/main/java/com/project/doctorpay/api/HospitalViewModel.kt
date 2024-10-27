@@ -24,6 +24,7 @@ import org.simpleframework.xml.core.ElementException
 import retrofit2.HttpException
 import retrofit2.Response
 import java.io.EOFException
+import java.net.UnknownHostException
 
 class HospitalViewModel(
     private val healthInsuranceApi: HealthInsuranceApi
@@ -42,14 +43,18 @@ class HospitalViewModel(
     val error: StateFlow<String?> = _error
 
     private var currentPage = 1
-    private val pageSize = 20
+    private val pageSize = 50
     private var isLastPage = false
+
+    companion object {
+        const val DEFAULT_RADIUS = 5000  // 5km
+    }
 
     private fun formatCoordinate(value: Double): String {
         return String.format("%.8f", value)  // 좌표 정밀도 유지
     }
 
-    fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = 10000) {
+    fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = 5000) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -122,7 +127,7 @@ class HospitalViewModel(
                     response.code() == 429 -> {
                         Log.d("HospitalViewModel", "Rate limit exceeded, retrying...")
                         delay(1000L)
-                        fetchNearbyHospitals(latitude, longitude, radius)
+                        fetchNearbyHospitals(latitude, longitude, DEFAULT_RADIUS)
                     }
                     else -> {
                         val errorBody = response.errorBody()?.string()
@@ -168,7 +173,7 @@ class HospitalViewModel(
         val response = healthInsuranceApi.getHospitalInfo(
             serviceKey = NetworkModule.getServiceKey(),
             pageNo = 1,
-            numOfRows = 20,
+            numOfRows = pageSize,
             sidoCd = sidoCd,
             sgguCd = sgguCd,
             xPos = "0",
@@ -184,19 +189,27 @@ class HospitalViewModel(
         return healthInsuranceApi.getNonPaymentInfo(
             serviceKey = NetworkModule.getServiceKey(),
             pageNo = 1,
-            numOfRows = 20
+            numOfRows = pageSize
         )
     }
 
 
 
-    private suspend fun fetchDgsbjtInfo(ykiho: String): Response<DgsbjtInfoResponse> {
-        return healthInsuranceApi.getDgsbjtInfo(
-            serviceKey = NetworkModule.getServiceKey(),
-            ykiho = ykiho.trim(),
-            pageNo = 1,
-            numOfRows = 20
-        )
+    private suspend fun fetchDgsbjtInfo(ykiho: String, retryCount: Int = 3): Response<DgsbjtInfoResponse> {
+        repeat(retryCount) { attempt ->
+            try {
+                return healthInsuranceApi.getDgsbjtInfo(
+                    serviceKey = NetworkModule.getServiceKey(),
+                    ykiho = ykiho.trim(),
+                    pageNo = 1,
+                    numOfRows = 20
+                )
+            } catch (e: UnknownHostException) {
+                if (attempt == retryCount - 1) throw e
+                delay(1000) // 1초 대기 후 재시도
+            }
+        }
+        throw UnknownHostException("Failed after $retryCount attempts")
     }
 
 
