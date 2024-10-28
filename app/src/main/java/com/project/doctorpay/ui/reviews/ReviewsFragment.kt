@@ -35,6 +35,11 @@ class ReviewFragment : Fragment() {
 
         hospitalId = arguments?.getString("hospitalId") ?: return
 
+        binding.recyclerViewReviews.visibility = View.GONE
+        binding.emptyView.visibility = View.VISIBLE
+        binding.averageRatingText.text = "0.0"
+        binding.averageRatingBar.rating = 0f
+
         setupToolbar()
         setupRecyclerView()
         setupObservers()
@@ -68,10 +73,20 @@ class ReviewFragment : Fragment() {
         viewModel.reviews.observe(viewLifecycleOwner) { reviews ->
             Log.d("ReviewFragment", "Received ${reviews.size} reviews")
             reviewAdapter.updateList(reviews)
-            binding.emptyView.isVisible = reviews.isEmpty()
 
-            // 평균 평점 계산
-            if (reviews.isNotEmpty()) {
+            // 리뷰가 없을 때의 처리
+            binding.emptyView.isVisible = reviews.isEmpty()
+            binding.recyclerViewReviews.isVisible = reviews.isNotEmpty()
+
+            // 평균 평점 계산 및 표시
+            if (reviews.isEmpty()) {
+                binding.recyclerViewReviews.visibility = View.GONE
+                binding.emptyView.visibility = View.VISIBLE
+                binding.averageRatingText.text = "0.0"
+                binding.averageRatingBar.rating = 0f
+            } else {
+                binding.recyclerViewReviews.visibility = View.VISIBLE
+                binding.emptyView.visibility = View.GONE
                 val avgRating = reviews.map { it.rating }.average().toFloat()
                 binding.averageRatingBar.rating = avgRating
                 binding.averageRatingText.text = String.format("%.1f", avgRating)

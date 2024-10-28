@@ -144,6 +144,11 @@ class HospitalDetailFragment : Fragment() {
             .get()
             .addOnSuccessListener { documents ->
                 if (documents.isEmpty) {
+                    // 리뷰가 없을 때
+                    binding.layoutReviews.removeAllViews()
+                    val emptyView = LayoutInflater.from(requireContext())
+                        .inflate(R.layout.view_empty_review, binding.layoutReviews, false)
+                    binding.layoutReviews.addView(emptyView)
                     binding.tvReviewRating.text = "0.0"
                     binding.ratingBar.rating = 0f
                     return@addOnSuccessListener
