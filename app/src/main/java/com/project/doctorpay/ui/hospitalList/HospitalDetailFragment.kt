@@ -23,6 +23,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
@@ -33,6 +35,7 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.calendar.Appointment
+import com.project.doctorpay.ui.reviews.Review
 import com.project.doctorpay.ui.reviews.ReviewFragment
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -107,6 +110,8 @@ class HospitalDetailFragment : Fragment() {
                 "진료과목 정보 없음"
             }
 
+            loadReviewsSection()
+
 //
 //            // 진료과목 카테고리 표시 (선택적)
 //            val categoriesText = hospital.departmentCategories.joinToString(", ")
@@ -129,6 +134,54 @@ class HospitalDetailFragment : Fragment() {
 
         loadNonCoveredItems(hospital.nonPaymentItems)
         loadReviewPreviews() // 리뷰 데이터가 있다면 이 메서드를 구현하여 실제 리뷰를 표시
+    }
+
+    private fun loadReviewsSection() {
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("reviews")
+            .whereEqualTo("hospitalId", hospital.ykiho)
+            .get()  // 일단 전체 리뷰를 가져온 후 코드에서 정렬
+            .addOnSuccessListener { documents ->
+                if (documents.isEmpty) {
+                    binding.tvReviewRating.text = "0.0"
+                    binding.ratingBar.rating = 0f
+                    return@addOnSuccessListener
+                }
+
+                // 평균 평점 계산 및 표시
+                val reviews = documents.toObjects(Review::class.java)
+                val avgRating = reviews.map { it.rating }.average().toFloat()
+                binding.tvReviewRating.text = String.format("%.1f", avgRating)
+                binding.ratingBar.rating = avgRating
+
+                // 최신 리뷰 2개 가져오기
+                binding.layoutReviews.removeAllViews()
+                reviews.sortedByDescending { it.timestamp }
+                    .take(2)
+                    .forEach { review ->
+                        try {
+                            val reviewView = LayoutInflater.from(requireContext())
+                                .inflate(R.layout.item_review_preview, binding.layoutReviews, false)
+
+                            // ID를 확인하고 TextView를 바인딩
+                            reviewView.findViewById<TextView>(R.id.tvReviewerName)?.text = review.userName
+                            reviewView.findViewById<TextView>(R.id.tvReviewContent)?.text = review.content
+                            reviewView.findViewById<RatingBar>(R.id.rbReviewRating)?.rating = review.rating
+
+                            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                            val date = Date(review.timestamp)
+                            reviewView.findViewById<TextView>(R.id.tvReviewDate)?.text = dateFormat.format(date)
+
+                            binding.layoutReviews.addView(reviewView)
+                        } catch (e: Exception) {
+                            Log.e("HospitalDetailFragment", "Error adding review preview", e)
+                        }
+                    }
+            }
+            .addOnFailureListener { e ->
+                Log.e("HospitalDetailFragment", "Error loading reviews", e)
+            }
     }
 
     private fun setupClickListeners() {
@@ -252,9 +305,42 @@ class HospitalDetailFragment : Fragment() {
     }
 
     private fun loadReviewPreviews() {
-        // TODO: Load actual review previews from API or database
-        addReviewPreview("김OO", "친절하고 좋았어요", 5f)
-        addReviewPreview("이OO", "대기 시간이 좀 길었어요", 3f)
+        val db = FirebaseFirestore.getInstance()
+        db.collection("reviews")
+            .whereEqualTo("hospitalId", hospital.ykiho)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(2)  // 최신 리뷰 2개만 가져오기
+            .get()
+            .addOnSuccessListener { documents ->
+                binding.layoutReviews.removeAllViews()  // 기존 뷰 초기화
+
+                // 평균 평점 계산 및 표시
+                if (documents.size() > 0) {
+                    val avgRating = documents.documents
+                        .mapNotNull { it.getDouble("rating")?.toFloat() }
+                        .average()
+                        .toFloat()
+
+                    // 평균 평점 표시 뷰 추가
+                    val ratingView = LayoutInflater.from(requireContext())
+                        .inflate(R.layout.view_average_rating, binding.layoutReviews, false)
+
+                    ratingView.findViewById<TextView>(R.id.tvAverageRating).text =
+                        String.format("%.1f", avgRating)
+                    ratingView.findViewById<RatingBar>(R.id.rbAverageRating).rating = avgRating
+
+                    binding.layoutReviews.addView(ratingView)
+                }
+
+                // 리뷰 미리보기 표시
+                documents.forEach { document ->
+                    val review = document.toObject(Review::class.java)
+                    addReviewPreview(review.userName, review.content, review.rating)
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("HospitalDetailFragment", "Error loading review previews", e)
+            }
     }
 
     private fun loadNonCoveredItems(items: List<NonPaymentItem>) {
@@ -291,9 +377,15 @@ class HospitalDetailFragment : Fragment() {
     private fun addReviewPreview(name: String, content: String, rating: Float) {
         val reviewView = LayoutInflater.from(requireContext())
             .inflate(R.layout.item_review_preview, binding.layoutReviews, false)
-        reviewView.findViewById<TextView>(R.id.tvReviewerName).text = name
-        reviewView.findViewById<TextView>(R.id.tvReviewContent).text = content
-        reviewView.findViewById<RatingBar>(R.id.rbReviewRating).rating = rating
+
+        reviewView.apply {
+            findViewById<TextView>(R.id.tvReviewerName).text = name
+            findViewById<TextView>(R.id.tvReviewContent).text = content
+            findViewById<RatingBar>(R.id.rbReviewRating).rating = rating
+            findViewById<TextView>(R.id.tvReviewDate).text = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                .format(Date())
+        }
+
         binding.layoutReviews.addView(reviewView)
     }
 

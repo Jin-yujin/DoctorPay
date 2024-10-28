@@ -76,28 +76,38 @@ class ReviewViewModel : ViewModel() {
     fun addReview(hospitalId: String, rating: Float, content: String) {
         _reviewStatus.value = ReviewStatus.Loading
 
-        val review = Review(
-            id = UUID.randomUUID().toString(),
-            hospitalId = hospitalId,
-            userId = auth.currentUser?.uid ?: "",
-            userName = auth.currentUser?.displayName ?: "익명",
-            rating = rating,
-            content = content,
-            timestamp = System.currentTimeMillis()
-        )
+        // Firestore에서 사용자 정보 가져오기
+        db.collection("users")
+            .document(auth.currentUser?.uid ?: "")
+            .get()
+            .addOnSuccessListener { document ->
+                val nickname = document.getString("nickname") ?: auth.currentUser?.displayName ?: "익명"
 
-        // 리뷰를 Firestore의 reviews 컬렉션에 저장
-        db.collection("reviews")
-            .document(review.id)
-            .set(review)
-            .addOnSuccessListener {
-                // 리뷰 추가 후 즉시 새로운 데이터 로드
-                loadReviews(hospitalId)
-                _reviewStatus.value = ReviewStatus.Success
+                val review = Review(
+                    id = UUID.randomUUID().toString(),
+                    hospitalId = hospitalId,
+                    userId = auth.currentUser?.uid ?: "",
+                    userName = nickname,  // 닉네임 사용
+                    rating = rating,
+                    content = content,
+                    timestamp = System.currentTimeMillis()
+                )
+
+                db.collection("reviews")
+                    .document(review.id)
+                    .set(review)
+                    .addOnSuccessListener {
+                        updateHospitalRating(hospitalId)
+                        _reviewStatus.value = ReviewStatus.Success
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("ReviewViewModel", "Error adding review", e)
+                        _reviewStatus.value = ReviewStatus.Error("리뷰 등록에 실패했습니다")
+                    }
             }
             .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error adding review", e)
-                _reviewStatus.value = ReviewStatus.Error("리뷰 등록에 실패했습니다")
+                Log.e("ReviewViewModel", "Error getting user nickname", e)
+                _reviewStatus.value = ReviewStatus.Error("사용자 정보를 가져오는데 실패했습니다")
             }
     }
 
