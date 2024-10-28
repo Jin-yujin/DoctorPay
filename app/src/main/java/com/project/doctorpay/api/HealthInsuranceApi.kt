@@ -45,6 +45,6 @@ interface HealthInsuranceApi {
         @Query("serviceKey") serviceKey: String,
         @Query("ykiho") ykiho: String,
         @Query("pageNo") pageNo: Int = 1,
-        @Query("numOfRows") numOfRows: Int = 100
+        @Query("numOfRows") numOfRows: Int = 50
     ): Response<DgsbjtInfoResponse>
 }
