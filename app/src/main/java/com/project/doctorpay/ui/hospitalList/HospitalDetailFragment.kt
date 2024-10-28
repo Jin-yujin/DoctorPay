@@ -404,14 +404,15 @@ class HospitalDetailFragment : Fragment() {
         // ReviewFragment로 전환하면서 hospitalId 전달
         val reviewFragment = ReviewFragment().apply {
             arguments = Bundle().apply {
-                putString("hospitalId", hospital.ykiho)  // 또는 hospital.id 등 고유 식별자
+                putString("hospitalId", hospital.ykiho)
+                putString("hospitalName", hospital.name)
             }
         }
 
         // Fragment 전환
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, reviewFragment)
-            .addToBackStack(null)  // 뒤로가기 지원
+            .addToBackStack(null)
             .commit()
     }
 

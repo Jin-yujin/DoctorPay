@@ -42,12 +42,17 @@ class ReviewFragment : Fragment() {
     }
 
     private fun setupToolbar() {
-        binding.toolbar.apply {
-            setNavigationIcon(R.drawable.ic_back)  // 뒤로가기 아이콘 (필요시 리소스 추가)
-            setNavigationOnClickListener {
+        binding.apply {
+            btnBack.setOnClickListener {
                 parentFragmentManager.popBackStack()
             }
-            title = "리뷰"  // 또는 병원 이름을 표시할 수 있습니다
+
+            // 타이틀 설정 (병원 이름 + 리뷰)
+            arguments?.getString("hospitalName")?.let { hospitalName ->
+                toolbarTitle.text = " $hospitalName 리뷰"
+            } ?: run {
+                toolbarTitle.text = "리뷰"
+            }
         }
     }
 
