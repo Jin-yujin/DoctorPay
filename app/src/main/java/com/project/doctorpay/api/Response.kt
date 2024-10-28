@@ -122,7 +122,9 @@ data class NonPaymentItem(
     val itemNm: String?,
     val cntrImpAmtMin: String?,
     val cntrImpAmtMax: String?,
-    val spcmfyCatn: String?
+    val spcmfyCatn: String?,
+    val npayKorNm: String?,
+    val curAmt: String?
 ) : Parcelable
 
 @Root(strict = false)

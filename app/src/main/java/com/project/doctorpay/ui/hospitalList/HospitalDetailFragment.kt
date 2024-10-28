@@ -116,6 +116,16 @@ class HospitalDetailFragment : Fragment() {
 //            }
         }
 
+        viewLifecycleOwner.lifecycleScope.launch {
+            val nonPaymentItems = viewModel.fetchNonPaymentDetails(hospital.ykiho)
+            loadNonCoveredItems(nonPaymentItems)
+            if (nonPaymentItems.isEmpty()) {
+                Toast.makeText(context, "No non-payment items found", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "Non-payment items loaded", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         loadNonCoveredItems(hospital.nonPaymentItems)
         loadReviewPreviews() // 리뷰 데이터가 있다면 이 메서드를 구현하여 실제 리뷰를 표시
     }
@@ -248,8 +258,14 @@ class HospitalDetailFragment : Fragment() {
 
     private fun loadNonCoveredItems(items: List<NonPaymentItem>) {
         binding.layoutNonCoveredItems.removeAllViews()
-        items.take(2).forEach { item ->
-            addNonCoveredItem(item)
+        items.forEach { item ->
+            val itemView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_non_covered, binding.layoutNonCoveredItems, false)
+
+            itemView.findViewById<TextView>(R.id.tvItemName).text = item.npayKorNm ?: "Unknown Item"
+            itemView.findViewById<TextView>(R.id.tvItemPrice).text = "${item.curAmt}원"  // Use curAmt for price
+
+            binding.layoutNonCoveredItems.addView(itemView)
         }
     }
 

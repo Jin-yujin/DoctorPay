@@ -145,6 +145,16 @@ class HospitalViewModel(
         }
     }
 
+    suspend fun fetchNonPaymentDetails(ykiho: String): List<NonPaymentItem> {
+        val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
+            serviceKey = NetworkModule.getServiceKey(),
+            ykiho = ykiho
+        )
+        return if (response.isSuccessful) {
+            response.body()?.body?.items ?: emptyList()
+        } else emptyList()
+    }
+
     fun resetPagination() {
         currentPage = 1
         isLastPage = false
