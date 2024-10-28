@@ -162,7 +162,6 @@ class HospitalViewModel(
         _filteredHospitals.value = filteredList
     }
 
-
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
         val results = FloatArray(1)
         Location.distanceBetween(lat1, lon1, lat2, lon2, results)
@@ -184,7 +183,6 @@ class HospitalViewModel(
         return response
     }
 
-
     private suspend fun fetchNonPaymentInfo(): Response<NonPaymentResponse> {
         return healthInsuranceApi.getNonPaymentInfo(
             serviceKey = NetworkModule.getServiceKey(),
@@ -192,8 +190,6 @@ class HospitalViewModel(
             numOfRows = pageSize
         )
     }
-
-
 
     private suspend fun fetchDgsbjtInfo(ykiho: String, retryCount: Int = 3): Response<DgsbjtInfoResponse> {
         repeat(retryCount) { attempt ->
@@ -211,7 +207,6 @@ class HospitalViewModel(
         }
         throw UnknownHostException("Failed after $retryCount attempts")
     }
-
 
     private fun updateHospitalWithDgsbjtInfo(hospital: HospitalInfo, dgsbjtItems: List<DgsbjtInfoItem>?): HospitalInfo {
         val dgsbjtCodes = dgsbjtItems?.mapNotNull { it.dgsbjtCd } ?: emptyList()
@@ -317,7 +312,6 @@ class HospitalViewModel(
         }.distinct()
     }
 
-
     fun fetchHospitalData(sidoCd: String, sgguCd: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -359,8 +353,6 @@ class HospitalViewModel(
         }
     }
 
-
-
     fun searchHospitals(query: String) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -376,6 +368,4 @@ class HospitalViewModel(
             }
         }
     }
-
-
 }
