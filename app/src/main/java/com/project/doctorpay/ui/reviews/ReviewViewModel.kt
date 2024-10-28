@@ -99,7 +99,7 @@ class ReviewViewModel : ViewModel() {
                     id = UUID.randomUUID().toString(),
                     hospitalId = hospitalId,
                     userId = userId,
-                    userName = nickname,  // 닉네임 사용
+                    userName = nickname,
                     rating = rating,
                     content = content,
                     timestamp = System.currentTimeMillis()
@@ -109,6 +109,15 @@ class ReviewViewModel : ViewModel() {
                     .document(review.id)
                     .set(review)
                     .addOnSuccessListener {
+                        // 리뷰가 성공적으로 추가되면 현재 리뷰 목록에 새 리뷰를 추가
+                        val currentReviews = _reviews.value?.toMutableList() ?: mutableListOf()
+                        currentReviews.add(0, review)  // 최신 리뷰를 맨 앞에 추가
+                        _reviews.value = currentReviews
+
+                        // 평균 평점 업데이트
+                        val newAvg = currentReviews.map { it.rating }.average().toFloat()
+                        _averageRating.value = newAvg
+
                         updateHospitalRating(hospitalId)
                         _reviewStatus.value = ReviewStatus.Success
                     }
@@ -121,11 +130,6 @@ class ReviewViewModel : ViewModel() {
                 Log.e("ReviewViewModel", "Error getting user info", e)
                 _reviewStatus.value = ReviewStatus.Error("사용자 정보를 가져오는데 실패했습니다")
             }
-    }
-
-    private fun getUserNickname(): String {
-        // TODO: SharedPreferences나 Firestore에서 사용자 닉네임을 가져오는 로직 구현
-        return auth.currentUser?.displayName ?: "익명"
     }
 
     private fun updateHospitalRating(hospitalId: String) {
