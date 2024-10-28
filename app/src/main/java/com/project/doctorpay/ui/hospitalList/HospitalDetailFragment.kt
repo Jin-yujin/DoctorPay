@@ -33,6 +33,7 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.calendar.Appointment
+import com.project.doctorpay.ui.reviews.ReviewFragment
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -305,7 +306,18 @@ class HospitalDetailFragment : Fragment() {
     }
 
     private fun navigateToReviewsFragment() {
-        // TODO: Implement navigation to ReviewsFragment
+        // ReviewFragment로 전환하면서 hospitalId 전달
+        val reviewFragment = ReviewFragment().apply {
+            arguments = Bundle().apply {
+                putString("hospitalId", hospital.ykiho)  // 또는 hospital.id 등 고유 식별자
+            }
+        }
+
+        // Fragment 전환
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, reviewFragment)
+            .addToBackStack(null)  // 뒤로가기 지원
+            .commit()
     }
 
     private fun navigateBack() {
