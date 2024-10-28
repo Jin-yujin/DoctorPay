@@ -40,18 +40,29 @@ class ReviewViewModel : ViewModel() {
                     return@addSnapshotListener
                 }
 
-                val reviewList = snapshot?.toObjects(Review::class.java) ?: emptyList()
-                Log.d("ReviewViewModel", "Loaded ${reviewList.size} reviews")
-                reviewList.forEach {
-                    Log.d("ReviewViewModel", "Review: $it")
-                }
+                val reviewList = snapshot?.documents?.mapNotNull { document ->
+                    val review = document.toObject(Review::class.java)
+                    review?.userId?.let { userId ->
+                        // 각 리뷰에 대해 사용자 정보 가져오기
+                        db.collection("users")
+                            .document(userId)
+                            .get()
+                            .addOnSuccessListener { userDoc ->
+                                val nickname = userDoc.getString("nickname") ?: "익명"
+                                val updatedReview = review.copy(userName = nickname)
+                                _reviews.value = _reviews.value?.map {
+                                    if (it.id == review.id) updatedReview else it
+                                }
+                            }
+                    }
+                    review
+                } ?: emptyList()
 
                 _reviews.value = reviewList
 
                 if (reviewList.isNotEmpty()) {
                     val avg = reviewList.map { it.rating }.average().toFloat()
                     _averageRating.value = avg
-                    Log.d("ReviewViewModel", "Average rating: $avg")
                 }
             }
     }
@@ -75,18 +86,19 @@ class ReviewViewModel : ViewModel() {
 
     fun addReview(hospitalId: String, rating: Float, content: String) {
         _reviewStatus.value = ReviewStatus.Loading
+        val userId = auth.currentUser?.uid ?: return
 
-        // Firestore에서 사용자 정보 가져오기
+        // 사용자 정보 가져오기
         db.collection("users")
-            .document(auth.currentUser?.uid ?: "")
+            .document(userId)
             .get()
             .addOnSuccessListener { document ->
-                val nickname = document.getString("nickname") ?: auth.currentUser?.displayName ?: "익명"
+                val nickname = document.getString("nickname") ?: "익명"
 
                 val review = Review(
                     id = UUID.randomUUID().toString(),
                     hospitalId = hospitalId,
-                    userId = auth.currentUser?.uid ?: "",
+                    userId = userId,
                     userName = nickname,  // 닉네임 사용
                     rating = rating,
                     content = content,
@@ -106,7 +118,7 @@ class ReviewViewModel : ViewModel() {
                     }
             }
             .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error getting user nickname", e)
+                Log.e("ReviewViewModel", "Error getting user info", e)
                 _reviewStatus.value = ReviewStatus.Error("사용자 정보를 가져오는데 실패했습니다")
             }
     }

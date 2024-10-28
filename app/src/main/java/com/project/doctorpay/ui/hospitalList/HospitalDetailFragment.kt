@@ -141,7 +141,7 @@ class HospitalDetailFragment : Fragment() {
 
         db.collection("reviews")
             .whereEqualTo("hospitalId", hospital.ykiho)
-            .get()  // 일단 전체 리뷰를 가져온 후 코드에서 정렬
+            .get()
             .addOnSuccessListener { documents ->
                 if (documents.isEmpty) {
                     binding.tvReviewRating.text = "0.0"
@@ -149,34 +149,37 @@ class HospitalDetailFragment : Fragment() {
                     return@addOnSuccessListener
                 }
 
-                // 평균 평점 계산 및 표시
                 val reviews = documents.toObjects(Review::class.java)
+                // 평균 평점 계산 및 표시
                 val avgRating = reviews.map { it.rating }.average().toFloat()
                 binding.tvReviewRating.text = String.format("%.1f", avgRating)
                 binding.ratingBar.rating = avgRating
 
-                // 최신 리뷰 2개 가져오기
+                // ReviewPreview 아이템 표시
                 binding.layoutReviews.removeAllViews()
                 reviews.sortedByDescending { it.timestamp }
                     .take(2)
                     .forEach { review ->
-                        try {
-                            val reviewView = LayoutInflater.from(requireContext())
-                                .inflate(R.layout.item_review_preview, binding.layoutReviews, false)
-
-                            // ID를 확인하고 TextView를 바인딩
-                            reviewView.findViewById<TextView>(R.id.tvReviewerName)?.text = review.userName
-                            reviewView.findViewById<TextView>(R.id.tvReviewContent)?.text = review.content
-                            reviewView.findViewById<RatingBar>(R.id.rbReviewRating)?.rating = review.rating
-
-                            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                            val date = Date(review.timestamp)
-                            reviewView.findViewById<TextView>(R.id.tvReviewDate)?.text = dateFormat.format(date)
-
-                            binding.layoutReviews.addView(reviewView)
-                        } catch (e: Exception) {
-                            Log.e("HospitalDetailFragment", "Error adding review preview", e)
-                        }
+                        // 각 리뷰마다 사용자 정보 가져오기
+                        db.collection("users")
+                            .document(review.userId)
+                            .get()
+                            .addOnSuccessListener { userDoc ->
+                                val nickname = userDoc.getString("nickname") ?: "익명"
+                                addReviewPreview(
+                                    nickname,  // userName 대신 nickname 사용
+                                    review.content,
+                                    review.rating
+                                )
+                            }
+                            .addOnFailureListener { e ->
+                                Log.e("HospitalDetailFragment", "Error getting user info", e)
+                                addReviewPreview(
+                                    "익명",
+                                    review.content,
+                                    review.rating
+                                )
+                            }
                     }
             }
             .addOnFailureListener { e ->

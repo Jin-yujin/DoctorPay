@@ -5,12 +5,14 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.firestore.FirebaseFirestore
 import com.project.doctorpay.databinding.ItemReviewBinding
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(ReviewDiffCallback()) {
+    private val db = FirebaseFirestore.getInstance()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReviewViewHolder {
         val binding = ItemReviewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -18,7 +20,18 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
     }
 
     override fun onBindViewHolder(holder: ReviewViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val review = getItem(position)
+        // 사용자 정보 가져오기
+        db.collection("users")
+            .document(review.userId)
+            .get()
+            .addOnSuccessListener { document ->
+                val nickname = document.getString("nickname") ?: "익명"
+                holder.bind(review.copy(userName = nickname))
+            }
+            .addOnFailureListener {
+                holder.bind(review)
+            }
     }
 
     // 리스트 업데이트 함수
@@ -30,7 +43,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
     class ReviewViewHolder(private val binding: ItemReviewBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(review: Review) {
             binding.apply {
-                tvReviewerName.text = review.userNickname
+                tvReviewerName.text = review.userName
                 tvReviewContent.text = review.content
                 ratingBar.rating = review.rating
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
