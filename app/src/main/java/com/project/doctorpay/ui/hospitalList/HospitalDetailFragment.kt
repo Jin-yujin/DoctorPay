@@ -432,21 +432,18 @@ class HospitalDetailFragment : Fragment() {
 
     private fun navigateBack() {
         when {
-            isFromMap -> listener?.onBackFromHospitalDetail()
-            parentFragment is HospitalListFragment -> parentFragmentManager.popBackStack()
+            isFromMap -> {
+                listener?.onBackFromHospitalDetail()
+            }
+            parentFragment is HospitalListFragment -> {
+                parentFragmentManager.popBackStack()
+            }
             parentFragment is FavoriteFragment -> {
                 listener?.onBackFromHospitalDetail()
                 parentFragmentManager.popBackStack()
             }
             else -> {
-                if (category.isNotEmpty()) {
-                    val hospitalListFragment = HospitalListFragment.newInstance(category)
-                    parentFragmentManager.beginTransaction()
-                        .replace(R.id.fragment_container, hospitalListFragment)
-                        .commit()
-                } else {
-                    parentFragmentManager.popBackStack()
-                }
+                parentFragmentManager.popBackStack()
             }
         }
     }
