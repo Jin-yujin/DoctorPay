@@ -3,11 +3,13 @@ package com.project.doctorpay.ui.reviews
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.project.doctorpay.R
 import com.project.doctorpay.databinding.ItemReviewBinding
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,7 +32,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReviewViewHolder {
         val binding = ItemReviewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ReviewViewHolder(binding)
+        return ReviewViewHolder(binding, currentUserId, actionListener)
     }
 
     override fun onBindViewHolder(holder: ReviewViewHolder, position: Int) {
@@ -53,7 +55,11 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
         submitList(newList.toList())  // 새 리스트 설정
     }
 
-    inner class ReviewViewHolder(private val binding: ItemReviewBinding) : RecyclerView.ViewHolder(binding.root) {
+    class ReviewViewHolder(
+        private val binding: ItemReviewBinding,
+        private val currentUserId: String?,  // 생성자에 currentUserId 추가
+        private val actionListener: ReviewActionListener?  // 생성자에 actionListener 추가
+    ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(review: Review) {
             binding.apply {
                 tvReviewerName.text = review.userName
@@ -62,15 +68,39 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 tvReviewDate.text = dateFormat.format(Date(review.timestamp))
 
-                // 본인 리뷰일 때만 수정/삭제 버튼 표시
+                // 본인 리뷰일 때만 메뉴 표시
                 val isCurrentUserReview = review.userId == currentUserId
-                btnEdit.visibility = if (isCurrentUserReview) View.VISIBLE else View.GONE
-                btnDelete.visibility = if (isCurrentUserReview) View.VISIBLE else View.GONE
+                reviewMenu.visibility = if (isCurrentUserReview) View.VISIBLE else View.GONE
 
-                // 버튼 클릭 리스너 설정
-                btnEdit.setOnClickListener { actionListener?.onEditReview(review) }
-                btnDelete.setOnClickListener { actionListener?.onDeleteReview(review) }
+                // 팝업 메뉴 설정
+                reviewMenu.setOnClickListener { view ->
+                    if (isCurrentUserReview) {
+                        showPopupMenu(view, review)
+                    }
+                }
             }
+        }
+
+        private fun showPopupMenu(view: View, review: Review) {
+            val popup = PopupMenu(view.context, view)
+            val inflater = popup.menuInflater
+            inflater.inflate(R.menu.review_menu, popup.menu)
+
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.ic_edit -> {  // review_menu.xml의 ID와 일치하도록 수정
+                        actionListener?.onEditReview(review)
+                        true
+                    }
+                    R.id.ic_delete -> {  // review_menu.xml의 ID와 일치하도록 수정
+                        actionListener?.onDeleteReview(review)
+                        true
+                    }
+                    else -> false
+                }
+            }
+
+            popup.show()
         }
     }
 

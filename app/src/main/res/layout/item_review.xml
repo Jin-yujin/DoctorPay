@@ -1,89 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp">
 
-    <!-- 사용자 이름과 평점 -->
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:padding="16dp">
 
+        <!-- 상단 영역: 사용자 정보 및 메뉴 -->
         <TextView
             android:id="@+id/tvReviewerName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:textStyle="bold"
-            android:textSize="16sp" />
+            android:textSize="16sp"
+            android:textColor="@color/black"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/reviewMenu"/>
 
+        <ImageButton
+            android:id="@+id/reviewMenu"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_other"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"/>
+
+        <!-- 평점 -->
         <RatingBar
             android:id="@+id/ratingBar"
             style="?android:attr/ratingBarStyleSmall"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:isIndicator="true" />
+            android:layout_marginTop="4dp"
+            android:isIndicator="true"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvReviewerName"/>
 
-    </LinearLayout>
+        <!-- 리뷰 내용 -->
+        <TextView
+            android:id="@+id/tvReviewContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textSize="14sp"
+            android:textColor="@color/gray"
+            android:lineSpacingExtra="4dp"
+            app:layout_constraintTop_toBottomOf="@id/ratingBar"/>
 
-    <!-- 리뷰 내용 -->
-    <TextView
-        android:id="@+id/tvReviewContent"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="end">
-
-        <!-- 날짜 -->
+        <!-- 하단 영역: 날짜 -->
         <TextView
             android:id="@+id/tvReviewDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="12dp"
             android:textSize="12sp"
-            android:textColor="@android:color/darker_gray" />
+            android:textColor="@color/gray"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvReviewContent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
 
-        <!-- 수정/삭제 버튼 -->
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:orientation="horizontal">
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <ImageButton
-                android:id="@+id/btnEdit"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/ic_edit"
-                android:background="?attr/selectableItemBackground"
-                android:padding="8dp"
-                android:visibility="gone"/>
-
-            <ImageButton
-                android:id="@+id/btnDelete"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/ic_delete"
-                android:background="?attr/selectableItemBackground"
-                android:padding="8dp"
-                android:layout_marginStart="8dp"
-                android:visibility="gone"/>
-        </LinearLayout>
-
-    </LinearLayout>
-
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="8dp"
-        android:background="#EEEEEE"/>
-
-</LinearLayout>
+</androidx.cardview.widget.CardView>
