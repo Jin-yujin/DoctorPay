@@ -4,7 +4,9 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import java.util.UUID
@@ -40,47 +42,44 @@ class ReviewViewModel : ViewModel() {
                     return@addSnapshotListener
                 }
 
-                val reviewList = snapshot?.documents?.mapNotNull { document ->
-                    val review = document.toObject(Review::class.java)
-                    review?.userId?.let { userId ->
-                        // 각 리뷰에 대해 사용자 정보 가져오기
-                        db.collection("users")
-                            .document(userId)
-                            .get()
-                            .addOnSuccessListener { userDoc ->
-                                val nickname = userDoc.getString("nickname") ?: "익명"
-                                val updatedReview = review.copy(userName = nickname)
-                                _reviews.value = _reviews.value?.map {
-                                    if (it.id == review.id) updatedReview else it
-                                }
-                            }
-                    }
-                    review
+                val reviewList = snapshot?.documents?.map { document ->
+                    document.toObject(Review::class.java)!!
                 } ?: emptyList()
 
-                _reviews.value = reviewList
+                // 리뷰 목록을 임시 저장
+                val updatedReviews = reviewList.toMutableList()
 
-                if (reviewList.isNotEmpty()) {
-                    val avg = reviewList.map { it.rating }.average().toFloat()
-                    _averageRating.value = avg
+                // 사용자 정보를 한 번에 가져오기 위한 고유 사용자 ID 목록
+                val uniqueUserIds = reviewList.map { it.userId }.distinct()
+
+                // 모든 사용자 정보를 한 번에 가져오기
+                val userTasks = uniqueUserIds.map { userId ->
+                    db.collection("users")
+                        .document(userId)
+                        .get()
                 }
-            }
-    }
 
-    fun loadUserReviews() {
-        val userId = auth.currentUser?.uid ?: return
+                // 모든 사용자 정보 요청이 완료되면 처리
+                Tasks.whenAllSuccess<DocumentSnapshot>(userTasks)
+                    .addOnSuccessListener { documentSnapshots ->
+                        val userMap = documentSnapshots.associate { doc ->
+                            doc.id to (doc.getString("nickname") ?: "익명")
+                        }
 
-        db.collection("reviews")
-            .whereEqualTo("userId", userId)
-            .orderBy("timestamp", Query.Direction.DESCENDING)
-            .get()
-            .addOnSuccessListener { documents ->
-                val reviewList = documents.toObjects(Review::class.java)
-                _reviews.value = reviewList
-            }
-            .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error loading user reviews", e)
-                _reviewStatus.value = ReviewStatus.Error("리뷰 목록을 불러오는데 실패했습니다")
+                        // 각 리뷰에 사용자 닉네임 설정
+                        updatedReviews.replaceAll { review ->
+                            review.copy(userName = userMap[review.userId] ?: "익명")
+                        }
+
+                        // 최종 업데이트된 리뷰 목록 설정
+                        _reviews.value = updatedReviews
+
+                        // 평균 평점 계산
+                        if (updatedReviews.isNotEmpty()) {
+                            val avg = updatedReviews.map { it.rating }.average().toFloat()
+                            _averageRating.value = avg
+                        }
+                    }
             }
     }
 
@@ -88,47 +87,27 @@ class ReviewViewModel : ViewModel() {
         _reviewStatus.value = ReviewStatus.Loading
         val userId = auth.currentUser?.uid ?: return
 
-        // 사용자 정보 가져오기
-        db.collection("users")
-            .document(userId)
-            .get()
-            .addOnSuccessListener { document ->
-                val nickname = document.getString("nickname") ?: "익명"
+        val review = Review(
+            id = UUID.randomUUID().toString(),
+            hospitalId = hospitalId,
+            userId = userId,
+            rating = rating,
+            content = content,
+            timestamp = System.currentTimeMillis()
+        )
 
-                val review = Review(
-                    id = UUID.randomUUID().toString(),
-                    hospitalId = hospitalId,
-                    userId = userId,
-                    userName = nickname,
-                    rating = rating,
-                    content = content,
-                    timestamp = System.currentTimeMillis()
-                )
-
-                db.collection("reviews")
-                    .document(review.id)
-                    .set(review)
-                    .addOnSuccessListener {
-                        // 리뷰가 성공적으로 추가되면 현재 리뷰 목록에 새 리뷰를 추가
-                        val currentReviews = _reviews.value?.toMutableList() ?: mutableListOf()
-                        currentReviews.add(0, review)  // 최신 리뷰를 맨 앞에 추가
-                        _reviews.value = currentReviews
-
-                        // 평균 평점 업데이트
-                        val newAvg = currentReviews.map { it.rating }.average().toFloat()
-                        _averageRating.value = newAvg
-
-                        updateHospitalRating(hospitalId)
-                        _reviewStatus.value = ReviewStatus.Success
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("ReviewViewModel", "Error adding review", e)
-                        _reviewStatus.value = ReviewStatus.Error("리뷰 등록에 실패했습니다")
-                    }
+        db.collection("reviews")
+            .document(review.id)
+            .set(review)
+            .addOnSuccessListener {
+                // 리뷰가 추가되면 자동으로 SnapshotListener가 트리거되므로
+                // 여기서는 상태만 업데이트
+                _reviewStatus.value = ReviewStatus.Success
+                updateHospitalRating(hospitalId)
             }
             .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error getting user info", e)
-                _reviewStatus.value = ReviewStatus.Error("사용자 정보를 가져오는데 실패했습니다")
+                Log.e("ReviewViewModel", "Error adding review", e)
+                _reviewStatus.value = ReviewStatus.Error("리뷰 등록에 실패했습니다")
             }
     }
 

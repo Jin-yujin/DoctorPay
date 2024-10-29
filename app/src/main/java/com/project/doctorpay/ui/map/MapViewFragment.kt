@@ -14,11 +14,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.geometry.LatLngBounds
@@ -33,7 +30,6 @@ import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
-import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentMapviewBinding
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
@@ -87,27 +83,40 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         return binding.root
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        binding.mapView.onCreate(savedInstanceState)
-        binding.mapView.getMapAsync(this)
 
-        locationSource = FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE)
+        try {
+            binding.mapView.onCreate(savedInstanceState)
+            binding.mapView.getMapAsync(this)
 
-        setupBottomSheet()
-        setupRecyclerView()
-        setupObservers()
-        setupReturnToLocationButton()
-        setupResearchButton()
+            locationSource = FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE)
+
+            setupBottomSheet()
+            setupRecyclerView()
+            setupObservers()
+            setupReturnToLocationButton()
+            setupResearchButton()
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Failed to initialize MapView", e)
+        }
     }
 
-
-
     override fun onMapReady(map: NaverMap) {
+        // 프래그먼트가 액티비티에 붙어있는지 확인
+        if (!isAdded) return
+
         naverMap = map
         naverMap.locationSource = locationSource
-        naverMap.locationTrackingMode = LocationTrackingMode.Follow
+
+        try {
+            // 위치 추적 모드 설정 전에 안전성 체크
+            if (isAdded && activity != null) {
+                naverMap.locationTrackingMode = LocationTrackingMode.Follow
+            }
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Failed to set location tracking mode", e)
+        }
 
         locationOverlay = naverMap.locationOverlay
         locationOverlay.isVisible = true
@@ -176,32 +185,43 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         return center.distanceTo(northeast)
     }
 
-
-
     private fun enableLocationTracking() {
+        // Fragment가 유효한 상태인지 확인
+        if (!isAdded || activity == null) return
+
         try {
-            naverMap.locationTrackingMode = LocationTrackingMode.Follow
-            binding.returnToLocationButton.visibility = View.VISIBLE
-            locationOverlay.isVisible = true
+            // 위치 권한이 있는지 한번 더 확인
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                naverMap.locationTrackingMode = LocationTrackingMode.Follow
+                binding.returnToLocationButton.visibility = View.VISIBLE
+                locationOverlay.isVisible = true
 
-            locationSource.activate { location ->
-                val newUserLocation = LatLng(location!!.latitude, location.longitude)
-                userLocation = newUserLocation
+                locationSource.activate { location ->
+                    if (location != null && isAdded) {  // isAdded 체크 추가
+                        val newUserLocation = LatLng(location.latitude, location.longitude)
+                        userLocation = newUserLocation
+                        // 어댑터에 현재 위치 전달
+                        adapter.updateUserLocation(newUserLocation)
 
-                // 어댑터에 현재 위치 전달
-                adapter.updateUserLocation(newUserLocation)
-
-                if (!isInitialLocationSet) {
-                    isInitialLocationSet = true
-                    naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
-                    updateHospitalsBasedOnLocation(newUserLocation)
+                        if (!isInitialLocationSet) {
+                            isInitialLocationSet = true
+                            naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
+                            updateHospitalsBasedOnLocation(newUserLocation)
+                        }
+                    }
                 }
             }
         } catch (e: SecurityException) {
+            Log.e("MapViewFragment", "Location permission denied", e)
             Toast.makeText(context, "위치 서비스를 활성화해주세요.", Toast.LENGTH_SHORT).show()
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Fragment not attached to activity", e)
         }
     }
-
 
     private fun showResearchButton() {
         binding.researchButton.visibility = View.VISIBLE
@@ -346,24 +366,32 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
 
     private fun checkLocationPermission() {
-        when {
-            ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                enableLocationTracking()
+        if (!isAdded) return  // Fragment가 attached 되어있는지 확인
+
+        try {
+            when {
+                ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED -> {
+                    enableLocationTracking()
+                }
+                shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
+                    showLocationPermissionRationale()
+                }
+                else -> {
+                    if (isAdded) {  // 권한 요청 전 한번 더 확인
+                        requestPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                }
             }
-            shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
-                showLocationPermissionRationale()
-            }
-            else -> {
-                requestPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Failed to check location permission", e)
         }
     }
 
@@ -385,7 +413,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             .create()
             .show()
     }
-
 
     private fun updateHospitalsBasedOnLocation(location: LatLng) {
         adapter.updateUserLocation(location)  // 위치 업데이트시 어댑터에도 전달
