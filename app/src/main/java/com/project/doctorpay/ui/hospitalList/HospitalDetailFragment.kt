@@ -282,9 +282,11 @@ class HospitalDetailFragment : Fragment() {
 
     private fun openMapWithDirections(mode: String) {
         val encodedAddress = Uri.encode(hospital.address)
+        val encodedName = Uri.encode(hospital.name)
+
         val uri = when (mode) {
-            "출발" -> Uri.parse("nmap://route/public?slat=&slng=&sname=현재위치&dlat=&dlng=&dname=$encodedAddress&appname=${context?.packageName}")
-            "도착" -> Uri.parse("nmap://route/public?dlat=&dlng=&dname=$encodedAddress&appname=${context?.packageName}")
+            "출발" -> Uri.parse("nmap://route/public?slat=&slng=&sname=현재위치&dlat=${hospital.latitude}&dlng=${hospital.longitude}&dname=$encodedName&appname=${context?.packageName}")
+            "도착" -> Uri.parse("nmap://route/public?dlat=${hospital.latitude}&dlng=${hospital.longitude}&dname=$encodedName&appname=${context?.packageName}")
             else -> Uri.parse("nmap://search?query=$encodedAddress&appname=${context?.packageName}")
         }
 
@@ -301,11 +303,10 @@ class HospitalDetailFragment : Fragment() {
         try {
             startActivity(intent)
         } catch (e: Exception) {
-            val naverMapWebUri = Uri.parse("https://m.map.naver.com/search2/search.naver?query=$encodedAddress")
+            val naverMapWebUri = Uri.parse("https://map.naver.com/v5/search/${encodedAddress}")
             startActivity(Intent(Intent.ACTION_VIEW, naverMapWebUri))
         }
     }
-
 
     private fun dialPhoneNumber(phoneNumber: String) {
         startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneNumber")))

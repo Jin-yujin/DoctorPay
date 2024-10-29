@@ -46,11 +46,11 @@ data class HospitalInfo(
     val phoneNumber: String,
     val state: String,
     val rating: Double,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double = 0.0, // 위도
+    val longitude: Double = 0.0, // 경도
     val nonPaymentItems: List<NonPaymentItem>,
     val clCdNm: String,  // 병원 종류 (예: 종합병원, 병원, 의원 등)
-    val ykiho: String
+    val ykiho: String,
 ) : Parcelable
 
 
