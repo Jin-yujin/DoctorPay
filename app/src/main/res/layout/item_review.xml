@@ -5,6 +5,7 @@
     android:orientation="vertical"
     android:padding="16dp">
 
+    <!-- 사용자 이름과 평점 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -28,6 +29,7 @@
 
     </LinearLayout>
 
+    <!-- 리뷰 내용 -->
     <TextView
         android:id="@+id/tvReviewContent"
         android:layout_width="match_parent"
@@ -40,6 +42,7 @@
         android:orientation="horizontal"
         android:gravity="end">
 
+        <!-- 날짜 -->
         <TextView
             android:id="@+id/tvReviewDate"
             android:layout_width="wrap_content"
@@ -47,6 +50,33 @@
             android:layout_marginTop="8dp"
             android:textSize="12sp"
             android:textColor="@android:color/darker_gray" />
+
+        <!-- 수정/삭제 버튼 -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btnEdit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_edit"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:visibility="gone"/>
+
+            <ImageButton
+                android:id="@+id/btnDelete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/ic_delete"
+                android:background="?attr/selectableItemBackground"
+                android:padding="8dp"
+                android:layout_marginStart="8dp"
+                android:visibility="gone"/>
+        </LinearLayout>
 
     </LinearLayout>
 

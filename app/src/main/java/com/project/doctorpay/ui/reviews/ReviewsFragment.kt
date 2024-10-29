@@ -17,7 +17,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentReviewsBinding
 
-class ReviewFragment : Fragment() {
+class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
     private var _binding: FragmentReviewsBinding? = null
     private val binding get() = _binding!!
 
@@ -46,13 +46,60 @@ class ReviewFragment : Fragment() {
         setupAddReviewButton()
     }
 
+    // 리뷰 수정 다이얼로그
+    // ReviewActionListener 인터페이스의 메소드 구현
+    override fun onEditReview(review: Review) {
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(R.layout.dialog_add_review)
+            .create()
+
+        dialog.show()
+
+        dialog.findViewById<RatingBar>(R.id.ratingBar)?.rating = review.rating
+        dialog.findViewById<EditText>(R.id.reviewContent)?.setText(review.content)
+
+        dialog.findViewById<Button>(R.id.submitButton)?.setOnClickListener {
+            val newRating = dialog.findViewById<RatingBar>(R.id.ratingBar)?.rating ?: 0f
+            val newContent = dialog.findViewById<EditText>(R.id.reviewContent)?.text.toString()
+
+            if (newRating == 0f) {
+                Toast.makeText(context, "별점을 선택해주세요", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            if (newContent.isBlank()) {
+                Toast.makeText(context, "리뷰 내용을 입력해주세요", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            viewModel.updateReview(review, newRating, newContent)
+            dialog.dismiss()
+        }
+
+        dialog.findViewById<Button>(R.id.cancelButton)?.setOnClickListener {
+            dialog.dismiss()
+        }
+    }
+
+    // 리뷰 삭제 확인 다이얼로그
+    // ReviewActionListener 인터페이스의 메소드 구현
+    override fun onDeleteReview(review: Review) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("리뷰 삭제")
+            .setMessage("정말로 이 리뷰를 삭제하시겠습니까?")
+            .setPositiveButton("삭제") { _, _ ->
+                viewModel.deleteReview(review)
+            }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
     private fun setupToolbar() {
         binding.apply {
             btnBack.setOnClickListener {
                 parentFragmentManager.popBackStack()
             }
 
-            // 타이틀 설정 (병원 이름 + 리뷰)
             arguments?.getString("hospitalName")?.let { hospitalName ->
                 toolbarTitle.text = " $hospitalName 리뷰"
             } ?: run {
@@ -62,10 +109,12 @@ class ReviewFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        reviewAdapter = ReviewAdapter()
-        with(binding.recyclerViewReviews) {
-            this.adapter = reviewAdapter
-            this.layoutManager = LinearLayoutManager(requireContext())
+        reviewAdapter = ReviewAdapter().apply {
+            setActionListener(this@ReviewFragment)  // ReviewFragment를 리스너로 설정
+        }
+        binding.recyclerViewReviews.apply {
+            adapter = reviewAdapter
+            layoutManager = LinearLayoutManager(requireContext())
         }
     }
 

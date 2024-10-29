@@ -125,4 +125,42 @@ class ReviewViewModel : ViewModel() {
                 }
             }
     }
+
+    fun updateReview(review: Review, newRating: Float, newContent: String) {
+        _reviewStatus.value = ReviewStatus.Loading
+
+        val updatedReview = review.copy(
+            rating = newRating,
+            content = newContent,
+            timestamp = System.currentTimeMillis()
+        )
+
+        db.collection("reviews")
+            .document(review.id)
+            .set(updatedReview)
+            .addOnSuccessListener {
+                _reviewStatus.value = ReviewStatus.Success
+                updateHospitalRating(review.hospitalId)
+            }
+            .addOnFailureListener { e ->
+                Log.e("ReviewViewModel", "Error updating review", e)
+                _reviewStatus.value = ReviewStatus.Error("리뷰 수정에 실패했습니다")
+            }
+    }
+
+    fun deleteReview(review: Review) {
+        _reviewStatus.value = ReviewStatus.Loading
+
+        db.collection("reviews")
+            .document(review.id)
+            .delete()
+            .addOnSuccessListener {
+                _reviewStatus.value = ReviewStatus.Success
+                updateHospitalRating(review.hospitalId)
+            }
+            .addOnFailureListener { e ->
+                Log.e("ReviewViewModel", "Error deleting review", e)
+                _reviewStatus.value = ReviewStatus.Error("리뷰 삭제에 실패했습니다")
+            }
+    }
 }

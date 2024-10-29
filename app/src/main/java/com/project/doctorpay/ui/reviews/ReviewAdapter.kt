@@ -1,10 +1,12 @@
 package com.project.doctorpay.ui.reviews
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.project.doctorpay.databinding.ItemReviewBinding
 import java.text.SimpleDateFormat
@@ -13,6 +15,18 @@ import java.util.Locale
 
 class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(ReviewDiffCallback()) {
     private val db = FirebaseFirestore.getInstance()
+    private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+    private var actionListener: ReviewActionListener? = null
+
+    // 수정/삭제 이벤트 처리를 위한 인터페이스
+    interface ReviewActionListener {
+        fun onEditReview(review: Review)
+        fun onDeleteReview(review: Review)
+    }
+
+    fun setActionListener(listener: ReviewActionListener) {
+        actionListener = listener
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReviewViewHolder {
         val binding = ItemReviewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -21,7 +35,6 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 
     override fun onBindViewHolder(holder: ReviewViewHolder, position: Int) {
         val review = getItem(position)
-        // 사용자 정보 가져오기
         db.collection("users")
             .document(review.userId)
             .get()
@@ -40,7 +53,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
         submitList(newList.toList())  // 새 리스트 설정
     }
 
-    class ReviewViewHolder(private val binding: ItemReviewBinding) : RecyclerView.ViewHolder(binding.root) {
+    inner class ReviewViewHolder(private val binding: ItemReviewBinding) : RecyclerView.ViewHolder(binding.root) {
         fun bind(review: Review) {
             binding.apply {
                 tvReviewerName.text = review.userName
@@ -48,6 +61,15 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
                 ratingBar.rating = review.rating
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 tvReviewDate.text = dateFormat.format(Date(review.timestamp))
+
+                // 본인 리뷰일 때만 수정/삭제 버튼 표시
+                val isCurrentUserReview = review.userId == currentUserId
+                btnEdit.visibility = if (isCurrentUserReview) View.VISIBLE else View.GONE
+                btnDelete.visibility = if (isCurrentUserReview) View.VISIBLE else View.GONE
+
+                // 버튼 클릭 리스너 설정
+                btnEdit.setOnClickListener { actionListener?.onEditReview(review) }
+                btnDelete.setOnClickListener { actionListener?.onDeleteReview(review) }
             }
         }
     }
