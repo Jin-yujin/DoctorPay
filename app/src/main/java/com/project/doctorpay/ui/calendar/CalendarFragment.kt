@@ -150,6 +150,7 @@ class CalendarFragment : Fragment() {
         if (index != -1) {
             appointmentList[index] = newAppointment
             saveAppointments()
+            binding.calendarView.setAppointments(appointmentList)
             loadAppointmentsForDate(newAppointment.year, newAppointment.month, newAppointment.day)
         }
     }
@@ -157,6 +158,7 @@ class CalendarFragment : Fragment() {
     private fun deleteAppointment(appointment: Appointment) {
         appointmentList.remove(appointment)
         saveAppointments()
+        binding.calendarView.setAppointments(appointmentList)
         loadAppointmentsForDate(appointment.year, appointment.month, appointment.day)
     }
 
@@ -272,6 +274,7 @@ class CalendarFragment : Fragment() {
     fun addAppointment(appointment: Appointment) {
         appointmentList.add(appointment)
         saveAppointments()
+        binding.calendarView.setAppointments(appointmentList)
         loadAppointmentsForDate(appointment.year, appointment.month, appointment.day)
     }
 
