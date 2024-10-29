@@ -19,8 +19,6 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.firestore.FirebaseFirestore
@@ -33,7 +31,6 @@ import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule
-import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.calendar.Appointment
 import com.project.doctorpay.ui.reviews.Review
 import com.project.doctorpay.ui.reviews.ReviewFragment
@@ -286,18 +283,29 @@ class HospitalDetailFragment : Fragment() {
     private fun openMapWithDirections(mode: String) {
         val encodedAddress = Uri.encode(hospital.address)
         val uri = when (mode) {
-            "출발" -> Uri.parse("https://maps.google.com/maps?saddr=$encodedAddress&daddr=")
-            "도착" -> Uri.parse("https://maps.google.com/maps?daddr=$encodedAddress")
-            else -> Uri.parse("https://maps.google.com/maps?q=$encodedAddress")
+            "출발" -> Uri.parse("nmap://route/public?slat=&slng=&sname=현재위치&dlat=&dlng=&dname=$encodedAddress&appname=${context?.packageName}")
+            "도착" -> Uri.parse("nmap://route/public?dlat=&dlng=&dname=$encodedAddress&appname=${context?.packageName}")
+            else -> Uri.parse("nmap://search?query=$encodedAddress&appname=${context?.packageName}")
         }
-        val intent = Intent(Intent.ACTION_VIEW, uri)
-        intent.setPackage("com.google.android.apps.maps")
-        if (intent.resolveActivity(requireActivity().packageManager) != null) {
+
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        val packageManager = context?.packageManager
+        val naverMapPackageName = "com.nhn.android.nmap"
+
+        if (packageManager?.getLaunchIntentForPackage(naverMapPackageName) != null) {
+            intent.setPackage(naverMapPackageName)
+        }
+
+        try {
             startActivity(intent)
-        } else {
-            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (e: Exception) {
+            val naverMapWebUri = Uri.parse("https://m.map.naver.com/search2/search.naver?query=$encodedAddress")
+            startActivity(Intent(Intent.ACTION_VIEW, naverMapWebUri))
         }
     }
+
 
     private fun dialPhoneNumber(phoneNumber: String) {
         startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phoneNumber")))
