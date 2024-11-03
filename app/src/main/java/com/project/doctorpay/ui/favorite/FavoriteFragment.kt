@@ -101,9 +101,15 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun loadHospitals() {
-        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
+        // 서울 중랑구의 기본 좌표값 사용
+        val latitude = 37.6065
+        val longitude = 127.0927
+        viewModel.fetchNearbyHospitals(
+            latitude = latitude,
+            longitude = longitude,
+            radius = HospitalViewModel.DEFAULT_RADIUS
+        )
     }
-
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         val detailFragment = HospitalDetailFragment.newInstance(
             hospitalId = hospital.name,

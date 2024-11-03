@@ -240,13 +240,41 @@ class HospitalListFragment : Fragment() {
     }
 
     private fun setupListeners() {
-        binding.checkFilter.setOnCheckedChangeListener { _, isChecked ->
-            filterHospitals(isChecked)
-        }
-
         binding.swipeRefreshLayout.setOnRefreshListener {
-            checkLocationPermission()
+            // 강제 새로고침 시에는 forceRefresh = true
+            getCurrentLocationAndLoadData(forceRefresh = true)
         }
+    }
+
+
+    private fun getCurrentLocationAndLoadData(forceRefresh: Boolean = false) {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                location?.let {
+                    userLocation = LatLng(it.latitude, it.longitude)
+                    adapter.updateUserLocation(userLocation!!)
+                    viewModel.fetchNearbyHospitals(
+                        latitude = it.latitude,
+                        longitude = it.longitude,
+                        forceRefresh = forceRefresh
+                    )
+                } ?: loadDefaultLocationData(forceRefresh)
+            }
+        } catch (e: SecurityException) {
+            loadDefaultLocationData(forceRefresh)
+        }
+    }
+
+    private fun loadDefaultLocationData(forceRefresh: Boolean = false) {
+        val defaultLocation = LatLng(37.5666805, 126.9784147)
+        userLocation = defaultLocation
+        adapter.updateUserLocation(defaultLocation)
+        viewModel.fetchNearbyHospitals(
+            latitude = defaultLocation.latitude,
+            longitude = defaultLocation.longitude,
+            radius = 5000,
+            forceRefresh = forceRefresh
+        )
     }
 
     private fun updateHeaderText() {
