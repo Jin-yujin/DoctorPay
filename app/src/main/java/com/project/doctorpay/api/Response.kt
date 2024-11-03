@@ -159,3 +159,61 @@ data class DgsbjtInfoItem(
     @field:Element(name = "cdiagDrCnt", required = false)
     var cdiagDrCnt: String? = null
 )
+
+@Root(name = "response", strict = false)
+data class HospitalDetailResponse(
+    @field:Element(name = "header", required = false)
+    var header: Header? = null,
+
+    @field:Element(name = "body", required = false)
+    var body: HospitalDetailBody? = null
+)
+
+@Root(strict = false)
+data class HospitalDetailBody(
+    @field:Element(name = "items", required = false)
+    var items: HospitalDetailItems? = null,
+
+    @field:Element(name = "numOfRows", required = false)
+    var numOfRows: Int = 0,
+
+    @field:Element(name = "pageNo", required = false)
+    var pageNo: Int = 0,
+
+    @field:Element(name = "totalCount", required = false)
+    var totalCount: Int = 0
+)
+
+@Root(strict = false)
+data class HospitalDetailItems(
+    @field:Element(name = "item", required = false)
+    var item: HospitalDetailItem? = null
+)
+
+@Root(strict = false)
+data class HospitalDetailItem(
+    @field:Element(name = "trmtMonStart", required = false) var trmtMonStart: String? = null,
+    @field:Element(name = "trmtMonEnd", required = false) var trmtMonEnd: String? = null,
+    @field:Element(name = "trmtTueStart", required = false) var trmtTueStart: String? = null,
+    @field:Element(name = "trmtTueEnd", required = false) var trmtTueEnd: String? = null,
+    @field:Element(name = "trmtWedStart", required = false) var trmtWedStart: String? = null,
+    @field:Element(name = "trmtWedEnd", required = false) var trmtWedEnd: String? = null,
+    @field:Element(name = "trmtThuStart", required = false) var trmtThuStart: String? = null,
+    @field:Element(name = "trmtThuEnd", required = false) var trmtThuEnd: String? = null,
+    @field:Element(name = "trmtFriStart", required = false) var trmtFriStart: String? = null,
+    @field:Element(name = "trmtFriEnd", required = false) var trmtFriEnd: String? = null,
+    @field:Element(name = "trmtSatStart", required = false) var trmtSatStart: String? = null,
+    @field:Element(name = "trmtSatEnd", required = false) var trmtSatEnd: String? = null,
+    @field:Element(name = "trmtSunStart", required = false) var trmtSunStart: String? = null,
+    @field:Element(name = "trmtSunEnd", required = false) var trmtSunEnd: String? = null,
+    @field:Element(name = "lunchWeek", required = false) var lunchWeek: String? = null,
+    @field:Element(name = "lunchSat", required = false) var lunchSat: String? = null,
+    @field:Element(name = "rcvWeek", required = false) var rcvWeek: String? = null,
+    @field:Element(name = "rcvSat", required = false) var rcvSat: String? = null,
+    @field:Element(name = "noTrmtSun", required = false) var noTrmtSun: String? = null,
+    @field:Element(name = "noTrmtHoli", required = false) var noTrmtHoli: String? = null,
+    @field:Element(name = "emyDayYn", required = false) var emyDayYn: String? = null,
+    @field:Element(name = "emyNgtYn", required = false) var emyNgtYn: String? = null,
+    @field:Element(name = "emyDayTelNo1", required = false) var emyDayTelNo1: String? = null,
+    @field:Element(name = "emyNgtTelNo1", required = false) var emyNgtTelNo1: String? = null
+)

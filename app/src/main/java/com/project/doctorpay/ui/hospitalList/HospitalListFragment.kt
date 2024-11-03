@@ -26,6 +26,7 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.ViewHospitalListBinding
 import com.project.doctorpay.db.DepartmentCategory
+import com.project.doctorpay.db.OperationState
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.home.HomeFragment
 import kotlinx.coroutines.flow.collectLatest
@@ -110,6 +111,14 @@ class HospitalListFragment : Fragment() {
             adapter = this@HospitalListFragment.adapter
             setHasFixedSize(true)
         }
+
+        // CheckBox 필터 설정
+        binding.checkFilter.apply {
+            text = "영업중인 병원만 보기"
+            setOnCheckedChangeListener { _, isChecked ->
+                filterHospitals(isChecked)
+            }
+        }
     }
 
     private fun setupObservers() {
@@ -118,12 +127,33 @@ class HospitalListFragment : Fragment() {
                 Log.d(TAG, "Received hospitals: ${hospitals.size}")
                 val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
                 Log.d(TAG, "Filtered hospitals: ${filteredHospitals.size}")
-                // 거리 기준으로 정렬된 병원 목록을 사용
-                val sortedHospitals = sortHospitalsByDistance(filteredHospitals)
+
+                // 현재 체크박스 상태 반영
+                val showOnlyAvailable = binding.checkFilter.isChecked
+                val finalHospitals = if (showOnlyAvailable) {
+                    filteredHospitals.filter { hospital ->
+                        when (hospital.operationState) {
+                            OperationState.OPEN, OperationState.EMERGENCY -> true
+                            else -> false
+                        }
+                    }
+                } else {
+                    filteredHospitals
+                }
+
+                // 정렬 적용
+                val sortedHospitals = finalHospitals.sortedWith(
+                    compareBy<HospitalInfo>(
+                        { it.operationState != OperationState.OPEN },
+                        { it.operationState != OperationState.EMERGENCY },
+                        { it.operationState != OperationState.LUNCH_BREAK },
+                        { getDistanceFromUser(it) }
+                    )
+                )
+
                 updateUI(sortedHospitals)
             }
         }
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isLoading.collectLatest { isLoading ->
                 binding.swipeRefreshLayout.isRefreshing = isLoading
@@ -217,6 +247,26 @@ class HospitalListFragment : Fragment() {
         loadDefaultLocationData()
     }
 
+    private fun getDistanceFromUser(hospital: HospitalInfo): Float {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            val results = FloatArray(1)
+            try {
+                Location.distanceBetween(
+                    currentLocation.latitude, currentLocation.longitude,
+                    hospital.latitude, hospital.longitude,
+                    results
+                )
+                results[0]
+            } catch (e: Exception) {
+                Log.e(TAG, "Error calculating distance for ${hospital.name}", e)
+                Float.MAX_VALUE
+            }
+        } else {
+            Float.MAX_VALUE
+        }
+    }
+
     private fun updateUI(hospitals: List<HospitalInfo>) {
         adapter.submitList(hospitals)
         binding.swipeRefreshLayout.isRefreshing = false
@@ -224,6 +274,13 @@ class HospitalListFragment : Fragment() {
         if (hospitals.isEmpty()) {
             binding.emptyView.visibility = View.VISIBLE
             binding.mListView.visibility = View.GONE
+            // 체크박스 상태에 따른 메시지 설정
+            val message = if (binding.checkFilter.isChecked) {
+                "현재 영업중인 병원이 없습니다"
+            } else {
+                "주변 병원이 없습니다"
+            }
+            binding.emptyView.text = message
         } else {
             binding.emptyView.visibility = View.GONE
             binding.mListView.visibility = View.VISIBLE
@@ -283,13 +340,42 @@ class HospitalListFragment : Fragment() {
             else -> getString(R.string.category_header_format, category?.categoryName)
         }
     }
+
     private fun filterHospitals(onlyAvailable: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
             val hospitals = viewModel.hospitals.value
             val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
-                .filter { if (onlyAvailable) it.state == "영업중" else true }
-            // 필터링 후에도 거리 순으로 정렬
-            val sortedHospitals = sortHospitalsByDistance(filteredHospitals)
+                .filter { hospital ->
+                    if (onlyAvailable) {
+                        when (hospital.operationState) {
+                            OperationState.OPEN, OperationState.EMERGENCY -> true
+                            else -> false
+                        }
+                    } else {
+                        true
+                    }
+                }
+
+            // 운영 상태와 거리를 고려한 정렬
+            val sortedHospitals = filteredHospitals.sortedWith(
+                compareBy<HospitalInfo>(
+                    // 1순위: 영업중인 병원
+                    { it.operationState != OperationState.OPEN },
+                    // 2순위: 응급실 운영 병원
+                    { it.operationState != OperationState.EMERGENCY },
+                    // 3순위: 점심시간
+                    { it.operationState != OperationState.LUNCH_BREAK },
+                    // 4순위: 거리
+                    { getDistanceFromUser(it) }
+                )
+            )
+
+            if (sortedHospitals.isEmpty() && onlyAvailable) {
+                binding.emptyView.text = "현재 영업중인 병원이 없습니다"
+            } else if (sortedHospitals.isEmpty()) {
+                binding.emptyView.text = "주변 병원이 없습니다"
+            }
+
             updateUI(sortedHospitals)
         }
     }
@@ -300,11 +386,10 @@ class HospitalListFragment : Fragment() {
             hospitalId = hospital.name,
             isFromMap = false,
             category = category?.name ?: ""
-        ).apply {
-            arguments = Bundle().apply {
-                putParcelable("hospital_info", hospital)
-            }
-        }
+        )
+
+        // HospitalInfo 설정
+        detailFragment.setHospitalInfo(hospital)
 
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, detailFragment)

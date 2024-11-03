@@ -7,17 +7,17 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.project.doctorpay.db.HospitalInfo
-import com.project.doctorpay.R
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.project.doctorpay.api.HospitalViewModel
+import com.project.doctorpay.db.HospitalInfo
+import com.project.doctorpay.db.OperationState  // OperationState를 db 패키지에서 import
+import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentFavoriteBinding
 import com.project.doctorpay.network.NetworkModule
-import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
 import kotlinx.coroutines.flow.collectLatest
@@ -28,6 +28,7 @@ class FavoriteFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var adapter: HospitalAdapter
+    private var currentFilter: OperationState? = null
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -46,11 +47,44 @@ class FavoriteFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
+        setupFilterChips()
         setupObservers()
         loadHospitals()
 
         binding.swipeRefreshLayout.setOnRefreshListener {
             loadHospitals()
+        }
+    }
+
+    private fun setupFilterChips() {
+        binding.filterChipGroup.apply {
+            addChip("전체")
+            addChip("영업중")
+            addChip("영업마감")
+
+            setOnCheckedChangeListener { _: ChipGroup, checkedId: Int ->
+                val chip = findViewById<Chip>(checkedId)
+                currentFilter = when (chip?.text?.toString()) {
+                    "영업중" -> OperationState.OPEN
+                    "영업마감" -> OperationState.CLOSED
+                    else -> null
+                }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    viewModel.hospitals.value.let { hospitals ->
+                        updateUI(filterHospitals(hospitals))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun ChipGroup.addChip(text: String) {
+        Chip(requireContext()).apply {
+            this.text = text
+            isCheckable = true
+            if (text == "전체") isChecked = true
+            id = View.generateViewId()  // 각 Chip에 고유 ID 부여
+            addView(this)
         }
     }
 
@@ -65,7 +99,7 @@ class FavoriteFragment : Fragment() {
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.hospitals.collectLatest { hospitals ->
-                updateUI(hospitals)
+                updateUI(filterHospitals(hospitals))
             }
         }
 
@@ -82,6 +116,24 @@ class FavoriteFragment : Fragment() {
         }
     }
 
+    private fun filterHospitals(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        return when (currentFilter) {
+            null -> hospitals
+            else -> hospitals.filter { hospital ->
+                hospital.operationState == currentFilter
+            }
+        }.sortedWith(compareBy<HospitalInfo>(
+            // 영업중인 병원을 먼저 보여줌
+            { it.operationState != OperationState.OPEN },
+            // 그 다음 응급실 운영
+            { it.operationState != OperationState.EMERGENCY },
+            // 점심시간
+            { it.operationState != OperationState.LUNCH_BREAK },
+            // 마지막으로 영업마감과 알 수 없음
+            { it.operationState.ordinal }
+        ))
+    }
+
     private fun updateUI(hospitals: List<HospitalInfo>) {
         adapter.submitList(hospitals)
         binding.swipeRefreshLayout.isRefreshing = false
@@ -89,7 +141,12 @@ class FavoriteFragment : Fragment() {
         if (hospitals.isEmpty()) {
             binding.emptyView.visibility = View.VISIBLE
             binding.favoriteRecyclerView.visibility = View.GONE
-            binding.emptyView.text = getString(R.string.no_favorite_hospitals)
+            val message = if (currentFilter != null) {
+                getString(R.string.no_hospitals_with_filter)
+            } else {
+                getString(R.string.no_favorite_hospitals)
+            }
+            binding.emptyView.text = message
         } else {
             binding.emptyView.visibility = View.GONE
             binding.favoriteRecyclerView.visibility = View.VISIBLE
@@ -101,7 +158,6 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun loadHospitals() {
-        // 서울 중랑구의 기본 좌표값 사용
         val latitude = 37.6065
         val longitude = 127.0927
         viewModel.fetchNearbyHospitals(
@@ -110,6 +166,7 @@ class FavoriteFragment : Fragment() {
             radius = HospitalViewModel.DEFAULT_RADIUS
         )
     }
+
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         val detailFragment = HospitalDetailFragment.newInstance(
             hospitalId = hospital.name,
@@ -117,16 +174,12 @@ class FavoriteFragment : Fragment() {
             category = ""
         )
 
-        // 병원 정보를 Bundle에 추가
-        val bundle = Bundle().apply {
-            putParcelable("hospital_info", hospital)
-        }
-        detailFragment.arguments = bundle
-
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, detailFragment)
             .addToBackStack(null)
             .commit()
+
+        detailFragment.setHospitalInfo(hospital)
     }
 
     override fun onDestroyView() {

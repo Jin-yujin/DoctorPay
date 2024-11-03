@@ -335,11 +335,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             category = hospital.departmentCategories.firstOrNull() ?: ""
         )
 
-        val bundle = Bundle().apply {
-            putParcelable("hospital_info", hospital)
-        }
-        hospitalDetailFragment.arguments = bundle
-
+        // Bundle 대신 직접 HospitalInfo 설정
+        hospitalDetailFragment.setHospitalInfo(hospital)
         hospitalDetailFragment.setHospitalDetailListener(this)
 
         childFragmentManager.beginTransaction()
