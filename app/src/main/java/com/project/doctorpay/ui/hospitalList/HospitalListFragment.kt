@@ -119,6 +119,8 @@ class HospitalListFragment : Fragment() {
                 filterHospitals(isChecked)
             }
         }
+
+
     }
 
     private fun setupObservers() {
@@ -141,17 +143,7 @@ class HospitalListFragment : Fragment() {
                     filteredHospitals
                 }
 
-                // 정렬 적용
-                val sortedHospitals = finalHospitals.sortedWith(
-                    compareBy<HospitalInfo>(
-                        { it.operationState != OperationState.OPEN },
-                        { it.operationState != OperationState.EMERGENCY },
-                        { it.operationState != OperationState.LUNCH_BREAK },
-                        { getDistanceFromUser(it) }
-                    )
-                )
-
-                updateUI(sortedHospitals)
+                updateUI(finalHospitals)
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
@@ -169,27 +161,6 @@ class HospitalListFragment : Fragment() {
         }
     }
 
-    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
-        val currentLocation = userLocation
-        return if (currentLocation != null) {
-            hospitals.sortedBy { hospital ->
-                val results = FloatArray(1)
-                try {
-                    Location.distanceBetween(
-                        currentLocation.latitude, currentLocation.longitude,
-                        hospital.latitude, hospital.longitude,
-                        results
-                    )
-                    results[0]
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error calculating distance for ${hospital.name}", e)
-                    Float.MAX_VALUE // 오류 발생시 가장 멀리 정렬
-                }
-            }
-        } else {
-            hospitals
-        }
-    }
 
     private fun checkLocationPermission() {
         when {
@@ -344,36 +315,52 @@ class HospitalListFragment : Fragment() {
     private fun filterHospitals(onlyAvailable: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
             val hospitals = viewModel.hospitals.value
-            val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
-                .filter { hospital ->
-                    if (onlyAvailable) {
-                        when (hospital.operationState) {
-                            OperationState.OPEN, OperationState.EMERGENCY -> true
-                            else -> false
+            // 1. 카테고리 필터링
+            val categoryFiltered = viewModel.filterHospitalsByCategory(hospitals, category)
+
+            // 2. 운영 상태 필터링
+            val stateFiltered = categoryFiltered.filter { hospital ->
+                if (onlyAvailable) {
+                    when (hospital.operationState) {
+                        OperationState.OPEN, OperationState.EMERGENCY -> true
+                        else -> false
+                    }
+                } else {
+                    true
+                }
+            }
+
+            // 3. 단일 정렬 로직으로 통합
+            val sortedHospitals = stateFiltered.sortedWith(
+                compareBy<HospitalInfo> { hospital ->
+                    // 거리 계산
+                    val currentLocation = userLocation
+                    if (currentLocation != null) {
+                        val results = FloatArray(1)
+                        try {
+                            Location.distanceBetween(
+                                currentLocation.latitude, currentLocation.longitude,
+                                hospital.latitude, hospital.longitude,
+                                results
+                            )
+                            results[0]
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error calculating distance for ${hospital.name}", e)
+                            Float.MAX_VALUE
                         }
                     } else {
-                        true
+                        Float.MAX_VALUE
                     }
                 }
-
-            // 운영 상태와 거리를 고려한 정렬
-            val sortedHospitals = filteredHospitals.sortedWith(
-                compareBy<HospitalInfo>(
-                    // 1순위: 영업중인 병원
-                    { it.operationState != OperationState.OPEN },
-                    // 2순위: 응급실 운영 병원
-                    { it.operationState != OperationState.EMERGENCY },
-                    // 3순위: 점심시간
-                    { it.operationState != OperationState.LUNCH_BREAK },
-                    // 4순위: 거리
-                    { getDistanceFromUser(it) }
-                )
             )
 
-            if (sortedHospitals.isEmpty() && onlyAvailable) {
-                binding.emptyView.text = "현재 영업중인 병원이 없습니다"
-            } else if (sortedHospitals.isEmpty()) {
-                binding.emptyView.text = "주변 병원이 없습니다"
+            // 빈 결과 처리
+            if (sortedHospitals.isEmpty()) {
+                binding.emptyView.text = if (onlyAvailable) {
+                    "현재 영업중인 병원이 없습니다"
+                } else {
+                    "주변 병원이 없습니다"
+                }
             }
 
             updateUI(sortedHospitals)

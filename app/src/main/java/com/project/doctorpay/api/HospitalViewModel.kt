@@ -253,14 +253,22 @@ class HospitalViewModel(
     }
 
     private fun filterHospitalsWithin5km(latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
-        val filteredList = hospitals.filter { hospital ->
-            val distance = calculateDistance(
-                latitude, longitude,
-                hospital.latitude, hospital.longitude
-            )
-            distance <= 5000 // 5km = 5000m
-        }
-        _filteredHospitals.value = filteredList
+        val filteredAndSortedList = hospitals
+            .map { hospital ->
+                // 각 병원의 거리 계산
+                val distance = calculateDistance(
+                    latitude, longitude,
+                    hospital.latitude, hospital.longitude
+                )
+                Pair(hospital, distance)
+            }
+            .filter { (_, distance) ->
+                distance <= 5000 // 5km 이내 필터링
+            }
+            .sortedBy { (_, distance) -> distance } // 거리순 정렬
+            .map { (hospital, _) -> hospital }
+
+        _filteredHospitals.value = filteredAndSortedList
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
