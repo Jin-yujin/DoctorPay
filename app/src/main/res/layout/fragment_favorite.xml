@@ -53,6 +53,14 @@
                 android:clipToPadding="false"
                 android:paddingVertical="10dp" />
 
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/filterChipGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"
+                app:singleSelection="true"/>
+
         </androidx.cardview.widget.CardView>
 
         <TextView

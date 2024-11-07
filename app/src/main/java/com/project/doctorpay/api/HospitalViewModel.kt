@@ -2,6 +2,7 @@ package com.project.doctorpay.api
 
 import DgsbjtInfoItem
 import DgsbjtInfoResponse
+import HospitalDetailItem
 import HospitalInfoItem
 import HospitalInfoResponse
 import NonPaymentItem
@@ -12,24 +13,30 @@ import androidx.lifecycle.*
 import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
+import com.project.doctorpay.db.HospitalTimeInfo
+import com.project.doctorpay.db.TimeRange
 import com.project.doctorpay.db.inferDepartments
 import com.project.doctorpay.network.NetworkModule
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import org.simpleframework.xml.core.ElementException
 import retrofit2.HttpException
 import retrofit2.Response
 import java.io.EOFException
+import java.io.IOException
+import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalTime
+import kotlin.math.pow
 
 class HospitalViewModel(
     private val healthInsuranceApi: HealthInsuranceApi
 ) : ViewModel() {
 
+    // 상태 관리를 위한 StateFlow
     private val _hospitals = MutableStateFlow<List<HospitalInfo>>(emptyList())
     val hospitals: StateFlow<List<HospitalInfo>> = _hospitals
 
@@ -42,34 +49,94 @@ class HospitalViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error
 
+    // 페이징 관련 변수
     private var currentPage = 1
     private val pageSize = 50
     private var isLastPage = false
 
     companion object {
         const val DEFAULT_RADIUS = 5000  // 5km
+        private const val MAX_RETRIES = 3
+        private const val BASE_DELAY = 1000L
+        private const val REQUEST_TIMEOUT = 30000L // 30초
+
+        // 캐시 관련 상수
+        private var cachedHospitals: List<HospitalInfo>? = null
+        private var lastFetchTime: Long = 0
+        private const val CACHE_DURATION = 30 * 60 * 1000 // 30분
     }
+
+    // 마지막으로 요청한 위치 저장
+    private var lastLocation: Pair<Double, Double>? = null
 
     private fun formatCoordinate(value: Double): String {
-        return String.format("%.8f", value)  // 좌표 정밀도 유지
+        return String.format("%.8f", value)
     }
 
-    fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = 5000) {
+    private suspend fun <T> retryWithExponentialBackoff(
+        times: Int = MAX_RETRIES,
+        initialDelay: Long = BASE_DELAY,
+        block: suspend () -> T
+    ): T {
+        var lastException: Exception? = null
+
+        repeat(times) { attempt ->
+            try {
+                return withTimeout(REQUEST_TIMEOUT) {
+                    block()
+                }
+            } catch (e: Exception) {
+                lastException = e
+                if (attempt == times - 1) throw e
+
+                val backoffDelay = initialDelay * 2.0.pow(attempt.toDouble()).toLong()
+                    .coerceAtMost(10000) // 최대 10초
+                Log.d("RetryOperation", "Retrying operation after error: ${e.message}, attempt ${attempt + 1} of $times after ${backoffDelay}ms delay")
+                delay(backoffDelay)
+            }
+        }
+
+        throw lastException ?: IOException("Failed after $times attempts")
+    }
+
+    fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = DEFAULT_RADIUS, forceRefresh: Boolean = false) {
         viewModelScope.launch {
+            // 캐시 확인
+            if (!forceRefresh &&
+                cachedHospitals != null &&
+                (System.currentTimeMillis() - lastFetchTime) < CACHE_DURATION &&
+                lastLocation?.first == latitude &&
+                lastLocation?.second == longitude
+            ) {
+                Log.d("CacheDebug", """
+                캐시 사용됨:
+                - 캐시된 병원 수: ${cachedHospitals?.size}
+                - 마지막 업데이트: ${formatTimeAgo(lastFetchTime)}
+                - 캐시된 위치: ${lastLocation?.first}, ${lastLocation?.second}
+                - 요청 위치: $latitude, $longitude
+            """.trimIndent())
+
+                _hospitals.value = cachedHospitals!!
+                filterHospitalsWithin5km(latitude, longitude, cachedHospitals!!)
+                return@launch
+            }
+
             _isLoading.value = true
             _error.value = null
 
             try {
                 Log.d("HospitalViewModel", "Fetching hospitals with lat=$latitude, lon=$longitude, radius=$radius")
 
-                val response = healthInsuranceApi.getHospitalInfo(
-                    serviceKey = NetworkModule.getServiceKey(),
-                    pageNo = currentPage,
-                    numOfRows = pageSize,
-                    xPos = formatCoordinate(longitude),
-                    yPos = formatCoordinate(latitude),
-                    radius = radius
-                )
+                val response = retryWithExponentialBackoff {
+                    healthInsuranceApi.getHospitalInfo(
+                        serviceKey = NetworkModule.getServiceKey(),
+                        pageNo = currentPage,
+                        numOfRows = pageSize,
+                        xPos = formatCoordinate(longitude),
+                        yPos = formatCoordinate(latitude),
+                        radius = radius
+                    )
+                }
 
                 Log.d("HospitalViewModel", "API Response Code: ${response.code()}")
 
@@ -86,8 +153,8 @@ class HospitalViewModel(
                         val newHospitals = body.body?.items?.itemList ?: emptyList()
                         Log.d("HospitalViewModel", "Received ${newHospitals.size} hospitals from API")
 
-                        // NonPayment 정보도 함께 가져오기
-                        val nonPaymentResponse = fetchNonPaymentInfo()
+                        // NonPayment 정보 가져오기
+                        val nonPaymentResponse = retryWithExponentialBackoff { fetchNonPaymentInfo() }
                         val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
                             nonPaymentResponse.body()?.body?.items ?: emptyList()
                         } else {
@@ -97,20 +164,31 @@ class HospitalViewModel(
                         val combinedHospitals = combineHospitalData(newHospitals, nonPaymentItems)
                         Log.d("HospitalViewModel", "Combined hospitals: ${combinedHospitals.size}")
 
-                        // 진료과목 정보 가져오기
-                        val updatedHospitals = combinedHospitals.map { hospital ->
-                            try {
-                                val dgsbjtResponse = fetchDgsbjtInfo(hospital.ykiho)
-                                if (dgsbjtResponse.isSuccessful) {
-                                    updateHospitalWithDgsbjtInfo(hospital, dgsbjtResponse.body()?.body?.items?.itemList)
-                                } else {
-                                    hospital
+                        // 병렬로 진료과목 정보 가져오기
+                        val updatedHospitals = withContext(Dispatchers.IO) {
+                            combinedHospitals.map { hospital ->
+                                async {
+                                    try {
+                                        val dgsbjtResponse = retryWithExponentialBackoff {
+                                            fetchDgsbjtInfo(hospital.ykiho)
+                                        }
+                                        if (dgsbjtResponse.isSuccessful) {
+                                            updateHospitalWithDgsbjtInfo(hospital, dgsbjtResponse.body()?.body?.items?.itemList)
+                                        } else {
+                                            hospital
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("HospitalViewModel", "Error fetching dgsbjt info for ${hospital.name}", e)
+                                        hospital
+                                    }
                                 }
-                            } catch (e: Exception) {
-                                Log.e("HospitalViewModel", "Error fetching dgsbjt info: ${e.message}")
-                                hospital
-                            }
+                            }.awaitAll()
                         }
+
+                        // 캐시 업데이트
+                        cachedHospitals = updatedHospitals
+                        lastFetchTime = System.currentTimeMillis()
+                        lastLocation = Pair(latitude, longitude)
 
                         if (currentPage == 1) {
                             _hospitals.value = updatedHospitals
@@ -125,8 +203,8 @@ class HospitalViewModel(
                         currentPage++
                     }
                     response.code() == 429 -> {
-                        Log.d("HospitalViewModel", "Rate limit exceeded, retrying...")
-                        delay(1000L)
+                        Log.d("HospitalViewModel", "Rate limit exceeded, retrying after delay...")
+                        delay(BASE_DELAY)
                         fetchNearbyHospitals(latitude, longitude, DEFAULT_RADIUS)
                     }
                     else -> {
@@ -145,6 +223,29 @@ class HospitalViewModel(
         }
     }
 
+    // 시간 포맷팅 함수 추가
+    private fun formatTimeAgo(timestamp: Long): String {
+        val now = System.currentTimeMillis()
+        val diff = now - timestamp
+        return when {
+            diff < 1000 -> "방금 전"
+            diff < 60 * 1000 -> "${diff / 1000}초 전"
+            diff < 60 * 60 * 1000 -> "${diff / (60 * 1000)}분 전"
+            else -> "${diff / (60 * 60 * 1000)}시간 전"
+        }
+    }
+    suspend fun fetchNonPaymentDetails(ykiho: String): List<NonPaymentItem> {
+        return retryWithExponentialBackoff {
+            val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
+                serviceKey = NetworkModule.getServiceKey(),
+                ykiho = ykiho
+            )
+            if (response.isSuccessful) {
+                response.body()?.body?.items ?: emptyList()
+            } else emptyList()
+        }
+    }
+
     fun resetPagination() {
         currentPage = 1
         isLastPage = false
@@ -152,14 +253,23 @@ class HospitalViewModel(
     }
 
     private fun filterHospitalsWithin5km(latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
-        val filteredList = hospitals.filter { hospital ->
-            val distance = calculateDistance(
-                latitude, longitude,
-                hospital.latitude, hospital.longitude
-            )
-            distance <= 5000 // 5km = 5000m
-        }
-        _filteredHospitals.value = filteredList
+        val filteredAndSortedList = hospitals
+            .map { hospital ->
+                // 각 병원의 거리 계산
+                val distance = calculateDistance(
+                    latitude, longitude,
+                    hospital.latitude, hospital.longitude
+                )
+                Pair(hospital, distance)
+            }
+            .filter { (_, distance) ->
+                distance <= 5000 // 5km 이내 필터링
+            }
+            .sortedBy { (_, distance) -> distance } // 거리순 정렬
+            .map { (hospital, _) -> hospital }
+
+
+        _filteredHospitals.value = filteredAndSortedList
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
@@ -169,43 +279,42 @@ class HospitalViewModel(
     }
 
     suspend fun fetchHospitalInfo(sidoCd: String, sgguCd: String): Response<HospitalInfoResponse> {
-        val response = healthInsuranceApi.getHospitalInfo(
-            serviceKey = NetworkModule.getServiceKey(),
-            pageNo = 1,
-            numOfRows = pageSize,
-            sidoCd = sidoCd,
-            sgguCd = sgguCd,
-            xPos = "0",
-            yPos = "0",
-            radius = 0
-        )
-        Log.d("API_RESPONSE", "Raw Hospital Info Response: ${response.body()}")
-        return response
+        return retryWithExponentialBackoff {
+            val response = healthInsuranceApi.getHospitalInfo(
+                serviceKey = NetworkModule.getServiceKey(),
+                pageNo = 1,
+                numOfRows = pageSize,
+                sidoCd = sidoCd,
+                sgguCd = sgguCd,
+                xPos = "0",
+                yPos = "0",
+                radius = 0
+            )
+            Log.d("API_RESPONSE", "Raw Hospital Info Response: ${response.body()}")
+            response
+        }
     }
 
     private suspend fun fetchNonPaymentInfo(): Response<NonPaymentResponse> {
-        return healthInsuranceApi.getNonPaymentInfo(
-            serviceKey = NetworkModule.getServiceKey(),
-            pageNo = 1,
-            numOfRows = pageSize
-        )
+        return retryWithExponentialBackoff {
+            healthInsuranceApi.getNonPaymentInfo(
+                serviceKey = NetworkModule.getServiceKey(),
+                pageNo = 1,
+                numOfRows = pageSize
+            )
+        }
     }
 
-    private suspend fun fetchDgsbjtInfo(ykiho: String, retryCount: Int = 3): Response<DgsbjtInfoResponse> {
-        repeat(retryCount) { attempt ->
-            try {
-                return healthInsuranceApi.getDgsbjtInfo(
-                    serviceKey = NetworkModule.getServiceKey(),
-                    ykiho = ykiho.trim(),
-                    pageNo = 1,
-                    numOfRows = 20
-                )
-            } catch (e: UnknownHostException) {
-                if (attempt == retryCount - 1) throw e
-                delay(1000) // 1초 대기 후 재시도
-            }
+    private suspend fun fetchDgsbjtInfo(ykiho: String): Response<DgsbjtInfoResponse> {
+        return retryWithExponentialBackoff {
+            healthInsuranceApi.getDgsbjtInfo(
+                serviceKey = NetworkModule.getServiceKey(),
+                ykiho = ykiho.trim(),
+                pageNo = 1,
+                numOfRows = pageSize
+            )
+
         }
-        throw UnknownHostException("Failed after $retryCount attempts")
     }
 
     private fun updateHospitalWithDgsbjtInfo(hospital: HospitalInfo, dgsbjtItems: List<DgsbjtInfoItem>?): HospitalInfo {
@@ -235,71 +344,253 @@ class HospitalViewModel(
 
         return filteredHospitals
     }
-    private fun combineHospitalData(
-        hospitalInfoItems: List<HospitalInfoItem>?,  // nullable로 변경
-        nonPaymentItems: List<NonPaymentItem>?       // nullable로 변경
+    private suspend fun combineHospitalData(
+        hospitalInfoItems: List<HospitalInfoItem>?,
+        nonPaymentItems: List<NonPaymentItem>?
     ): List<HospitalInfo> {
         Log.d("HospitalViewModel", "Combining data - Hospitals: ${hospitalInfoItems?.size}, NonPayment: ${nonPaymentItems?.size}")
 
         val nonPaymentMap = nonPaymentItems?.groupBy { it.yadmNm } ?: emptyMap()
 
-        return hospitalInfoItems?.mapNotNull { hospitalInfo ->
+        return withContext(Dispatchers.IO) {
+            hospitalInfoItems?.mapNotNull { hospitalInfo ->
+                try {
+                    // 1. 기본 유효성 검사
+                    val nonPaymentItemsForHospital = nonPaymentMap[hospitalInfo.yadmNm] ?: emptyList()
+                    val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: return@mapNotNull null
+                    val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: return@mapNotNull null
+
+                    // 좌표가 유효한 경우만 처리
+                    if (latitude == 0.0 && longitude == 0.0) {
+                        return@mapNotNull null
+                    }
+
+                    // 2. 진료과목 추론
+                    val departments = inferDepartments(
+                        hospitalInfo.yadmNm ?: "",
+                        nonPaymentItemsForHospital,
+                        hospitalInfo.dgsbjtCd?.split(",") ?: emptyList()
+                    )
+
+                    // 3. 진료과목 카테고리 설정
+                    val departmentCategories = getDepartmentCategories(departments)
+
+                    // 4. 운영시간 정보 가져오기
+                    val timeInfo = withContext(Dispatchers.IO) {
+                        try {
+                            Log.d("TimeInfo", "Attempting to fetch time info for hospital: ${hospitalInfo.yadmNm}")
+                            val ykiho = hospitalInfo.ykiho
+                            if (ykiho == null) {
+                                Log.d("TimeInfo", "ykiho is null for hospital: ${hospitalInfo.yadmNm}")
+                                null
+                            } else {
+                                val response = retryWithExponentialBackoff {
+                                    healthInsuranceApi.getDtlInfo(
+                                        serviceKey = NetworkModule.getServiceKey(),
+                                        ykiho = ykiho
+                                    )
+                                }
+
+                                Log.d("TimeInfo", """
+                                        Time Info API Response:
+                                        - Hospital: ${hospitalInfo.yadmNm}
+                                        - ykiho: $ykiho
+                                        - Response code: ${response.code()}
+                                        - Response body: ${response.body()}
+                                        - Error body: ${response.errorBody()?.string()}
+                                    """.trimIndent())
+
+                                if (response.isSuccessful) {
+                                    val detailItem = response.body()?.body?.items?.item
+                                    convertToHospitalTimeInfo(detailItem)
+                                } else {
+                                    Log.e("TimeInfo", "API call failed with code: ${response.code()}")
+                                    when (response.code()) {
+                                        500 -> Log.e("TimeInfo", "Server error for ykiho: $ykiho")
+                                        404 -> Log.e("TimeInfo", "API endpoint not found")
+                                        else -> Log.e("TimeInfo", "Unknown error: ${response.errorBody()?.string()}")
+                                    }
+                                    getDefaultTimeInfo()  // 기본 운영시간 정보 반환
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("TimeInfo", "Error fetching time info for ${hospitalInfo.ykiho}", e)
+                            e.printStackTrace()
+                            getDefaultTimeInfo()  // 에러 발생 시 기본 운영시간 정보 반환
+                        }
+                    }
+
+                    // Debug logging for timeInfo
+                    timeInfo?.let {
+                        Log.d("TimeInfo", """
+                        Time info for ${hospitalInfo.yadmNm}:
+                        - Week time: ${it.weekdayTime}
+                        - Saturday time: ${it.saturdayTime}
+                        - Sunday time: ${it.sundayTime}
+                        - Lunch time: ${it.lunchTime}
+                        - Emergency: ${it.isEmergencyDay}, ${it.isEmergencyNight}
+                    """.trimIndent())
+                    } ?: Log.d("TimeInfo", "Using default time info for ${hospitalInfo.yadmNm}")
+
+                    // 5. 운영 상태 결정
+                    val operationState = when {
+                        timeInfo == null -> OperationState.UNKNOWN
+                        timeInfo.isClosed -> OperationState.CLOSED
+                        timeInfo.isEmergencyDay || timeInfo.isEmergencyNight -> OperationState.EMERGENCY
+                        else -> {
+                            val nowTime = LocalTime.now()
+                            val currentDay = LocalDate.now().dayOfWeek
+                            when (currentDay) {
+                                DayOfWeek.SUNDAY -> timeInfo.sundayTime
+                                DayOfWeek.SATURDAY -> timeInfo.saturdayTime
+                                else -> timeInfo.weekdayTime
+                            }?.let { timeRange ->
+                                if (timeRange.start == null || timeRange.end == null) {
+                                    OperationState.UNKNOWN
+                                } else if (nowTime.isAfter(timeRange.start) && nowTime.isBefore(timeRange.end)) {
+                                    // 점심시간 체크
+                                    val lunchTimeRange = if (currentDay == DayOfWeek.SATURDAY) {
+                                        timeInfo.saturdayLunchTime
+                                    } else {
+                                        timeInfo.lunchTime
+                                    }
+
+                                    if (lunchTimeRange?.let { lunch ->
+                                            lunch.start?.let { start ->
+                                                lunch.end?.let { end ->
+                                                    nowTime.isAfter(start) && nowTime.isBefore(end)
+                                                }
+                                            }
+                                        } == true) {
+                                        OperationState.LUNCH_BREAK
+                                    } else {
+                                        OperationState.OPEN
+                                    }
+                                } else {
+                                    OperationState.CLOSED
+                                }
+                            } ?: OperationState.UNKNOWN
+                        }
+                    }
+
+                    // 6. 상태 텍스트 설정
+                    val stateText = when (operationState) {
+                        OperationState.OPEN -> "영업중"
+                        OperationState.CLOSED -> "영업마감"
+                        OperationState.LUNCH_BREAK -> "점심시간"
+                        OperationState.EMERGENCY -> "응급실 운영중"
+                        OperationState.UNKNOWN -> "운영시간 정보없음"
+                    }
+
+                    // 7. HospitalInfo 객체 생성
+                    HospitalInfo(
+                        location = LatLng(latitude, longitude),
+                        name = hospitalInfo.yadmNm ?: "",
+                        address = hospitalInfo.addr ?: "",
+                        departments = departments,
+                        departmentCategories = departmentCategories,
+                        phoneNumber = hospitalInfo.telno ?: "",
+                        state = stateText,
+                        rating = 0.0,
+                        latitude = latitude,
+                        longitude = longitude,
+                        nonPaymentItems = nonPaymentItemsForHospital,
+                        clCdNm = hospitalInfo.clCdNm ?: "",
+                        ykiho = hospitalInfo.ykiho ?: "",
+                        timeInfo = timeInfo
+                    ).also {
+                        Log.d("HospitalViewModel", "Created hospital: ${it.name} at (${it.latitude}, ${it.longitude}) with state: ${it.state}")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("HospitalViewModel", "Error creating hospital from item: ${hospitalInfo.yadmNm}", e)
+                    null
+                }
+            } ?: emptyList()
+        }
+    }
+
+    private fun getDefaultTimeInfo(): HospitalTimeInfo {
+        return HospitalTimeInfo(
+            weekdayTime = TimeRange(
+                LocalTime.of(9, 0),
+                LocalTime.of(18, 0)
+            ),
+            saturdayTime = TimeRange(
+                LocalTime.of(9, 0),
+                LocalTime.of(13, 0)
+            ),
+            sundayTime = null,
+            lunchTime = TimeRange(
+                LocalTime.of(12, 0),
+                LocalTime.of(13, 0)
+            ),
+            saturdayLunchTime = null,
+            isEmergencyDay = false,
+            isEmergencyNight = false,
+            emergencyDayContact = null,
+            emergencyNightContact = null,
+            isClosed = false
+        )
+    }
+
+    // 병원 운영 상태를 나타내는 열거형
+    enum class OperationState {
+        OPEN,           // 영업 중
+        CLOSED,         // 영업 종료
+        LUNCH_BREAK,    // 점심시간
+        EMERGENCY,      // 응급실 운영 중
+        UNKNOWN         // 상태 알 수 없음
+    }
+    fun searchHospitals(query: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
             try {
-                val nonPaymentItemsForHospital = nonPaymentMap[hospitalInfo.yadmNm] ?: emptyList()
-                val latitude = hospitalInfo.YPos?.toDoubleOrNull() ?: return@mapNotNull null
-                val longitude = hospitalInfo.XPos?.toDoubleOrNull() ?: return@mapNotNull null
+                // 캐시된 데이터가 있으면 그 중에서 검색
+                val searchBase = cachedHospitals ?: _hospitals.value
 
-                // 좌표가 유효한 경우만 처리
-                if (latitude == 0.0 && longitude == 0.0) {
-                    return@mapNotNull null
+                val filteredHospitals = searchBase.filter { hospital ->
+                    hospital.name.contains(query, ignoreCase = true) ||
+                            hospital.departments.any { it.contains(query, ignoreCase = true) } ||
+                            hospital.address.contains(query, ignoreCase = true)
                 }
 
-                val departments = inferDepartments(
-                    hospitalInfo.yadmNm ?: "",
-                    nonPaymentItemsForHospital,
-                    hospitalInfo.dgsbjtCd?.split(",") ?: emptyList()
-                )
+                _hospitals.value = filteredHospitals
 
-                val departmentCategories = getDepartmentCategories(departments)
-
-                HospitalInfo(
-                    location = LatLng(latitude, longitude),
-                    name = hospitalInfo.yadmNm ?: "",
-                    address = hospitalInfo.addr ?: "",
-                    departments = departments,
-                    departmentCategories = departmentCategories,
-                    time = "",
-                    phoneNumber = hospitalInfo.telno ?: "",
-                    state = "",
-                    rating = 0.0,
-                    latitude = latitude,
-                    longitude = longitude,
-                    nonPaymentItems = nonPaymentItemsForHospital,
-                    clCdNm = hospitalInfo.clCdNm ?: "",
-                    ykiho = hospitalInfo.ykiho ?: ""
-                ).also {
-                    Log.d("HospitalViewModel", "Created hospital: ${it.name} at (${it.latitude}, ${it.longitude})")
-                }
             } catch (e: Exception) {
-                Log.e("HospitalViewModel", "Error creating hospital from item: ${hospitalInfo.yadmNm}", e)
-                null
+                _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
+            } finally {
+                _isLoading.value = false
             }
-        } ?: emptyList()  // null인 경우 빈 리스트 반환
+        }
+    }
+
+    // 검색 초기화 (원래 데이터로 복구)
+    fun resetSearch() {
+        viewModelScope.launch {
+            cachedHospitals?.let {
+                _hospitals.value = it
+            }
+        }
     }
 
     private fun handleError(e: Exception) {
         Log.e("HospitalViewModel", "데이터 불러오기 오류", e)
         val errorMessage = when (e) {
+            is TimeoutCancellationException -> "요청 시간이 초과되었습니다. 다시 시도해주세요."
+            is SocketTimeoutException -> "서버 응답 시간이 초과되었습니다. 다시 시도해주세요."
+            is UnknownHostException -> "인터넷 연결을 확인해주세요."
             is HttpException -> {
                 when (e.code()) {
                     429 -> "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-                    500, 502, 503, 504 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-                    else -> "HTTP 오류: ${e.code()}"
+                    in 500..599 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+                    else -> "네트워크 오류: ${e.code()}"
                 }
             }
             is ElementException -> "데이터 형식 오류: ${e.message}"
             is EOFException -> "서버 응답이 불완전합니다. 다시 시도해주세요."
-            else -> "알 수 없는 오류: ${e.message}"
+            is IOException -> "네트워크 오류가 발생했습니다: ${e.message}"
+            else -> "알 수 없는 오류가 발생했습니다: ${e.message}"
         }
 
         Log.e("HospitalViewModel", errorMessage)
@@ -312,39 +603,65 @@ class HospitalViewModel(
         }.distinct()
     }
 
-    fun fetchHospitalData(sidoCd: String, sgguCd: String) {
+    fun clearCache() {
+        cachedHospitals = null
+        lastFetchTime = 0
+        lastLocation = null
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // 캐시는 유지하고 다른 리소스만 정리
+    }
+
+    // 특정 지역의 병원만 보여주고 싶다
+    fun fetchHospitalsByRegion(sidoCd: String, sgguCd: String) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                val hospitalInfoResponse = fetchHospitalInfo(sidoCd, sgguCd)
-                val nonPaymentResponse = fetchNonPaymentInfo()
-
-                if (!hospitalInfoResponse.isSuccessful || !nonPaymentResponse.isSuccessful) {
-                    throw Exception("API Error: Hospital Info or Non-Payment Info request failed")
+                val hospitalInfoResponse = retryWithExponentialBackoff {
+                    fetchHospitalInfo(sidoCd, sgguCd)
                 }
 
-                val combinedHospitals = combineHospitalData(
-                    hospitalInfoResponse.body()?.body?.items?.itemList,
-                    nonPaymentResponse.body()?.body?.items
-                )
+                if (hospitalInfoResponse.isSuccessful) {
+                    val hospitals = hospitalInfoResponse.body()?.body?.items?.itemList ?: emptyList()
 
-                val updatedHospitals = combinedHospitals.map { hospital ->
-                    val dgsbjtInfoResponse = fetchDgsbjtInfo(hospital.ykiho)
-                    if (dgsbjtInfoResponse.isSuccessful) {
-                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtInfoResponse.body()?.body?.items?.itemList)
+                    // NonPayment 정보 가져오기
+                    val nonPaymentResponse = retryWithExponentialBackoff { fetchNonPaymentInfo() }
+                    val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
+                        nonPaymentResponse.body()?.body?.items ?: emptyList()
                     } else {
-                        Log.e("HospitalViewModel", "Failed to fetch DgsbjtInfo for ykiho: ${hospital.ykiho}")
-                        hospital
+                        emptyList()
                     }
-                }
 
-                Log.d("HospitalViewModel", "Combined hospitals: ${updatedHospitals.size}")
-                updatedHospitals.forEach { hospital ->
-                    Log.d("HospitalViewModel", "Hospital: ${hospital.name}, Categories: ${hospital.departmentCategories.joinToString()}")
-                }
+                    val combinedHospitals = combineHospitalData(hospitals, nonPaymentItems)
 
-                _hospitals.value = updatedHospitals
+                    // 진료과목 정보 가져오기 (병렬 처리)
+                    val updatedHospitals = withContext(Dispatchers.IO) {
+                        combinedHospitals.map { hospital ->
+                            async {
+                                try {
+                                    val dgsbjtResponse = retryWithExponentialBackoff {
+                                        fetchDgsbjtInfo(hospital.ykiho)
+                                    }
+                                    if (dgsbjtResponse.isSuccessful) {
+                                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtResponse.body()?.body?.items?.itemList)
+                                    } else {
+                                        hospital
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("HospitalViewModel", "Error fetching dgsbjt info: ${e.message}")
+                                    hospital
+                                }
+                            }
+                        }.awaitAll()
+                    }
+
+                    _hospitals.value = updatedHospitals
+                } else {
+                    _error.value = "데이터를 불러오는데 실패했습니다."
+                }
             } catch (e: Exception) {
                 handleError(e)
             } finally {
@@ -352,20 +669,125 @@ class HospitalViewModel(
             }
         }
     }
-
-    fun searchHospitals(query: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val filteredHospitals = _hospitals.value.filter {
-                    it.name.contains(query, ignoreCase = true)
-                }
-                _hospitals.value = filteredHospitals
-            } catch (e: Exception) {
-                _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
-            } finally {
-                _isLoading.value = false
+    private suspend fun fetchHospitalTimeInfo(ykiho: String): HospitalTimeInfo? {
+        return try {
+            val response = retryWithExponentialBackoff {
+                healthInsuranceApi.getDtlInfo(
+                    serviceKey = NetworkModule.getServiceKey(),
+                    ykiho = ykiho
+                )
             }
+
+            Log.d("TimeInfo", "Time Info API Response for $ykiho: ${response.body()}")
+
+            if (response.isSuccessful) {
+                val detailItem = response.body()?.body?.items?.item
+                Log.d("TimeInfo", "Detail Item for $ykiho: $detailItem")
+                convertToHospitalTimeInfo(detailItem)
+            } else {
+                Log.e("TimeInfo", "Failed to fetch time info for $ykiho: ${response.code()}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("TimeInfo", "Error fetching hospital time info for $ykiho", e)
+            null
+        }
+    }
+
+    private fun convertToHospitalTimeInfo(item: HospitalDetailItem?): HospitalTimeInfo? {
+        if (item == null) {
+            Log.d("TimeInfo", "Detail item is null")
+            return null
+        }
+
+        Log.d("TimeInfo", """
+        Converting DetailItem:
+        - Mon: ${item.trmtMonStart} - ${item.trmtMonEnd}
+        - Sat: ${item.trmtSatStart} - ${item.trmtSatEnd}
+        - Sun: ${item.trmtSunStart} - ${item.trmtSunEnd}
+        - Lunch Week: ${item.lunchWeek}
+        - Lunch Sat: ${item.lunchSat}
+        - Emergency: ${item.emyDayYn}, ${item.emyNgtYn}
+    """.trimIndent())
+
+        return try {
+            HospitalTimeInfo(
+                weekdayTime = TimeRange(
+                    parseTime(item.trmtMonStart),
+                    parseTime(item.trmtMonEnd)
+                ),
+                saturdayTime = TimeRange(
+                    parseTime(item.trmtSatStart),
+                    parseTime(item.trmtSatEnd)
+                ),
+                sundayTime = TimeRange(
+                    parseTime(item.trmtSunStart),
+                    parseTime(item.trmtSunEnd)
+                ),
+                lunchTime = parseLunchTime(item.lunchWeek),
+                saturdayLunchTime = parseLunchTime(item.lunchSat),
+                isEmergencyDay = item.emyDayYn == "Y",
+                isEmergencyNight = item.emyNgtYn == "Y",
+                emergencyDayContact = item.emyDayTelNo1,
+                emergencyNightContact = item.emyNgtTelNo1,
+                isClosed = item.noTrmtSun == "Y" || item.noTrmtHoli == "Y"
+            ).also {
+                Log.d("TimeInfo", "Converted TimeInfo: $it")
+            }
+        } catch (e: Exception) {
+            Log.e("TimeInfo", "Error converting hospital time info", e)
+            null
+        }
+    }
+    private fun parseTime(timeStr: String?): LocalTime? {
+        if (timeStr.isNullOrBlank()) {
+            Log.d("TimeInfo", "Time string is null or blank: $timeStr")
+            return null
+        }
+        return try {
+            // 시간 형식이 "0900"과 같은 형태인지 확인
+            if (timeStr.length != 4) {
+                Log.e("TimeInfo", "Invalid time format: $timeStr")
+                return null
+            }
+
+            val hour = timeStr.substring(0, 2).toInt()
+            val minute = timeStr.substring(2, 4).toInt()
+
+            if (hour !in 0..23 || minute !in 0..59) {
+                Log.e("TimeInfo", "Invalid hour/minute: $hour:$minute")
+                return null
+            }
+
+            LocalTime.of(hour, minute).also {
+                Log.d("TimeInfo", "Parsed time $timeStr to $it")
+            }
+        } catch (e: Exception) {
+            Log.e("TimeInfo", "Error parsing time: $timeStr", e)
+            null
+        }
+    }
+
+    private fun parseLunchTime(lunchTimeStr: String?): TimeRange? {
+        if (lunchTimeStr.isNullOrBlank()) {
+            Log.d("TimeInfo", "Lunch time string is null or blank")
+            return null
+        }
+
+        Log.d("TimeInfo", "Parsing lunch time: $lunchTimeStr")
+
+        // 예: "1200-1330" 형식 파싱
+        val times = lunchTimeStr.split("-")
+        return if (times.size == 2) {
+            TimeRange(
+                parseTime(times[0].trim()),
+                parseTime(times[1].trim())
+            ).also {
+                Log.d("TimeInfo", "Parsed lunch time range: $it")
+            }
+        } else {
+            Log.e("TimeInfo", "Invalid lunch time format: $lunchTimeStr")
+            null
         }
     }
 }

@@ -27,8 +27,8 @@
     <string name="GENERAL_MEDICINE">일반의</string>
 
     <string name="no_hospitals_found">병원을 찾을 수 없습니다.</string>
-    <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다.</string>
-    <string name="hospital_list_header">병원 목록</string>
+    <string name="no_hospitals_with_filter">선택한 필터에 해당하는 병원이 없습니다</string>
+    <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다</string>    <string name="hospital_list_header">병원 목록</string>
     <string name="category_header_format">%s</string>
 
 
