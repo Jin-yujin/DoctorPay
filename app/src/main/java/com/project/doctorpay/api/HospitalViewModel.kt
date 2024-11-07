@@ -268,6 +268,7 @@ class HospitalViewModel(
             .sortedBy { (_, distance) -> distance } // 거리순 정렬
             .map { (hospital, _) -> hospital }
 
+
         _filteredHospitals.value = filteredAndSortedList
     }
 
@@ -312,10 +313,9 @@ class HospitalViewModel(
                 pageNo = 1,
                 numOfRows = pageSize
             )
+
         }
     }
-
-
 
     private fun updateHospitalWithDgsbjtInfo(hospital: HospitalInfo, dgsbjtItems: List<DgsbjtInfoItem>?): HospitalInfo {
         val dgsbjtCodes = dgsbjtItems?.mapNotNull { it.dgsbjtCd } ?: emptyList()
@@ -669,7 +669,6 @@ class HospitalViewModel(
             }
         }
     }
-
     private suspend fun fetchHospitalTimeInfo(ykiho: String): HospitalTimeInfo? {
         return try {
             val response = retryWithExponentialBackoff {
@@ -740,7 +739,6 @@ class HospitalViewModel(
             null
         }
     }
-
     private fun parseTime(timeStr: String?): LocalTime? {
         if (timeStr.isNullOrBlank()) {
             Log.d("TimeInfo", "Time string is null or blank: $timeStr")
