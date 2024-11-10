@@ -1,6 +1,8 @@
 package com.project.doctorpay.ui.home
 
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -49,9 +51,19 @@ class HomeFragment : Fragment() {
         setupCategoryButtons()
         observeViewModel()
 
-        viewModel.fetchHospitalData(sidoCd = "110000", sgguCd = "110019") // 서울 중랑구로 고정
+        loadHospitals()
     }
 
+    private fun loadHospitals() {
+        // 서울 중랑구의 기본 좌표값 사용
+        val latitude = 37.6065
+        val longitude = 127.0927
+        viewModel.fetchNearbyHospitals(
+            latitude = latitude,
+            longitude = longitude,
+            radius = HospitalViewModel.DEFAULT_RADIUS
+        )
+    }
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->
             // Handle item click here
@@ -62,9 +74,27 @@ class HomeFragment : Fragment() {
 
     private fun setupSearchButton() {
         binding.searchButton.setOnClickListener {
-            val searchQuery = binding.searchEditText.text.toString()
-            viewModel.searchHospitals(searchQuery)
+            val searchQuery = binding.searchEditText.text.toString().trim()
+            if (searchQuery.isEmpty()) {
+                viewModel.resetSearch()  // 검색어가 비어있으면 원래 데이터로 복구
+            } else {
+                viewModel.searchHospitals(searchQuery)
+            }
         }
+
+        // 옵션: EditText 변경 감지하여 실시간 검색
+        binding.searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val query = s.toString().trim()
+                if (query.isEmpty()) {
+                    viewModel.resetSearch()
+                } else if (query.length >= 2) { // 2글자 이상일 때만 검색
+                    viewModel.searchHospitals(query)
+                }
+            }
+        })
     }
 
     private fun setupCategoryButtons() {

@@ -76,7 +76,6 @@ class HospitalAdapter(
         private val nameTextView: TextView = view.findViewById(R.id.item_hospitalName)
         private val addressTextView: TextView = view.findViewById(R.id.item_hospitalAddress)
         private val departmentTextView: TextView = view.findViewById(R.id.item_department)
-        private val timeTextView: TextView = view.findViewById(R.id.item_hospitalTime)
         private val phoneNumberTextView: TextView = view.findViewById(R.id.item_hospitalNum)
         private val stateTextView: TextView = view.findViewById(R.id.tvState)
         private val distanceTextView: TextView = view.findViewById(R.id.item_hospitalDistance)
@@ -85,7 +84,6 @@ class HospitalAdapter(
             nameTextView.text = hospital.name
             addressTextView.text = hospital.address
             departmentTextView.text = hospital.departments.joinToString(", ")
-            timeTextView.text = hospital.time
             phoneNumberTextView.text = hospital.phoneNumber
             stateTextView.text = hospital.state
             distanceTextView.text = distance

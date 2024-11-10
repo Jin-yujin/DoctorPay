@@ -96,7 +96,6 @@ class HospitalDetailFragment : Fragment() {
             tvHospitalAddress.text = hospital.address
             tvHospitalPhone.text = hospital.phoneNumber
             ratingBar.rating = hospital.rating.toFloat()
-            tvHospitalHours.text = hospital.time.ifEmpty { "영업 시간 정보 없음" }
             tvHospitalHoliday.text = "휴일: 정보 없음" // 실제 데이터가 있다면 그것을 사용
             tvNightCare.text = "야간진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
             tvFemaleDoctors.text = "여의사 진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
@@ -452,6 +451,10 @@ class HospitalDetailFragment : Fragment() {
         _binding = null
     }
 
+    fun setHospitalInfo(hospital: HospitalInfo) {
+        this.hospital = hospital
+    }
+
     companion object {
         private const val ARG_HOSPITAL_ID = "hospital_id"
         private const val ARG_IS_FROM_MAP = "is_from_map"
@@ -466,4 +469,5 @@ class HospitalDetailFragment : Fragment() {
                 }
             }
     }
+
 }

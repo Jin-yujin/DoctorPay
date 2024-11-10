@@ -1,6 +1,7 @@
 package com.project.doctorpay.api
 
 import DgsbjtInfoResponse
+import HospitalDetailResponse
 import HospitalInfoResponse
 import NonPaymentResponse
 import retrofit2.Response
@@ -55,4 +56,13 @@ interface HealthInsuranceApi {
         @Query("pageNo") pageNo: Int = 1,
         @Query("numOfRows") numOfRows: Int = 50
     ): Response<DgsbjtInfoResponse>
+
+
+    @GET("MadmDtlInfoService2.7/getDtlInfo2.7")
+    suspend fun getDtlInfo(
+        @Query("serviceKey") serviceKey: String,
+        @Query("ykiho") ykiho: String,
+        @Query("pageNo") pageNo: Int = 1,
+        @Query("numOfRows") numOfRows: Int = 50
+    ): Response<HospitalDetailResponse>
 }

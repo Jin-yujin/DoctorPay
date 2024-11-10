@@ -6,6 +6,11 @@ import android.os.Parcelable
 import com.naver.maps.geometry.LatLng
 import kotlinx.parcelize.Parcelize
 import com.project.doctorpay.R
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 enum class DepartmentCategory(val categoryName: String, val codes: List<String>, val keywords: List<String>) {
     GENERAL_MEDICINE("일반의", listOf("00", "23", "41"), listOf("일반의")),
@@ -34,28 +39,118 @@ enum class DepartmentCategory(val categoryName: String, val codes: List<String>,
     }
 }
 
+enum class OperationState {
+    OPEN,           // 영업 중
+    CLOSED,         // 영업 종료
+    LUNCH_BREAK,    // 점심시간
+    EMERGENCY,      // 응급실 운영 중
+    UNKNOWN         // 상태 알 수 없음
+}
 
-@Parcelize
+data class TimeRange(
+    val start: LocalTime?,
+    val end: LocalTime?
+)
+
+data class HospitalTimeInfo(
+    val weekdayTime: TimeRange?,
+    val saturdayTime: TimeRange?,
+    val sundayTime: TimeRange?,
+    val lunchTime: TimeRange?,
+    val saturdayLunchTime: TimeRange?,
+    val isEmergencyDay: Boolean,
+    val isEmergencyNight: Boolean,
+    val emergencyDayContact: String?,
+    val emergencyNightContact: String?,
+    val isClosed: Boolean = false
+) {
+    fun getCurrentState(currentTime: LocalTime = LocalTime.now(),
+                        currentDay: LocalDate = LocalDate.now()): OperationState {
+        if (isClosed) return OperationState.CLOSED
+        if (isEmergencyDay || isEmergencyNight) return OperationState.EMERGENCY
+
+        val timeRange = when (currentDay.dayOfWeek) {
+            DayOfWeek.SUNDAY -> sundayTime
+            DayOfWeek.SATURDAY -> saturdayTime
+            else -> weekdayTime
+        }
+
+        return when {
+            timeRange?.start == null || timeRange.end == null -> OperationState.UNKNOWN
+            currentTime.isAfter(timeRange.start) && currentTime.isBefore(timeRange.end) -> {
+                // 점심시간 체크
+                val lunchTimeRange = if (currentDay.dayOfWeek == DayOfWeek.SATURDAY) {
+                    saturdayLunchTime
+                } else {
+                    lunchTime
+                }
+
+                if (lunchTimeRange?.let { lunch ->
+                        lunch.start?.let { start ->
+                            lunch.end?.let { end ->
+                                currentTime.isAfter(start) && currentTime.isBefore(end)
+                            }
+                        }
+                    } == true) {
+                    OperationState.LUNCH_BREAK
+                } else {
+                    OperationState.OPEN
+                }
+            }
+            else -> OperationState.CLOSED
+        }
+    }
+
+    companion object {
+        fun parseTime(timeStr: String?): LocalTime? {
+            if (timeStr.isNullOrBlank()) return null
+            return try {
+                val formatter = DateTimeFormatter.ofPattern("HHmm", Locale.getDefault())
+                LocalTime.parse(timeStr, formatter)
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        fun parseLunchTime(lunchTimeStr: String?): TimeRange? {
+            if (lunchTimeStr.isNullOrBlank()) return null
+            val times = lunchTimeStr.split("-")
+            return if (times.size == 2) {
+                TimeRange(
+                    parseTime(times[0].trim()),
+                    parseTime(times[1].trim())
+                )
+            } else {
+                null
+            }
+        }
+    }
+}
+
+// HospitalInfo 데이터 클래스 수정
 data class HospitalInfo(
     val location: LatLng,
     val name: String,
     val address: String,
     val departments: List<String>,
     val departmentCategories: List<String>,
-    val time: String,
     val phoneNumber: String,
-    val state: String,
+    val state: String,        // 현재 운영 상태를 나타내는 텍스트
     val rating: Double,
     val latitude: Double = 0.0, // 위도
     val longitude: Double = 0.0, // 경도
     val nonPaymentItems: List<NonPaymentItem>,
-    val clCdNm: String,  // 병원 종류 (예: 종합병원, 병원, 의원 등)
+    val clCdNm: String,
     val ykiho: String,
-) : Parcelable
+    val timeInfo: HospitalTimeInfo? = null
+) {
+    val operationState: OperationState
+        get() = timeInfo?.getCurrentState() ?: OperationState.UNKNOWN
+}
 
 
 // API 응답을 통합 모델로 변환하는 확장 함수
-fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): HospitalInfo {
+fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>, timeInfo: HospitalTimeInfo? = null): HospitalInfo {
     val departmentCodes = this.dgsbjtCd?.split(",")?.map { it.trim() } ?: emptyList()
     val departmentCategories = departmentCodes.mapNotNull { code ->
         DepartmentCategory.values().find { it.codes.contains(code) }
@@ -64,24 +159,33 @@ fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>): Hosp
     val departments = inferDepartments(this.yadmNm ?: "", nonPaymentItems, departmentCodes)
     val departmentCategoryNames = departmentCategories.map { it.name }
 
+    // 임시로 현재 운영 상태 확인
+    val currentState = timeInfo?.getCurrentState() ?: OperationState.UNKNOWN
+    val operationStateText = when (currentState) {
+        OperationState.OPEN -> "영업중"
+        OperationState.CLOSED -> "영업마감"
+        OperationState.LUNCH_BREAK -> "점심시간"
+        OperationState.EMERGENCY -> "응급실 운영중"
+        OperationState.UNKNOWN -> "운영시간 정보없음"
+    }
+
     return HospitalInfo(
         location = LatLng(this.YPos?.toDoubleOrNull() ?: 0.0, this.XPos?.toDoubleOrNull() ?: 0.0),
         name = this.yadmNm ?: "",
         address = "${this.sidoCdNm ?: ""} ${this.sgguCdNm ?: ""} ${this.emdongNm ?: ""}".trim(),
         departments = departments,
         departmentCategories = departmentCategoryNames,
-        time = "영업 시간 준비중",
         phoneNumber = this.telno ?: "",
-        state = "",
+        state = operationStateText,  // 운영 상태 텍스트로 설정
         rating = 0.0,
         latitude = this.YPos?.toDoubleOrNull() ?: 0.0,
         longitude = this.XPos?.toDoubleOrNull() ?: 0.0,
         nonPaymentItems = nonPaymentItems,
         clCdNm = this.clCdNm ?: "",
-        ykiho = this.ykiho ?: ""
+        ykiho = this.ykiho ?: "",
+        timeInfo = timeInfo
     )
 }
-
 
 fun inferDepartments(hospitalName: String, nonPaymentItems: List<NonPaymentItem>, departmentCodes: List<String>): List<String> {
     val departments = mutableSetOf<String>()
