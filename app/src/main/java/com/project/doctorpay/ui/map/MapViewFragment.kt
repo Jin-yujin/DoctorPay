@@ -120,8 +120,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
             // 마커 풀 초기화 - 성능 최적화
             repeat(50) { markerPool.add(createMarkerStyle()) }
-            
-            locationSource = FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE)
+
             setupBottomSheet()
             setupRecyclerView()
             setupObservers()

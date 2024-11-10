@@ -249,7 +249,7 @@ class HospitalListFragment : Fragment() {
             val message = if (binding.checkFilter.isChecked) {
                 "현재 영업중인 병원이 없습니다"
             } else {
-                "주변 병원이 없습니다"
+                "주변에 병원이 없습니다"
             }
             binding.emptyView.text = message
         } else {
@@ -359,7 +359,7 @@ class HospitalListFragment : Fragment() {
                 binding.emptyView.text = if (onlyAvailable) {
                     "현재 영업중인 병원이 없습니다"
                 } else {
-                    "주변 병원이 없습니다"
+                    "주변에 병원이 없습니다"
                 }
             }
 

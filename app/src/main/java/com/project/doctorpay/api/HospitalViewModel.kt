@@ -241,7 +241,7 @@ class HospitalViewModel(
                 serviceKey = NetworkModule.getServiceKey(),
                 ykiho = ykiho
             )
-            return if (response.isSuccessful) {
+            if (response.isSuccessful) {
                 response.body()?.body?.items ?: emptyList()
             } else emptyList()
         }
