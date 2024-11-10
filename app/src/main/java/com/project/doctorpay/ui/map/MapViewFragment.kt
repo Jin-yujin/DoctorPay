@@ -107,7 +107,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         return binding.root
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupViews(savedInstanceState)
@@ -121,17 +120,17 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
             // 마커 풀 초기화 - 성능 최적화
             repeat(50) { markerPool.add(createMarkerStyle()) }
-
+            
+            locationSource = FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE)
             setupBottomSheet()
             setupRecyclerView()
+            setupObservers()
             setupReturnToLocationButton()
             setupResearchButton()
-        } catch (e: Exception) {
-            Log.e("MapViewFragment", "Failed to initialize views", e)
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Failed to initialize MapView", e)
         }
     }
-
-
 
     override fun onMapReady(map: NaverMap) {
         if (!isAdded) return
@@ -139,6 +138,15 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         try {
             naverMap = map
             naverMap.locationSource = locationSource  // 안전하게 접근 가능
+
+        try {
+            // 위치 추적 모드 설정 전에 안전성 체크
+            if (isAdded && activity != null) {
+                naverMap.locationTrackingMode = LocationTrackingMode.Follow
+            }
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Failed to set location tracking mode", e)
+        }
 
             // 위치 추적 모드 설정 전에 안전성 체크
             if (isAdded && activity != null) {
@@ -537,22 +545,33 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
 
     private fun checkLocationPermission() {
-        if (!isAdded) return
+        if (!isAdded) return  // Fragment가 attached 되어있는지 확인
 
         try {
             when {
-                hasLocationPermission() -> {
+                ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED -> {
                     enableLocationTracking()
                 }
                 shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
                     showLocationPermissionRationale()
                 }
                 else -> {
-                    requestLocationPermissions()
+                  if (isAdded) {  // 권한 요청 전 한번 더 확인
+                        requestPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                  requestLocationPermissions()
                 }
             }
-        } catch (e: Exception) {
-            Log.e("MapViewFragment", "Error checking location permission", e)
+        } catch (e: IllegalStateException) {
+            Log.e("MapViewFragment", "Failed to check location permission", e)
         }
     }
 

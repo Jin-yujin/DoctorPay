@@ -21,9 +21,10 @@
 
             <ImageButton
                 android:id="@+id/btnBack"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_back"
+                android:padding="2dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Back" />
 
@@ -66,15 +67,31 @@
                 android:layout_marginTop="8dp"
                 tools:text="내과, 외과, 소아과" />
 
-            <RatingBar
-                android:id="@+id/ratingBar"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                style="?android:attr/ratingBarStyleSmall"
-                android:numStars="5"
-                android:stepSize="0.1"
-                android:isIndicator="true" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <RatingBar
+                    android:id="@+id/ratingBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    style="?android:attr/ratingBarStyleSmall"
+                    android:numStars="5"
+                    android:stepSize="0.1"
+                    android:isIndicator="true" />
+
+                <TextView
+                    android:id="@+id/tvReviewRating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="4.5" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -266,32 +283,35 @@
                 app:backgroundTint="#8BCFFF" />
 
             <!-- Reviews section moved below non-covered items -->
-            <TextView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="리뷰"
-                android:textStyle="bold" />
+                android:orientation="vertical">
 
-            <LinearLayout
-                android:id="@+id/layoutReviews"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="8dp">
-                <!-- Review previews will be added here programmatically -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="리뷰"
+                    android:textStyle="bold"
+                    android:textSize="16sp"/>
+
+                <LinearLayout
+                    android:id="@+id/layoutReviews"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="vertical"/>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnMoreReviews"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="리뷰 더보기"
+                    android:textColor="#FFFFFF"
+                    app:backgroundTint="#8BCFFF"/>
             </LinearLayout>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnMoreReviews"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="리뷰 더보기"
-                android:textColor="#FFFFFF"
-                app:backgroundTint="#8BCFFF" />
-
-
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>

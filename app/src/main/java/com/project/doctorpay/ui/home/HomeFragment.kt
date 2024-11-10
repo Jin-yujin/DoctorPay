@@ -123,7 +123,7 @@ class HomeFragment : Fragment() {
     private fun navigateToHospitalList(category: DepartmentCategory) {
         val hospitalListFragment = HospitalListFragment.newInstance(category.name)
         parentFragmentManager.beginTransaction()
-            .replace(R.id.lyFrameLayout_home, hospitalListFragment)
+            .replace(R.id.fragment_container, hospitalListFragment)
             .addToBackStack(null)
             .commit()
     }

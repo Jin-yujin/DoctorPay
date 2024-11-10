@@ -137,8 +137,8 @@ data class HospitalInfo(
     val phoneNumber: String,
     val state: String,        // 현재 운영 상태를 나타내는 텍스트
     val rating: Double,
-    val latitude: Double,
-    val longitude: Double,
+    val latitude: Double = 0.0, // 위도
+    val longitude: Double = 0.0, // 경도
     val nonPaymentItems: List<NonPaymentItem>,
     val clCdNm: String,
     val ykiho: String,

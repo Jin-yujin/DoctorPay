@@ -234,13 +234,14 @@ class HospitalViewModel(
             else -> "${diff / (60 * 60 * 1000)}시간 전"
         }
     }
+    
     suspend fun fetchNonPaymentDetails(ykiho: String): List<NonPaymentItem> {
         return retryWithExponentialBackoff {
             val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
                 serviceKey = NetworkModule.getServiceKey(),
                 ykiho = ykiho
             )
-            if (response.isSuccessful) {
+            return if (response.isSuccessful) {
                 response.body()?.body?.items ?: emptyList()
             } else emptyList()
         }
