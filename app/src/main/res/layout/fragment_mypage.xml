@@ -84,6 +84,7 @@
                     app:tint="@color/gray"/>
 
                 <TextView
+                    android:id="@+id/btnMyReview"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"

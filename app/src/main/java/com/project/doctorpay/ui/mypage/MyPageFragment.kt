@@ -40,7 +40,16 @@ class MyPageFragment : Fragment() {
         tvUserInfo = view.findViewById(R.id.tvUserInfo)
         tvLogout = view.findViewById(R.id.tvLogout)
 
-        //알림
+        // 내 리뷰
+        val reviewLayout = view.findViewById<View>(R.id.btnMyReview)
+        reviewLayout.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, MyReviewsFragment())
+                .addToBackStack(null)
+                .commit()
+        }
+
+        // 알림설정
         val btnAlramSet: View = view.findViewById(R.id.btnAlramSet)
         btnAlramSet.setOnClickListener {
             parentFragmentManager.beginTransaction()
