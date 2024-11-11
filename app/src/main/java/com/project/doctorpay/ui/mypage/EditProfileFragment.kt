@@ -36,9 +36,10 @@ class EditProfileFragment : Fragment() {
     }
 
     private fun setupRegionSpinner() {
-        val regions = arrayOf("서울", "경기", "인천", "강원", "충북", "충남", "대전", "세종", "전북", "전남", "광주", "경북", "경남", "대구", "울산", "부산", "제주")
-        val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, regions)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val regions = arrayOf("서울", "경기", "인천", "강원", "충북", "충남", "대전", "세종",
+            "전북", "전남", "광주", "경북", "경남", "대구", "울산", "부산", "제주")
+        val adapter = ArrayAdapter(requireContext(), R.layout.item_spinner, regions)
+        adapter.setDropDownViewResource(R.layout.item_spinner_dropdown)
         binding.regionSpinner.adapter = adapter
     }
 
@@ -49,26 +50,29 @@ class EditProfileFragment : Fragment() {
                 .get()
                 .addOnSuccessListener { document ->
                     if (document != null) {
-                        // 닉네임 설정
-                        binding.nicknameEditText.setText(document.getString("nickname"))
+                        // 닉네임 설정 (수정 불가)
+                        binding.nicknameTextView.text = document.getString("nickname") ?: ""
 
                         // 나이대 설정
                         val age = document.getString("age")
-                        when (age) {
-                            "20세 미만" -> binding.ageRadioGroup.check(R.id.age20Radio)
-                            "20-29세" -> binding.ageRadioGroup.check(R.id.age20_29Radio)
-                            "30-39세" -> binding.ageRadioGroup.check(R.id.age30_39Radio)
-                            "40-49세" -> binding.ageRadioGroup.check(R.id.age40_49Radio)
-                            "50세 이상" -> binding.ageRadioGroup.check(R.id.age50PlusRadio)
+                        val ageButtonId = when (age) {
+                            "20세 미만" -> R.id.age20Radio
+                            "20-29세" -> R.id.age20_29Radio
+                            "30-39세" -> R.id.age30_39Radio
+                            "40-49세" -> R.id.age40_49Radio
+                            "50세 이상" -> R.id.age50PlusRadio
+                            else -> null
                         }
+                        ageButtonId?.let { binding.ageRadioGroup.check(it) }
 
-                        // 성별 설정
                         val gender = document.getString("gender")
-                        when (gender) {
-                            "남자" -> binding.genderRadioGroup.check(R.id.maleRadio)
-                            "여자" -> binding.genderRadioGroup.check(R.id.femaleRadio)
-                            "기타" -> binding.genderRadioGroup.check(R.id.otherGenderRadio)
+                        val genderButtonId = when (gender) {
+                            "남자" -> R.id.maleRadio
+                            "여자" -> R.id.femaleRadio
+                            "기타" -> R.id.otherGenderRadio
+                            else -> null
                         }
+                        genderButtonId?.let { binding.genderRadioGroup.check(it) }
 
                         // 지역 설정
                         val region = document.getString("region")
@@ -87,7 +91,6 @@ class EditProfileFragment : Fragment() {
 
     private fun setupSaveButton() {
         binding.saveButton.setOnClickListener {
-            val nickname = binding.nicknameEditText.text.toString().trim()
             val age = when (binding.ageRadioGroup.checkedRadioButtonId) {
                 R.id.age20Radio -> "20세 미만"
                 R.id.age20_29Radio -> "20-29세"
@@ -104,19 +107,18 @@ class EditProfileFragment : Fragment() {
             }
             val region = binding.regionSpinner.selectedItem.toString()
 
-            if (nickname.isNotEmpty() && age.isNotEmpty() && gender.isNotEmpty()) {
-                updateProfile(nickname, age, gender, region)
+            if (age.isNotEmpty() && gender.isNotEmpty()) {
+                updateProfile(age, gender, region)
             } else {
-                Toast.makeText(context, "모든 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "모든 항목을 선택해주세요.", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun updateProfile(nickname: String, age: String, gender: String, region: String) {
+    private fun updateProfile(age: String, gender: String, region: String) {
         val currentUser = auth.currentUser
         if (currentUser != null) {
             val userUpdates = hashMapOf<String, Any>(
-                "nickname" to nickname,
                 "age" to age,
                 "gender" to gender,
                 "region" to region
@@ -126,7 +128,6 @@ class EditProfileFragment : Fragment() {
                 .update(userUpdates)
                 .addOnSuccessListener {
                     Toast.makeText(context, "프로필이 업데이트되었습니다.", Toast.LENGTH_SHORT).show()
-                    // MyPageFragment로 돌아가기
                     parentFragmentManager.popBackStack()
                 }
                 .addOnFailureListener { e ->

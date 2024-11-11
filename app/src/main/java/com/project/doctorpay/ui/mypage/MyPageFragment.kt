@@ -42,7 +42,7 @@ class MyPageFragment : Fragment() {
         tvLogout = view.findViewById(R.id.tvLogout)
         btnEditProfile = view.findViewById(R.id.btnEditProfile)
 
-        // 프로필 변경
+        // 프로필 수정
         btnEditProfile.setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragment_container, EditProfileFragment())
