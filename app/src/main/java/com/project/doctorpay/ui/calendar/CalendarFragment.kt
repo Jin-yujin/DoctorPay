@@ -3,17 +3,19 @@ package com.project.doctorpay.ui.calendar
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.widget.SearchView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.gson.Gson
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentCalendarBinding
@@ -22,13 +24,16 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class CalendarFragment : Fragment() {
-    private lateinit var binding: FragmentCalendarBinding
+    private var _binding: FragmentCalendarBinding? = null
+    private val binding get() = _binding!!
     private lateinit var appointmentAdapter: AppointmentAdapter
     private val appointmentList = mutableListOf<Appointment>()
     private var selectedDate: Calendar = Calendar.getInstance()
+    private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        binding = FragmentCalendarBinding.inflate(inflater, container, false)
+        _binding = FragmentCalendarBinding.inflate(inflater, container, false)
         return binding.root
     }
 
@@ -74,8 +79,64 @@ class CalendarFragment : Fragment() {
 
         setupRecyclerView()
         setupAddAppointmentButton()
-        setupSearchIcon()
+        setupSearchView()
         setupTodayDateView()
+    }
+
+    private fun setupSearchView() {
+        binding.searchIcon.setOnClickListener {
+            binding.searchViewContainer.visibility = if (binding.searchViewContainer.visibility == View.VISIBLE) {
+                View.GONE
+            } else {
+                View.VISIBLE
+            }
+        }
+
+        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let { searchAppointments(it) }
+                return true
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                if (newText.isNullOrBlank()) {
+                    loadAppointmentsForDate(
+                        selectedDate.get(Calendar.YEAR),
+                        selectedDate.get(Calendar.MONTH),
+                        selectedDate.get(Calendar.DAY_OF_MONTH)
+                    )
+                } else {
+                    searchAppointments(newText)
+                }
+                return true
+            }
+        })
+    }
+
+    private fun searchAppointments(query: String) {
+        val userId = auth.currentUser?.uid ?: return
+
+        db.collection("appointments")
+            .whereEqualTo("userId", userId)
+            .orderBy("hospitalName")
+            .startAt(query)
+            .endAt(query + "\uf8ff")
+            .get()
+            .addOnSuccessListener { documents ->
+                val searchResults = documents.mapNotNull { doc ->
+                    try {
+                        Appointment.fromDocument(doc)
+                    } catch (e: Exception) {
+                        Log.e("CalendarFragment", "Error parsing appointment", e)
+                        null
+                    }
+                }
+                appointmentAdapter.submitList(searchResults)
+            }
+            .addOnFailureListener { e ->
+                Log.e("CalendarFragment", "Error searching appointments", e)
+                Toast.makeText(context, "검색 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun setupRecyclerView() {
@@ -112,16 +173,18 @@ class CalendarFragment : Fragment() {
         dialogBinding.addButton.text = "수정"
         dialogBinding.addButton.setOnClickListener {
             val updatedAppointment = Appointment(
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH),
-                dialogBinding.timeEditText.text.toString(),
-                dialogBinding.hospitalNameEditText.text.toString(),
-                dialogBinding.notesEditText.text.toString()
+                id = appointment.id,
+                userId = auth.currentUser?.uid ?: "",
+                year = calendar.get(Calendar.YEAR),
+                month = calendar.get(Calendar.MONTH),
+                day = calendar.get(Calendar.DAY_OF_MONTH),
+                time = dialogBinding.timeEditText.text.toString(),
+                hospitalName = dialogBinding.hospitalNameEditText.text.toString(),
+                notes = dialogBinding.notesEditText.text.toString(),
+                timestamp = Date()
             )
 
-            updateAppointment(appointment, updatedAppointment)
-            Toast.makeText(context, "일정이 수정되었습니다", Toast.LENGTH_SHORT).show()
+            updateAppointment(updatedAppointment)
             dialog.dismiss()
         }
 
@@ -139,38 +202,50 @@ class CalendarFragment : Fragment() {
             .setMessage("이 일정을 삭제하시겠습니까?")
             .setPositiveButton("삭제") { _, _ ->
                 deleteAppointment(appointment)
-                Toast.makeText(context, "일정이 삭제되었습니다", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("취소", null)
             .show()
     }
 
-    private fun updateAppointment(oldAppointment: Appointment, newAppointment: Appointment) {
-        val index = appointmentList.indexOf(oldAppointment)
-        if (index != -1) {
-            appointmentList[index] = newAppointment
-            saveAppointments()
-            binding.calendarView.setAppointments(appointmentList)
-            loadAppointmentsForDate(newAppointment.year, newAppointment.month, newAppointment.day)
-        }
+    private fun updateAppointment(appointment: Appointment) {
+        val userId = auth.currentUser?.uid ?: return
+
+        db.collection("users")
+            .document(userId)
+            .collection("appointments")
+            .document(appointment.id)
+            .set(appointment.toMap())
+            .addOnSuccessListener {
+                Toast.makeText(context, "일정이 수정되었습니다", Toast.LENGTH_SHORT).show()
+                loadAppointments()
+            }
+            .addOnFailureListener { e ->
+                Log.e("CalendarFragment", "Error updating appointment", e)
+                Toast.makeText(context, "일정 수정 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun deleteAppointment(appointment: Appointment) {
-        appointmentList.remove(appointment)
-        saveAppointments()
-        binding.calendarView.setAppointments(appointmentList)
-        loadAppointmentsForDate(appointment.year, appointment.month, appointment.day)
+        val userId = auth.currentUser?.uid ?: return
+
+        db.collection("users")
+            .document(userId)
+            .collection("appointments")
+            .document(appointment.id)
+            .delete()
+            .addOnSuccessListener {
+                Toast.makeText(context, "일정이 삭제되었습니다", Toast.LENGTH_SHORT).show()
+                loadAppointments()
+            }
+            .addOnFailureListener { e ->
+                Log.e("CalendarFragment", "Error deleting appointment", e)
+                Toast.makeText(context, "일정 삭제 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun setupAddAppointmentButton() {
         binding.addAppointmentButton.setOnClickListener {
             showAddAppointmentDialog(selectedDate)
-        }
-    }
-
-    private fun setupSearchIcon() {
-        binding.searchIcon.setOnClickListener {
-            Toast.makeText(context, "검색 기능은 아직 구현되지 않았습니다.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -183,6 +258,11 @@ class CalendarFragment : Fragment() {
                 today.get(Calendar.MONTH)
             )
             binding.calendarView.setSelectedDate(
+                today.get(Calendar.YEAR),
+                today.get(Calendar.MONTH),
+                today.get(Calendar.DAY_OF_MONTH)
+            )
+            loadAppointmentsForDate(
                 today.get(Calendar.YEAR),
                 today.get(Calendar.MONTH),
                 today.get(Calendar.DAY_OF_MONTH)
@@ -217,17 +297,18 @@ class CalendarFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            val newAppointment = Appointment(
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH),
-                appointmentTime,
-                hospitalName,
-                notes
+            val appointment = Appointment(
+                userId = auth.currentUser?.uid ?: "",
+                year = calendar.get(Calendar.YEAR),
+                month = calendar.get(Calendar.MONTH),
+                day = calendar.get(Calendar.DAY_OF_MONTH),
+                time = appointmentTime,
+                hospitalName = hospitalName,
+                notes = notes,
+                timestamp = Date()
             )
 
-            addAppointment(newAppointment)
-            Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
+            addAppointment(appointment)
             dialog.dismiss()
         }
 
@@ -255,53 +336,80 @@ class CalendarFragment : Fragment() {
     }
 
     private fun showDatePicker(dialogBinding: DialogAddAppointmentBinding, calendar: Calendar) {
-        DatePickerDialog(requireContext(), { _, year, month, day ->
-            calendar.set(year, month, day)
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            dialogBinding.dateEditText.setText(dateFormat.format(calendar.time))
-        }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+        DatePickerDialog(
+            requireContext(),
+            { _, year, month, day ->
+                calendar.set(year, month, day)
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                dialogBinding.dateEditText.setText(dateFormat.format(calendar.time))
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH)
+        ).show()
     }
 
     private fun showTimePicker(dialogBinding: DialogAddAppointmentBinding, calendar: Calendar) {
-        TimePickerDialog(requireContext(), { _, hourOfDay, minute ->
-            calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
-            calendar.set(Calendar.MINUTE, minute)
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            dialogBinding.timeEditText.setText(timeFormat.format(calendar.time))
-        }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), false).show()
+        TimePickerDialog(
+            requireContext(),
+            { _, hourOfDay, minute ->
+                calendar.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                calendar.set(Calendar.MINUTE, minute)
+                val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+                dialogBinding.timeEditText.setText(timeFormat.format(calendar.time))
+            },
+            calendar.get(Calendar.HOUR_OF_DAY),
+            calendar.get(Calendar.MINUTE),
+            false
+        ).show()
     }
 
-    fun addAppointment(appointment: Appointment) {
-        appointmentList.add(appointment)
-        saveAppointments()
-        binding.calendarView.setAppointments(appointmentList)
-        loadAppointmentsForDate(appointment.year, appointment.month, appointment.day)
-    }
+    private fun addAppointment(appointment: Appointment) {
+        val userId = auth.currentUser?.uid ?: return
 
-    private fun saveAppointments() {
-        val sharedPreferences = requireContext().getSharedPreferences("Appointments", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-        val appointmentSet = appointmentList.map { Gson().toJson(it) }.toSet()
-        editor.putStringSet("appointments", appointmentSet)
-        editor.apply()
+        db.collection("users")
+            .document(userId)
+            .collection("appointments")
+            .add(appointment.toMap())
+            .addOnSuccessListener {
+                Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
+                loadAppointments()
+            }
+            .addOnFailureListener { e ->
+                Log.e("CalendarFragment", "Error adding appointment", e)
+                Toast.makeText(context, "일정 추가 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun loadAppointments() {
-        val sharedPreferences = requireContext().getSharedPreferences("Appointments", Context.MODE_PRIVATE)
-        val appointmentSet = sharedPreferences.getStringSet("appointments", setOf()) ?: setOf()
+        val userId = auth.currentUser?.uid ?: return
 
-        appointmentList.clear()
-        for (appointmentJson in appointmentSet) {
-            try {
-                val appointment = Gson().fromJson(appointmentJson, Appointment::class.java)
-                appointmentList.add(appointment)
-            } catch (e: Exception) {
-                Log.e("CalendarFragment", "Error parsing appointment: $appointmentJson", e)
+        db.collection("users")
+            .document(userId)
+            .collection("appointments")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .get()
+            .addOnSuccessListener { documents ->
+                appointmentList.clear()
+                for (document in documents) {
+                    try {
+                        val appointment = Appointment.fromDocument(document)
+                        appointmentList.add(appointment)
+                    } catch (e: Exception) {
+                        Log.e("CalendarFragment", "Error parsing appointment", e)
+                    }
+                }
+                binding.calendarView.setAppointments(appointmentList)
+                loadAppointmentsForDate(
+                    selectedDate.get(Calendar.YEAR),
+                    selectedDate.get(Calendar.MONTH),
+                    selectedDate.get(Calendar.DAY_OF_MONTH)
+                )
             }
-        }
-
-        binding.calendarView.setAppointments(appointmentList)
-        loadAppointmentsForDate(selectedDate.get(Calendar.YEAR), selectedDate.get(Calendar.MONTH), selectedDate.get(Calendar.DAY_OF_MONTH))
+            .addOnFailureListener { e ->
+                Log.e("CalendarFragment", "Error loading appointments", e)
+                Toast.makeText(context, "일정을 불러오는 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun loadAppointmentsForDate(year: Int, month: Int, dayOfMonth: Int) {
@@ -315,5 +423,10 @@ class CalendarFragment : Fragment() {
         super.onResume()
         updateTodayDateText()
         loadAppointments()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

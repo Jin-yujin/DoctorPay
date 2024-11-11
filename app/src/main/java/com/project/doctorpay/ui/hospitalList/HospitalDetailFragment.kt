@@ -21,6 +21,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
@@ -43,6 +44,8 @@ class HospitalDetailFragment : Fragment() {
 
     private var _binding: FragmentHospitalDetailBinding? = null
     private val binding get() = _binding ?: throw IllegalStateException("Binding is null. Access only between onCreateView and onDestroyView")
+    private val db = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -240,18 +243,28 @@ class HospitalDetailFragment : Fragment() {
             }
 
             val appointment = Appointment(
-                calendar.get(Calendar.YEAR),
-                calendar.get(Calendar.MONTH),
-                calendar.get(Calendar.DAY_OF_MONTH),
-                appointmentTime,
-                hospital.name,
-                notes
+                userId = auth.currentUser?.uid ?: "",
+                year = calendar.get(Calendar.YEAR),
+                month = calendar.get(Calendar.MONTH),
+                day = calendar.get(Calendar.DAY_OF_MONTH),
+                time = appointmentTime,
+                hospitalName = hospital.name,
+                notes = notes,
+                timestamp = Date()
             )
 
-            // MainActivity를 통해 CalendarFragment로 일정 정보 전달
-            (activity as? MainActivity)?.addAppointmentToCalendar(appointment)
-            Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
-            dialog.dismiss()
+            // MainActivity를 통해 CalendarFragment로 일정 정보 전달하는 방식 변경
+            // Firestore에 직접 저장
+            db.collection("appointments")
+                .add(appointment.toMap())
+                .addOnSuccessListener {
+                    Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
+                    dialog.dismiss()
+                }
+                .addOnFailureListener { e ->
+                    Log.e("HospitalDetailFragment", "Error adding appointment", e)
+                    Toast.makeText(context, "일정 추가 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
+                }
         }
 
         dialogView.findViewById<Button>(R.id.cancelButton).setOnClickListener {

@@ -16,6 +16,30 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"/>
 
+    <androidx.cardview.widget.CardView
+        android:id="@+id/searchViewContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="2dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/titleTextView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <androidx.appcompat.widget.SearchView
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            app:iconifiedByDefault="false"
+            app:queryHint="병원 이름으로 검색"
+            app:searchIcon="@drawable/ic_search"
+            app:closeIcon="@drawable/ic_back"/>
+    </androidx.cardview.widget.CardView>
+
     <ImageView
         android:id="@+id/searchIcon"
         android:layout_width="24dp"
