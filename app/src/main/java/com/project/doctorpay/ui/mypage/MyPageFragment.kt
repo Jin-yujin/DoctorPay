@@ -20,6 +20,7 @@ class MyPageFragment : Fragment() {
     private lateinit var tvNickname: TextView
     private lateinit var tvUserInfo: TextView
     private lateinit var tvLogout: TextView
+    private lateinit var btnEditProfile: View
 
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
@@ -39,6 +40,15 @@ class MyPageFragment : Fragment() {
         tvNickname = view.findViewById(R.id.tvNickname)
         tvUserInfo = view.findViewById(R.id.tvUserInfo)
         tvLogout = view.findViewById(R.id.tvLogout)
+        btnEditProfile = view.findViewById(R.id.btnEditProfile)
+
+        // 프로필 변경
+        btnEditProfile.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, EditProfileFragment())
+                .addToBackStack(null)
+                .commit()
+        }
 
         // 내 리뷰
         val reviewLayout = view.findViewById<View>(R.id.btnMyReview)
@@ -67,7 +77,7 @@ class MyPageFragment : Fragment() {
                 .commit()
         }
 
-        // 로그아웃 기능 추가
+        // 로그아웃
         tvLogout.setOnClickListener {
             logout()
         }
@@ -102,12 +112,10 @@ class MyPageFragment : Fragment() {
     }
 
     private fun logout() {
-        // 확인창(AlertDialog) 추가
         val builder = android.app.AlertDialog.Builder(requireContext())
         builder.setTitle("로그아웃")
         builder.setMessage("로그아웃을 하시겠습니까?")
 
-        // '확인' 버튼 클릭 시 로그아웃 처리
         builder.setPositiveButton("확인") { _, _ ->
             (activity as? MainActivity)?.logout()
 
@@ -123,9 +131,13 @@ class MyPageFragment : Fragment() {
             dialog.dismiss()
         }
 
-        // 다이얼로그를 화면에 보여줌
         val dialog = builder.create()
         dialog.show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 프로필이 수정되었을 때를 대비하여 데이터 다시 로드
+        loadUserData()
+    }
 }

@@ -31,6 +31,7 @@
     <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다</string>    <string name="hospital_list_header">병원 목록</string>
     <string name="category_header_format">%s</string>
 
+    <string name="profile_edit_underline"><u>프로필 변경</u></string>
 
 
     <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>
