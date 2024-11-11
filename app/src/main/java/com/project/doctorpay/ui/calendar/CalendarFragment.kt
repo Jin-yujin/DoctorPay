@@ -86,8 +86,10 @@ class CalendarFragment : Fragment() {
     private fun setupSearchView() {
         binding.searchIcon.setOnClickListener {
             binding.searchViewContainer.visibility = if (binding.searchViewContainer.visibility == View.VISIBLE) {
+                binding.calendarView.setSearchMode(false)  // 검색 모드 해제
                 View.GONE
             } else {
+                binding.calendarView.setSearchMode(true)   // 검색 모드 설정
                 View.VISIBLE
             }
         }
@@ -100,17 +102,25 @@ class CalendarFragment : Fragment() {
 
             override fun onQueryTextChange(newText: String?): Boolean {
                 if (newText.isNullOrBlank()) {
+                    binding.calendarView.setSearchMode(false)  // 검색어가 없으면 검색 모드 해제
                     loadAppointmentsForDate(
                         selectedDate.get(Calendar.YEAR),
                         selectedDate.get(Calendar.MONTH),
                         selectedDate.get(Calendar.DAY_OF_MONTH)
                     )
                 } else {
+                    binding.calendarView.setSearchMode(true)   // 검색어가 있으면 검색 모드 설정
                     searchAppointments(newText)
                 }
                 return true
             }
         })
+
+        // SearchView가 닫힐 때 검색 모드 해제
+        binding.searchView.setOnCloseListener {
+            binding.calendarView.setSearchMode(false)
+            false
+        }
     }
 
     private fun searchAppointments(query: String) {

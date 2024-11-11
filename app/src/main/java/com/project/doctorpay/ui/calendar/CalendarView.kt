@@ -53,6 +53,8 @@ class CalendarView @JvmOverloads constructor(
 
     private val dayOfWeek = arrayOf("일", "월", "화", "수", "목", "금", "토")
 
+    private var isSearchMode = false    // 검색 모드 상태
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         cellWidth = w / 7f
@@ -86,24 +88,26 @@ class CalendarView @JvmOverloads constructor(
                 val dayNumber = i * 7 + j - monthStartDayOfWeek + 1
                 if (dayNumber in 1..daysInMonth) {
                     val x = j * cellWidth + cellWidth / 2
-                    val y = i * cellHeight + cellHeight / 2 + 180f // 헤더 높이 고려
+                    val y = i * cellHeight + cellHeight / 2 + 180f
 
-                    // 선택된 날짜 배경 그리기
-                    val isSelected = selectedDate?.let { (year, month, day) ->
-                        year == calendar.get(Calendar.YEAR) &&
-                                month == calendar.get(Calendar.MONTH) &&
-                                day == dayNumber
-                    } ?: false
+                    // 검색 모드가 아닐 때만 선택된 날짜 표시
+                    if (!isSearchMode) {
+                        val isSelected = selectedDate?.let { (year, month, day) ->
+                            year == calendar.get(Calendar.YEAR) &&
+                                    month == calendar.get(Calendar.MONTH) &&
+                                    day == dayNumber
+                        } ?: false
 
-                    if (isSelected) {
-                        val rect = RectF(
-                            j * cellWidth + 5f,
-                            i * cellHeight + 175f,
-                            (j + 1) * cellWidth - 5f,
-                            (i + 1) * cellHeight + 170f
-                        )
-                        val cornerRadius = 15f
-                        canvas.drawRoundRect(rect, cornerRadius, cornerRadius, selectedDatePaint)
+                        if (isSelected) {
+                            val rect = RectF(
+                                j * cellWidth + 5f,
+                                i * cellHeight + 175f,
+                                (j + 1) * cellWidth - 5f,
+                                (i + 1) * cellHeight + 170f
+                            )
+                            val cornerRadius = 15f
+                            canvas.drawRoundRect(rect, cornerRadius, cornerRadius, selectedDatePaint)
+                        }
                     }
 
                     // 오늘 날짜 표시
@@ -116,16 +120,22 @@ class CalendarView @JvmOverloads constructor(
                     // 일정 표시
                     if (appointments.contains(Triple(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), dayNumber))) {
                         canvas.drawRect(
-                            j * cellWidth + cellWidth * 0.2f,  // 시작 x 위치를 0.1f에서 0.2f로 조정
-                            (i + 1) * cellHeight + 135f,       // y 위치를 조정
-                            (j + 1) * cellWidth - cellWidth * 0.2f,  // 끝 x 위치를 0.1f에서 0.2f로 조정
-                            (i + 1) * cellHeight + 145f,       // 높이를 5dp로 조정
+                            j * cellWidth + cellWidth * 0.2f,
+                            (i + 1) * cellHeight + 135f,
+                            (j + 1) * cellWidth - cellWidth * 0.2f,
+                            (i + 1) * cellHeight + 145f,
                             appointmentPaint
                         )
                     }
                 }
             }
         }
+    }
+
+    // 검색 모드 설정 함수
+    fun setSearchMode(enabled: Boolean) {
+        isSearchMode = enabled
+        invalidate()  // 뷰 다시 그리기
     }
 
     fun setDate(year: Int, month: Int) {
