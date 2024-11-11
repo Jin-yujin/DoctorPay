@@ -61,7 +61,30 @@ class CalendarFragment : Fragment() {
         binding.calendarView.setOnDateClickListener { year, month, day ->
             selectedDate.set(year, month, day)
             binding.calendarView.setSelectedDate(year, month, day)
+
+            // 검색창이 열려있으면 닫기
+            if (binding.searchViewContainer.visibility == View.VISIBLE) {
+                binding.searchViewContainer.visibility = View.GONE
+                binding.searchView.setQuery("", false)
+                binding.calendarView.setSearchMode(false)
+            }
+
             loadAppointmentsForDate(year, month, day)
+        }
+
+        // 검색창 외의 공간 클릭 시 검색창 닫기
+        binding.root.setOnClickListener {
+            if (binding.searchViewContainer.visibility == View.VISIBLE) {
+                binding.searchViewContainer.visibility = View.GONE
+                binding.searchView.setQuery("", false)
+                binding.calendarView.setSearchMode(false)
+                // 현재 선택된 날짜의 일정 표시
+                loadAppointmentsForDate(
+                    selectedDate.get(Calendar.YEAR),
+                    selectedDate.get(Calendar.MONTH),
+                    selectedDate.get(Calendar.DAY_OF_MONTH)
+                )
+            }
         }
 
         binding.calendarView.setOnMonthChangeListener { year, month ->
@@ -76,6 +99,10 @@ class CalendarFragment : Fragment() {
         binding.nextMonthButton.setOnClickListener {
             binding.calendarView.moveToNextMonth()
         }
+
+        // SearchView와 달력 클릭 이벤트가 부모 뷰로 전파되지 않도록 설정
+        binding.searchViewContainer.setOnClickListener { /* 이벤트 소비 */ }
+        binding.calendarView.setOnClickListener { /* 이벤트 소비 */ }
 
         setupRecyclerView()
         setupAddAppointmentButton()
@@ -133,6 +160,7 @@ class CalendarFragment : Fragment() {
                 selectedDate.get(Calendar.MONTH),
                 selectedDate.get(Calendar.DAY_OF_MONTH)
             )
+            binding.calendarView.setSearchMode(false)
             return
         }
 
@@ -153,7 +181,7 @@ class CalendarFragment : Fragment() {
                             appointment.notes.contains(query, ignoreCase = true)
                 }.sortedByDescending { it.timestamp }
 
-                if (searchResults.isEmpty() && query.length >= 2) {  // 2글자 이상 입력했을 때만 빈 결과 표시
+                if (searchResults.isEmpty() && query.length >= 2) {
                     showEmptySearchResult()
                 } else {
                     hideEmptySearchResult()
