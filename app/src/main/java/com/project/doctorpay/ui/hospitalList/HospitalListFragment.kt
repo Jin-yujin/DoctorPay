@@ -31,10 +31,15 @@ import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.home.HomeFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationResult
+import android.os.Looper
 
 class HospitalListFragment : Fragment() {
     private var _binding: ViewHospitalListBinding? = null
     private val binding get() = _binding!!
+
 
     private lateinit var adapter: HospitalAdapter
     private var category: DepartmentCategory? = null
@@ -44,7 +49,6 @@ class HospitalListFragment : Fragment() {
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
-
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -69,8 +73,6 @@ class HospitalListFragment : Fragment() {
         }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
     }
-
-
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = ViewHospitalListBinding.inflate(inflater, container, false)
 
@@ -78,7 +80,6 @@ class HospitalListFragment : Fragment() {
             viewLifecycleOwner,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    // 백스택을 전부 비우고 홈화면으로 이동
                     requireActivity().supportFragmentManager.apply {
                         popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE)
                         beginTransaction()
@@ -112,55 +113,119 @@ class HospitalListFragment : Fragment() {
             setHasFixedSize(true)
         }
 
-        // CheckBox 필터 설정
         binding.checkFilter.apply {
             text = "영업중인 병원만 보기"
             setOnCheckedChangeListener { _, isChecked ->
                 filterHospitals(isChecked)
             }
         }
-
-
     }
 
     private fun setupObservers() {
+        // 로딩 상태 관찰
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.filteredHospitals.collectLatest { hospitals ->
-                Log.d(TAG, "Received hospitals: ${hospitals.size}")
-                val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
-                Log.d(TAG, "Filtered hospitals: ${filteredHospitals.size}")
-
-                // 현재 체크박스 상태 반영
-                val showOnlyAvailable = binding.checkFilter.isChecked
-                val finalHospitals = if (showOnlyAvailable) {
-                    filteredHospitals.filter { hospital ->
-                        when (hospital.operationState) {
-                            OperationState.OPEN, OperationState.EMERGENCY -> true
-                            else -> false
-                        }
-                    }
-                } else {
-                    filteredHospitals
-                }
-
-                updateUI(finalHospitals)
-            }
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collectLatest { isLoading ->
+            viewModel.getIsLoading(HospitalViewModel.LIST_VIEW).collectLatest { isLoading ->
                 binding.swipeRefreshLayout.isRefreshing = isLoading
+                // 로딩 중일 때는 빈 화면 메시지 숨기기
+                if (isLoading) {
+                    binding.emptyView.visibility = View.GONE
+                }
             }
         }
 
+        // 병원 데이터 관찰
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.error.collectLatest { error ->
+            // filteredHospitals 대신 hospitals를 먼저 관찰
+            viewModel.getHospitals(HospitalViewModel.LIST_VIEW).collectLatest { hospitals ->
+                Log.d(TAG, "Received base hospitals: ${hospitals.size}")
+                if (hospitals.isNotEmpty()) {
+                    val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
+                    Log.d(TAG, "Filtered by category: ${filteredHospitals.size}")
+
+                    val showOnlyAvailable = binding.checkFilter.isChecked
+                    val finalHospitals = if (showOnlyAvailable) {
+                        filteredHospitals.filter { hospital ->
+                            when (hospital.operationState) {
+                                OperationState.OPEN, OperationState.EMERGENCY -> true
+                                else -> false
+                            }
+                        }
+                    } else {
+                        filteredHospitals
+                    }
+
+                    // 정렬: 거리순으로 정렬
+                    val sortedHospitals = sortHospitalsByDistance(finalHospitals)
+                    Log.d(TAG, "Final sorted hospitals: ${sortedHospitals.size}")
+
+                    updateUI(sortedHospitals)
+                } else {
+                    updateUI(emptyList())
+                }
+            }
+        }
+
+        // 에러 상태 관찰
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getError(HospitalViewModel.LIST_VIEW).collectLatest { error ->
                 error?.let {
                     showError(it)
+                    // 에러 발생 시 로딩 표시 제거
+                    binding.swipeRefreshLayout.isRefreshing = false
                 }
             }
         }
     }
 
+    // 거리 기준 정렬 함수 추가
+    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            hospitals.sortedBy { hospital ->
+                val results = FloatArray(1)
+                try {
+                    Location.distanceBetween(
+                        currentLocation.latitude, currentLocation.longitude,
+                        hospital.latitude, hospital.longitude,
+                        results
+                    )
+                    results[0]
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error calculating distance for ${hospital.name}", e)
+                    Float.MAX_VALUE
+                }
+            }
+        } else {
+            hospitals
+        }
+    }
+
+    // UI 업데이트 함수 수정
+    private fun updateUI(hospitals: List<HospitalInfo>) {
+        Log.d(TAG, "Updating UI with ${hospitals.size} hospitals")
+
+        if (hospitals.isEmpty()) {
+            binding.emptyView.visibility = View.VISIBLE
+            binding.mListView.visibility = View.GONE
+            binding.emptyView.text = if (binding.checkFilter.isChecked) {
+                "현재 영업중인 병원이 없습니다"
+            } else {
+                "주변에 병원이 없습니다"
+            }
+        } else {
+            binding.emptyView.visibility = View.GONE
+            binding.mListView.visibility = View.VISIBLE
+            adapter.submitList(hospitals) {
+                // 리스트 갱신 완료 후 실행될 콜백
+                binding.mListView.scrollToPosition(0)
+            }
+        }
+
+        // 로딩 상태가 아닐 때만 새로고침 인디케이터 숨기기
+        if (!viewModel.getIsLoading(HospitalViewModel.LIST_VIEW).value) {
+            binding.swipeRefreshLayout.isRefreshing = false
+        }
+    }
 
     private fun checkLocationPermission() {
         when {
@@ -183,19 +248,54 @@ class HospitalListFragment : Fragment() {
             }
         }
     }
-
-
     private fun getCurrentLocation() {
         try {
+            // 위치 요청 설정
+            val locationRequest = LocationRequest.create().apply {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                interval = 10000 // 10초
+            }
+
+            // 위치 콜백
+            val locationCallback = object : LocationCallback() {
+                override fun onLocationResult(locationResult: LocationResult) {
+                    locationResult.lastLocation?.let { location ->
+                        Log.d(TAG, "Location update received: ${location.latitude}, ${location.longitude}")
+                        userLocation = LatLng(location.latitude, location.longitude)
+                        adapter.updateUserLocation(userLocation!!)
+                        viewModel.fetchNearbyHospitals(
+                            viewId = HospitalViewModel.LIST_VIEW,
+                            latitude = location.latitude,
+                            longitude = location.longitude
+                        )
+                        // 위치를 받았으면 업데이트 중단
+                        fusedLocationClient.removeLocationUpdates(this)
+                    }
+                }
+            }
+
+            // 마지막 위치 먼저 시도
             fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-                location?.let {
-                    Log.d(TAG, "Current location: ${it.latitude}, ${it.longitude}")
-                    userLocation = LatLng(it.latitude, it.longitude)
+                if (location != null) {
+                    Log.d(TAG, "Last known location: ${location.latitude}, ${location.longitude}")
+                    userLocation = LatLng(location.latitude, location.longitude)
                     adapter.updateUserLocation(userLocation!!)
-                    viewModel.fetchNearbyHospitals(it.latitude, it.longitude)
-                } ?: loadDefaultLocationData()
-            }.addOnFailureListener {
-                Log.e(TAG, "Error getting location", it)
+                    viewModel.fetchNearbyHospitals(
+                        viewId = HospitalViewModel.LIST_VIEW,
+                        latitude = location.latitude,
+                        longitude = location.longitude
+                    )
+                } else {
+                    // 마지막 위치가 없으면 위치 업데이트 요청
+                    Log.d(TAG, "Requesting location updates")
+                    fusedLocationClient.requestLocationUpdates(
+                        locationRequest,
+                        locationCallback,
+                        Looper.getMainLooper()
+                    )
+                }
+            }.addOnFailureListener { e ->
+                Log.e(TAG, "Error getting location", e)
                 loadDefaultLocationData()
             }
         } catch (e: SecurityException) {
@@ -203,20 +303,25 @@ class HospitalListFragment : Fragment() {
             loadDefaultLocationData()
         }
     }
-
-
     private fun loadDefaultLocationData() {
-        // 서울 시청 좌표 (기본값)
-        val defaultLocation = LatLng(37.5666805, 126.9784147)
+        // 서울 시청 좌표로 수정 (위도, 경도 순서 주의)
+        val defaultLocation = LatLng(37.5666805, 127.0784147)
+        Log.d(TAG, "Loading default location: ${defaultLocation.latitude}, ${defaultLocation.longitude}")
         userLocation = defaultLocation
         adapter.updateUserLocation(defaultLocation)
-        viewModel.fetchNearbyHospitals(defaultLocation.latitude, defaultLocation.longitude, 5000)
+        viewModel.fetchNearbyHospitals(
+            viewId = HospitalViewModel.LIST_VIEW,
+            latitude = defaultLocation.latitude,
+            longitude = defaultLocation.longitude,
+            radius = 5000
+        )
     }
 
     private fun showLocationPermissionRationale() {
         Toast.makeText(context, "주변 병원 검색을 위해 위치 권한이 필요합니다.", Toast.LENGTH_LONG).show()
         loadDefaultLocationData()
     }
+
 
     private fun getDistanceFromUser(hospital: HospitalInfo): Float {
         val currentLocation = userLocation
@@ -238,26 +343,6 @@ class HospitalListFragment : Fragment() {
         }
     }
 
-    private fun updateUI(hospitals: List<HospitalInfo>) {
-        adapter.submitList(hospitals)
-        binding.swipeRefreshLayout.isRefreshing = false
-
-        if (hospitals.isEmpty()) {
-            binding.emptyView.visibility = View.VISIBLE
-            binding.mListView.visibility = View.GONE
-            // 체크박스 상태에 따른 메시지 설정
-            val message = if (binding.checkFilter.isChecked) {
-                "현재 영업중인 병원이 없습니다"
-            } else {
-                "주변에 병원이 없습니다"
-            }
-            binding.emptyView.text = message
-        } else {
-            binding.emptyView.visibility = View.GONE
-            binding.mListView.visibility = View.VISIBLE
-        }
-        Log.d(TAG, "UI 업데이트 완료. 병원 수: ${hospitals.size}")
-    }
 
     private fun showError(error: String) {
         binding.errorView.apply {
@@ -282,6 +367,7 @@ class HospitalListFragment : Fragment() {
                     userLocation = LatLng(it.latitude, it.longitude)
                     adapter.updateUserLocation(userLocation!!)
                     viewModel.fetchNearbyHospitals(
+                        viewId = HospitalViewModel.LIST_VIEW,
                         latitude = it.latitude,
                         longitude = it.longitude,
                         forceRefresh = forceRefresh
@@ -298,6 +384,7 @@ class HospitalListFragment : Fragment() {
         userLocation = defaultLocation
         adapter.updateUserLocation(defaultLocation)
         viewModel.fetchNearbyHospitals(
+            viewId = HospitalViewModel.LIST_VIEW,
             latitude = defaultLocation.latitude,
             longitude = defaultLocation.longitude,
             radius = 5000,
@@ -314,7 +401,7 @@ class HospitalListFragment : Fragment() {
 
     private fun filterHospitals(onlyAvailable: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
-            val hospitals = viewModel.hospitals.value
+            val hospitals = viewModel.getHospitals(HospitalViewModel.LIST_VIEW).value
             // 1. 카테고리 필터링
             val categoryFiltered = viewModel.filterHospitalsByCategory(hospitals, category)
 
@@ -330,10 +417,9 @@ class HospitalListFragment : Fragment() {
                 }
             }
 
-            // 3. 단일 정렬 로직으로 통합
+            // 3. 거리순 정렬
             val sortedHospitals = stateFiltered.sortedWith(
                 compareBy<HospitalInfo> { hospital ->
-                    // 거리 계산
                     val currentLocation = userLocation
                     if (currentLocation != null) {
                         val results = FloatArray(1)
@@ -354,39 +440,27 @@ class HospitalListFragment : Fragment() {
                 }
             )
 
-            // 빈 결과 처리
-            if (sortedHospitals.isEmpty()) {
-                binding.emptyView.text = if (onlyAvailable) {
-                    "현재 영업중인 병원이 없습니다"
-                } else {
-                    "주변에 병원이 없습니다"
-                }
-            }
-
             updateUI(sortedHospitals)
         }
     }
 
+
+
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         Log.d(TAG, "Navigating to detail for hospital: ${hospital.name}")
-        val detailFragment = HospitalDetailFragment.newInstance(
-            hospitalId = hospital.name,
-            isFromMap = false,
-            category = category?.name ?: ""
-        )
-
-        // HospitalInfo 설정
-        detailFragment.setHospitalInfo(hospital)
+        val detailFragment = HospitalDetailFragment().apply {
+            setHospitalInfo(hospital) // 먼저 hospital 객체를 설정
+            arguments = Bundle().apply {
+                putString(HospitalDetailFragment.ARG_HOSPITAL_ID, hospital.ykiho)
+                putBoolean(HospitalDetailFragment.ARG_IS_FROM_MAP, false)
+                putString(HospitalDetailFragment.ARG_CATEGORY, category?.name ?: "")
+            }
+        }
 
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, detailFragment)
             .addToBackStack(null)
             .commit()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     companion object {
@@ -399,4 +473,10 @@ class HospitalListFragment : Fragment() {
             }
         }
     }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
 }

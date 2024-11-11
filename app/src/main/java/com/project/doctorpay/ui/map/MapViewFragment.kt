@@ -53,11 +53,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private lateinit var naverMap: NaverMap
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
+    private lateinit var adapter: HospitalAdapter
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
-    private lateinit var adapter: HospitalAdapter
 
     // locationSource를 lazy로 초기화
     private val locationSource: FusedLocationSource by lazy {
@@ -65,20 +65,23 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private lateinit var locationOverlay: LocationOverlay
-
     private var userLocation: LatLng? = null
+    private var isInitialLocationSet = false
+    private var isMapMoved = false
+    private val markers = mutableListOf<Marker>()
+
+    // 마커 스타일 관련
+    private val markerPool = mutableListOf<Marker>()
+    private var lastUpdateTime = 0L
+    private val UPDATE_INTERVAL = 100L
+
+
     private var currentVisibleRegion: LatLngBounds? = null
     private var isDataLoading = false
     private val loadingScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // 데이터 중복 방지를 위한 캐시
     private var lastLoadedHospitals = mutableSetOf<String>() // ykiho 기준
-
-
-    private var isInitialLocationSet = false
-    private var isMapMoved = false
-
-    private val markers = mutableListOf<Marker>()
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -96,13 +99,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
-    // 마커 스타일 관련 추가
-    private val markerPool = mutableListOf<Marker>()
-    private var lastUpdateTime = 0L
-    private val UPDATE_INTERVAL = 100L
-
-
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         _binding = FragmentMapviewBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -118,12 +119,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             binding.mapView.onCreate(savedInstanceState)
             binding.mapView.getMapAsync(this)
 
-            // 마커 풀 초기화 - 성능 최적화
+            // 마커 풀 초기화
             repeat(50) { markerPool.add(createMarkerStyle()) }
 
             setupBottomSheet()
             setupRecyclerView()
-            setupObservers()
             setupReturnToLocationButton()
             setupResearchButton()
         } catch (e: IllegalStateException) {
@@ -136,20 +136,14 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
         try {
             naverMap = map
-            naverMap.locationSource = locationSource  // 안전하게 접근 가능
+            naverMap.locationSource = locationSource
 
-        try {
-            // 위치 추적 모드 설정 전에 안전성 체크
-            if (isAdded && activity != null) {
-                naverMap.locationTrackingMode = LocationTrackingMode.Follow
-            }
-        } catch (e: IllegalStateException) {
-            Log.e("MapViewFragment", "Failed to set location tracking mode", e)
-        }
-
-            // 위치 추적 모드 설정 전에 안전성 체크
-            if (isAdded && activity != null) {
-                naverMap.locationTrackingMode = LocationTrackingMode.Follow
+            try {
+                if (isAdded && activity != null) {
+                    naverMap.locationTrackingMode = LocationTrackingMode.Follow
+                }
+            } catch (e: IllegalStateException) {
+                Log.e("MapViewFragment", "Failed to set location tracking mode", e)
             }
 
             locationOverlay = naverMap.locationOverlay
@@ -161,6 +155,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             Log.e("MapViewFragment", "Error in onMapReady", e)
         }
     }
+
 
     private fun setupMapListeners() {
         naverMap.addOnCameraIdleListener {
@@ -178,10 +173,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
-
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.filteredHospitals.collect { hospitals ->
+            viewModel.getFilteredHospitals(HospitalViewModel.MAP_VIEW).collect { hospitals ->
                 if (hospitals.isNotEmpty()) {
                     updateHospitalsList(hospitals)
                 }
@@ -189,36 +183,39 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collect { isLoading ->
+            viewModel.getIsLoading(HospitalViewModel.MAP_VIEW).collect { isLoading ->
                 isDataLoading = isLoading
+
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getError(HospitalViewModel.MAP_VIEW).collect { error ->
+                error?.let { showError(it) }
             }
         }
     }
-
+    private fun showError(error: String) {
+        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+    }
 
     private fun updateHospitalsList(hospitals: List<HospitalInfo>) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // ykiho 기준으로 중복 제거
-                val distinctHospitals = hospitals.distinctBy { it.ykiho }
-                    .filter { hospital ->
-                        isValidCoordinate(hospital.latitude, hospital.longitude)
-                    }
-
                 // 정렬 및 UI 업데이트
                 withContext(Dispatchers.Default) {
                     val sortedHospitals = userLocation?.let { currentLocation ->
-                        distinctHospitals.sortedBy { hospital ->
+                        hospitals.sortedBy { hospital ->
                             calculateDistance(
                                 currentLocation.latitude, currentLocation.longitude,
                                 hospital.latitude, hospital.longitude
                             )
                         }
-                    } ?: distinctHospitals
+                    } ?: hospitals
 
                     withContext(Dispatchers.Main) {
                         adapter.submitList(sortedHospitals)
-                        updateMarkers(sortedHospitals)  // 통합된 마커 업데이트 함수 사용
+                        updateMarkers(sortedHospitals)
                         updateBottomSheetState(sortedHospitals)
                     }
                 }
@@ -228,41 +225,32 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
-    private fun loadHospitalsForVisibleRegion() {
-        if (isDataLoading) return
 
+    private fun loadHospitalsForVisibleRegion() {
         val visibleBounds = naverMap.contentBounds
         val center = visibleBounds.center
 
-        // 이전에 로드한 영역과 중복되는지 확인
-        if (currentVisibleRegion?.contains(center) == true) {
-            return
-        }
-
-        loadingScope.launch {
+        // 새 데이터 로드
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
-                currentVisibleRegion = visibleBounds
-
                 // 현재 위치 업데이트
                 adapter.updateUserLocation(center)
 
-                // 기존 데이터 초기화
-                viewModel.resetPagination()
-                lastLoadedHospitals.clear()
+                // 데이터 초기화 및 새로운 데이터 로드
+                viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
 
-                // 새 데이터 로드
                 val radius = calculateRadius(visibleBounds).toInt()
                 viewModel.fetchNearbyHospitals(
-                    center.latitude,
-                    center.longitude,
-                    radius.coerceAtMost(5000) // 최대 5km로 제한
+                    viewId = HospitalViewModel.MAP_VIEW,
+                    latitude = center.latitude,
+                    longitude = center.longitude,
+                    radius = radius.coerceAtMost(5000) // 최대 5km로 제한
                 )
             } catch (e: Exception) {
                 Log.e("MapViewFragment", "Error loading hospitals", e)
             }
         }
     }
-
 
     private fun updateMarkers(hospitals: List<HospitalInfo>) {
         if (!shouldUpdateMarkers()) return
@@ -346,11 +334,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun enableLocationTracking() {
-        // Fragment가 유효한 상태인지 확인
         if (!isAdded || activity == null) return
 
         try {
-            // 위치 권한이 있는지 한번 더 확인
             if (ContextCompat.checkSelfPermission(
                     requireContext(),
                     Manifest.permission.ACCESS_FINE_LOCATION
@@ -361,10 +347,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 locationOverlay.isVisible = true
 
                 locationSource.activate { location ->
-                    if (location != null && isAdded) {  // isAdded 체크 추가
+                    if (location != null && isAdded) {
                         val newUserLocation = LatLng(location.latitude, location.longitude)
                         userLocation = newUserLocation
-                        // 어댑터에 현재 위치 전달
                         adapter.updateUserLocation(newUserLocation)
 
                         if (!isInitialLocationSet) {
@@ -378,10 +363,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         } catch (e: SecurityException) {
             Log.e("MapViewFragment", "Location permission denied", e)
             Toast.makeText(context, "위치 서비스를 활성화해주세요.", Toast.LENGTH_SHORT).show()
-        } catch (e: IllegalStateException) {
-            Log.e("MapViewFragment", "Fragment not attached to activity", e)
         }
     }
+
 
     private fun showResearchButton() {
         binding.researchButton.visibility = View.VISIBLE
@@ -495,13 +479,16 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
     }
 
-
     private fun setupResearchButton() {
         binding.researchButton.setOnClickListener {
             val mapCenter = naverMap.cameraPosition.target
-            adapter.updateUserLocation(mapCenter)  // 재검색 시에도 어댑터에 위치 전달
-            viewModel.resetPagination()
-            viewModel.fetchNearbyHospitals(mapCenter.latitude, mapCenter.longitude)
+            adapter.updateUserLocation(mapCenter)
+            viewModel.resetPagination(HospitalViewModel.MAP_VIEW)  // viewId 추가
+            viewModel.fetchNearbyHospitals(
+                viewId = HospitalViewModel.MAP_VIEW,  // viewId 추가
+                latitude = mapCenter.latitude,
+                longitude = mapCenter.longitude
+            )
             hideResearchButton()
             isMapMoved = false
         }
@@ -612,10 +599,12 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun updateHospitalsBasedOnLocation(location: LatLng) {
-        adapter.updateUserLocation(location)  // 위치 업데이트시 어댑터에도 전달
-        viewModel.fetchNearbyHospitals(location.latitude, location.longitude)
+        viewModel.fetchNearbyHospitals(
+            viewId = HospitalViewModel.MAP_VIEW,
+            latitude = location.latitude,
+            longitude = location.longitude
+        )
     }
-
 
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->
@@ -674,15 +663,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.mapView.onStop()
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        loadingScope.cancel()
-        markers.forEach { recycleMarker(it) }
-        markers.clear()
-        markerPool.clear()
-        lastLoadedHospitals.clear()
-        _binding = null
-    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -694,9 +674,19 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.mapView.onLowMemory()
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        markers.forEach { recycleMarker(it) }
+        markers.clear()
+        markerPool.clear()
+        _binding = null
+    }
+
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1000
+        private const val UPDATE_INTERVAL = 100L
     }
+
 
     private fun createMarkerStyle(): Marker {
         return Marker().apply {

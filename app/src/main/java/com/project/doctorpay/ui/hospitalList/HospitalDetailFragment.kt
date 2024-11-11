@@ -43,21 +43,22 @@ import java.util.Locale
 class HospitalDetailFragment : Fragment() {
 
     private var _binding: FragmentHospitalDetailBinding? = null
-    private val binding get() = _binding ?: throw IllegalStateException("Binding is null. Access only between onCreateView and onDestroyView")
+    private val binding get() = _binding!!
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+
+    private lateinit var hospital: HospitalInfo
+    private var isFromMap: Boolean = false
+    private var category: String = ""
+
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
 
-    private var isFromMap: Boolean = false
-    private var category: String = ""
-    private lateinit var hospital: HospitalInfo
-
-    private var shouldShowToolbar = true
     private var listener: HospitalDetailListener? = null
 
+    private var shouldShowToolbar = true
     private var isViewCreated = false
 
     interface HospitalDetailListener {
@@ -75,9 +76,11 @@ class HospitalDetailFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
-            hospital = it.getParcelable("hospital_info") ?: throw IllegalArgumentException("Hospital info must be provided")
+            isFromMap = it.getBoolean(ARG_IS_FROM_MAP, false)
+            category = it.getString(ARG_CATEGORY, "")
         }
     }
+
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHospitalDetailBinding.inflate(inflater, container, false)
@@ -99,43 +102,57 @@ class HospitalDetailFragment : Fragment() {
             tvHospitalAddress.text = hospital.address
             tvHospitalPhone.text = hospital.phoneNumber
             ratingBar.rating = hospital.rating.toFloat()
-            tvHospitalHoliday.text = "휴일: 정보 없음" // 실제 데이터가 있다면 그것을 사용
-            tvNightCare.text = "야간진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
-            tvFemaleDoctors.text = "여의사 진료: 정보 없음" // 실제 데이터가 있다면 그것을 사용
 
-            // 진료과목 표시 방식 변경
+            // 운영 시간 정보 표시
+            hospital.timeInfo?.let { timeInfo ->
+                tvHospitalHoliday.text = when {
+                    timeInfo.isClosed -> "휴진"
+                    else -> "영업중"
+                }
+
+                tvNightCare.text = when {
+                    timeInfo.isEmergencyNight -> "야간진료: 가능"
+                    else -> "야간진료: 불가"
+                }
+            } ?: run {
+                tvHospitalHoliday.text = "운영시간 정보 없음"
+                tvNightCare.text = "야간진료 정보 없음"
+            }
+
+            // 진료과목 표시
             val departmentsText = hospital.departments.joinToString(", ")
             tvHospitalDepartment.text = if (departmentsText.isNotEmpty()) {
                 departmentsText
             } else {
                 "진료과목 정보 없음"
             }
-
-            loadReviewPreviews()
-
-//
-//            // 진료과목 카테고리 표시 (선택적)
-//            val categoriesText = hospital.departmentCategories.joinToString(", ")
-//            tvHospitalCategories.text = if (categoriesText.isNotEmpty()) {
-//                "카테고리: $categoriesText"
-//            } else {
-//                "카테고리 정보 없음"
-//            }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val nonPaymentItems = viewModel.fetchNonPaymentDetails(hospital.ykiho)
-            loadNonCoveredItems(nonPaymentItems)
-            if (nonPaymentItems.isEmpty()) {
-                Toast.makeText(context, "No non-payment items found", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(context, "Non-payment items loaded", Toast.LENGTH_SHORT).show()
+            try {
+                val nonPaymentItems = viewModel.fetchNonPaymentDetails(
+                    viewId = HospitalViewModel.DETAIL_VIEW,
+                    ykiho = hospital.ykiho
+                )
+                loadNonCoveredItems(nonPaymentItems)
+            } catch (e: Exception) {
+                Log.e("HospitalDetailFragment", "Error fetching non-payment details", e)
+                Toast.makeText(context, "비급여 항목 정보를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show()
             }
         }
 
-        loadNonCoveredItems(hospital.nonPaymentItems)
+        setupObservers()
     }
 
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getError(HospitalViewModel.DETAIL_VIEW).collect { error ->
+                error?.let {
+                    Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
     // 사용자 정보 로드 및 중복 체크 처리
     private fun loadUserInfo(review: Review, binding: FragmentHospitalDetailBinding) {
         if (!isViewCreated || !isAdded || _binding == null) return
@@ -468,10 +485,11 @@ class HospitalDetailFragment : Fragment() {
         this.hospital = hospital
     }
 
+
     companion object {
-        private const val ARG_HOSPITAL_ID = "hospital_id"
-        private const val ARG_IS_FROM_MAP = "is_from_map"
-        private const val ARG_CATEGORY = "category"
+        const val ARG_HOSPITAL_ID = "hospital_id"
+        const val ARG_IS_FROM_MAP = "is_from_map"
+        const val ARG_CATEGORY = "category"
 
         fun newInstance(hospitalId: String, isFromMap: Boolean, category: String) =
             HospitalDetailFragment().apply {
