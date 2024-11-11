@@ -26,7 +26,7 @@ data class Appointment(
                 id = document.id,
                 userId = document.getString("userId") ?: "",
                 year = document.getLong("year")?.toInt() ?: 0,
-                month = document.getLong("month")?.toInt() ?: 0,
+                month = (document.getLong("month")?.toInt() ?: 1) - 1,
                 day = document.getLong("day")?.toInt() ?: 0,
                 time = document.getString("time") ?: "",
                 hospitalName = document.getString("hospitalName") ?: "",
@@ -41,7 +41,7 @@ data class Appointment(
         return mapOf(
             "userId" to userId,
             "year" to year,
-            "month" to month,
+            "month" to month + 1,
             "day" to day,
             "time" to time,
             "hospitalName" to hospitalName,
