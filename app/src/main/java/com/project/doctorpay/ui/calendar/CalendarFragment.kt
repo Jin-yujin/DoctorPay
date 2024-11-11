@@ -126,7 +126,6 @@ class CalendarFragment : Fragment() {
             return
         }
 
-        // 모든 일정을 가져와서 클라이언트에서 필터링
         db.collection("users")
             .document(userId)
             .collection("appointments")
@@ -140,22 +139,36 @@ class CalendarFragment : Fragment() {
                         null
                     }
                 }.filter { appointment ->
-                    // 검색어가 병원 이름이나 메모에 포함되어 있는지 확인 (대소문자 구분 없이)
                     appointment.hospitalName.contains(query, ignoreCase = true) ||
                             appointment.notes.contains(query, ignoreCase = true)
-                }.sortedByDescending { it.timestamp } // 최신 일정순으로 정렬
+                }.sortedByDescending { it.timestamp }
+
+                if (searchResults.isEmpty() && query.length >= 2) {  // 2글자 이상 입력했을 때만 빈 결과 표시
+                    showEmptySearchResult()
+                } else {
+                    hideEmptySearchResult()
+                }
 
                 appointmentAdapter.submitList(searchResults)
-
-                // 검색 결과가 없을 경우 사용자에게 알림
-                if (searchResults.isEmpty()) {
-                    Toast.makeText(context, "검색 결과가 없습니다", Toast.LENGTH_SHORT).show()
-                }
             }
             .addOnFailureListener { e ->
                 Log.e("CalendarFragment", "Error searching appointments", e)
                 Toast.makeText(context, "검색 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    private fun showEmptySearchResult() {
+        binding.emptySearchView?.let {
+            it.visibility = View.VISIBLE
+            binding.appointmentRecyclerView.visibility = View.GONE
+        }
+    }
+
+    private fun hideEmptySearchResult() {
+        binding.emptySearchView?.let {
+            it.visibility = View.GONE
+            binding.appointmentRecyclerView.visibility = View.VISIBLE
+        }
     }
 
     private fun setupRecyclerView() {
