@@ -116,12 +116,20 @@ class CalendarFragment : Fragment() {
     private fun searchAppointments(query: String) {
         val userId = auth.currentUser?.uid ?: return
 
+        // 빈 검색어인 경우 현재 선택된 날짜의 일정 표시
+        if (query.isBlank()) {
+            loadAppointmentsForDate(
+                selectedDate.get(Calendar.YEAR),
+                selectedDate.get(Calendar.MONTH),
+                selectedDate.get(Calendar.DAY_OF_MONTH)
+            )
+            return
+        }
+
+        // 모든 일정을 가져와서 클라이언트에서 필터링
         db.collection("users")
             .document(userId)
             .collection("appointments")
-            .orderBy("hospitalName")
-            .startAt(query)
-            .endAt(query + "\uf8ff")
             .get()
             .addOnSuccessListener { documents ->
                 val searchResults = documents.mapNotNull { doc ->
@@ -131,8 +139,18 @@ class CalendarFragment : Fragment() {
                         Log.e("CalendarFragment", "Error parsing appointment", e)
                         null
                     }
-                }
+                }.filter { appointment ->
+                    // 검색어가 병원 이름이나 메모에 포함되어 있는지 확인 (대소문자 구분 없이)
+                    appointment.hospitalName.contains(query, ignoreCase = true) ||
+                            appointment.notes.contains(query, ignoreCase = true)
+                }.sortedByDescending { it.timestamp } // 최신 일정순으로 정렬
+
                 appointmentAdapter.submitList(searchResults)
+
+                // 검색 결과가 없을 경우 사용자에게 알림
+                if (searchResults.isEmpty()) {
+                    Toast.makeText(context, "검색 결과가 없습니다", Toast.LENGTH_SHORT).show()
+                }
             }
             .addOnFailureListener { e ->
                 Log.e("CalendarFragment", "Error searching appointments", e)
