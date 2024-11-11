@@ -116,8 +116,9 @@ class CalendarFragment : Fragment() {
     private fun searchAppointments(query: String) {
         val userId = auth.currentUser?.uid ?: return
 
-        db.collection("appointments")
-            .whereEqualTo("userId", userId)
+        db.collection("users")
+            .document(userId)
+            .collection("appointments")
             .orderBy("hospitalName")
             .startAt(query)
             .endAt(query + "\uf8ff")
