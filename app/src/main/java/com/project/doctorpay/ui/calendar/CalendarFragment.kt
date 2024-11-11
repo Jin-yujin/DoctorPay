@@ -62,13 +62,13 @@ class CalendarFragment : Fragment() {
             selectedDate.set(year, month, day)
             binding.calendarView.setSelectedDate(year, month, day)
 
-            // 검색창이 열려있으면 닫기
-            if (binding.searchViewContainer.visibility == View.VISIBLE) {
-                binding.searchViewContainer.visibility = View.GONE
-                binding.searchView.setQuery("", false)
-                binding.calendarView.setSearchMode(false)
-            }
+            // 검색 관련 상태 초기화
+            binding.searchViewContainer.visibility = View.GONE
+            binding.searchView.setQuery("", false)
+            binding.calendarView.setSearchMode(false)
 
+            // RecyclerView 상태 초기화 및 선택된 날짜의 일정 표시
+            hideEmptySearchResult()
             loadAppointmentsForDate(year, month, day)
         }
 
@@ -155,6 +155,7 @@ class CalendarFragment : Fragment() {
 
         // 빈 검색어인 경우 현재 선택된 날짜의 일정 표시
         if (query.isBlank()) {
+            hideEmptySearchResult()
             loadAppointmentsForDate(
                 selectedDate.get(Calendar.YEAR),
                 selectedDate.get(Calendar.MONTH),
@@ -483,6 +484,9 @@ class CalendarFragment : Fragment() {
     }
 
     private fun loadAppointmentsForDate(year: Int, month: Int, dayOfMonth: Int) {
+        // 날짜별 일정을 불러올 때는 항상 검색 결과 없음 뷰를 숨기고 RecyclerView를 보이게 함
+        hideEmptySearchResult()
+
         val appointmentsForDate = appointmentList.filter {
             it.year == year && it.month == month && it.day == dayOfMonth
         }
