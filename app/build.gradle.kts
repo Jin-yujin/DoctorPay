@@ -21,6 +21,7 @@ android {
             useSupportLibrary = true
         }
         multiDexEnabled = true
+        buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"56d42cbadaff4473519f8adf8e6317e8\"")
     }
 
     buildTypes {

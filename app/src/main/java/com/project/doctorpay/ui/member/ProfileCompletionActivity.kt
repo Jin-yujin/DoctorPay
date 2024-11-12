@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.databinding.ActivityProfileCompletionBinding
 import com.project.doctorpay.db.UserProfile
 import com.project.doctorpay.R
@@ -56,38 +57,31 @@ class ProfileCompletionActivity : AppCompatActivity() {
             val region = binding.regionSpinner.selectedItem.toString()
 
             if (nickname.isNotEmpty() && age.isNotEmpty() && gender.isNotEmpty() && region.isNotEmpty()) {
-                val userIdentifier = intent.getStringExtra("USER_IDENTIFIER")
-                val loginType = intent.getStringExtra("LOGIN_TYPE")
+                val firebaseUid = intent.getStringExtra("USER_IDENTIFIER")
 
-                if (userIdentifier != null) {
-                    val tempEmail = "${loginType}_$userIdentifier@temp.com"
-                    val userProfile = UserProfile(tempEmail, nickname, age, gender, region)
+                if (firebaseUid != null) {
+                    // Firebase Auth의 UID를 문서 ID로 사용
+                    val userProfile = UserProfile(
+                        auth.currentUser?.email ?: "",
+                        nickname,
+                        age,
+                        gender,
+                        region
+                    )
 
-                    db.collection("users").document(userIdentifier)
+                    db.collection("users").document(firebaseUid)
                         .set(userProfile)
                         .addOnSuccessListener {
-                            // Firebase Authentication에 임시 계정 생성
-                            auth.createUserWithEmailAndPassword(tempEmail, "tempPassword")
-                                .addOnCompleteListener { task ->
-                                    if (task.isSuccessful) {
-                                        Toast.makeText(this, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
-                                        val intent = Intent(this, LoginActivity::class.java)
-                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                        startActivity(intent)
-                                        finish()
-                                    } else {
-                                        Toast.makeText(this, "Authentication 계정 생성 실패: ${task.exception?.message}", Toast.LENGTH_SHORT).show()
-                                    }
-                                }
+                            Toast.makeText(this, "프로필 설정이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+                            startActivity(Intent(this, MainActivity::class.java))
+                            finish()
                         }
                         .addOnFailureListener { e ->
-                            Toast.makeText(this, "회원가입 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "프로필 저장 실패: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
-                } else {
-                    Toast.makeText(this, "사용자 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "모든 입력 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "모든 필드를 입력해주세요.", Toast.LENGTH_SHORT).show()
             }
         }
     }

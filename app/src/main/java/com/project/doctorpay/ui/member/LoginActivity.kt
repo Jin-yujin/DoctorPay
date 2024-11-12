@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -128,12 +129,21 @@ class LoginActivity : AppCompatActivity() {
             googleSignInLauncher.launch(signInIntent)
         }
 
-        // 카카오 소셜 로그인
+        // 카카오 소셜 로그인 수정
         binding.kakaoLoginButton.setOnClickListener {
             if (UserApiClient.instance.isKakaoTalkLoginAvailable(this)) {
-                UserApiClient.instance.loginWithKakaoTalk(this, callback = kakaoCallback)
+                UserApiClient.instance.loginWithKakaoTalk(this) { token, error ->
+                    if (error != null) {
+                        Log.e("KakaoLogin", "카카오톡 로그인 실패", error)
+                        // 카카오톡 로그인 실패시 카카오계정으로 로그인 시도
+                        loginWithKakaoAccount()
+                    } else if (token != null) {
+                        Log.i("KakaoLogin", "카카오톡 로그인 성공 ${token.accessToken}")
+                        handleKakaoLoginResult(token, null)
+                    }
+                }
             } else {
-                UserApiClient.instance.loginWithKakaoAccount(this, callback = kakaoCallback)
+                loginWithKakaoAccount()
             }
         }
 
@@ -143,22 +153,85 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private val kakaoCallback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
+    private fun loginWithKakaoAccount() {
+        UserApiClient.instance.loginWithKakaoAccount(this, callback = { token, error ->
+            if (error != null) {
+                Log.e("KakaoLogin", "카카오계정 로그인 실패", error)
+                Toast.makeText(this, "카카오계정 로그인 실패: ${error.message}", Toast.LENGTH_SHORT).show()
+            } else if (token != null) {
+                handleKakaoLoginResult(token, null)
+            }
+        })
+    }
+
+    private fun handleKakaoLoginResult(token: OAuthToken?, error: Throwable?) {
         if (error != null) {
-            Toast.makeText(this, "Kakao login failed: ${error.message}", Toast.LENGTH_SHORT).show()
-        } else if (token != null) {
-            UserApiClient.instance.me { user, error ->
-                if (error != null) {
-                    Toast.makeText(
-                        this,
-                        "Failed to get user info: ${error.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else if (user != null) {
-                    checkUserProfile(user.id.toString(), "kakao")
+            Log.e("KakaoLogin", "카카오 로그인 실패", error)
+            Toast.makeText(this, "카카오 로그인 실패: ${error.message}", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        UserApiClient.instance.me { user, error ->
+            if (error != null || user == null) {
+                Toast.makeText(this, "사용자 정보 요청 실패", Toast.LENGTH_SHORT).show()
+                return@me
+            }
+
+            // 1. Firebase Auth 처리
+            val email = "kakao_${user.id}@doctorpay.com"
+            val password = "kakao_${user.id}_secret"
+
+            // 먼저 로그인 시도
+            auth.signInWithEmailAndPassword(email, password)
+                .addOnCompleteListener { signInTask ->
+                    if (signInTask.isSuccessful) {
+                        // 로그인 성공 - 프로필 확인
+                        checkKakaoUserProfile(auth.currentUser?.uid, user.id.toString())
+                    } else {
+                        // 로그인 실패 - 새 계정 생성
+                        auth.createUserWithEmailAndPassword(email, password)
+                            .addOnCompleteListener { createTask ->
+                                if (createTask.isSuccessful) {
+                                    // 계정 생성 성공 - 프로필 작성으로 이동
+                                    val intent = Intent(this, ProfileCompletionActivity::class.java)
+                                    intent.putExtra("USER_IDENTIFIER", auth.currentUser?.uid)
+                                    intent.putExtra("LOGIN_TYPE", "kakao")
+                                    intent.putExtra("KAKAO_ID", user.id.toString())
+                                    startActivity(intent)
+                                    finish()
+                                } else {
+                                    Toast.makeText(this, "계정 생성 실패", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                    }
+                }
+        }
+    }
+
+    private fun checkKakaoUserProfile(firebaseUid: String?, kakaoId: String) {
+        if (firebaseUid == null) return
+
+        // Firebase Auth의 UID로 Firestore 문서 확인
+        db.collection("users").document(firebaseUid)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.exists()) {
+                    // 프로필 있음 - 메인으로 이동
+                    saveLoginState(true)
+                    startMainActivity()
+                } else {
+                    // 프로필 없음 - 프로필 작성으로 이동
+                    val intent = Intent(this, ProfileCompletionActivity::class.java)
+                    intent.putExtra("USER_IDENTIFIER", firebaseUid)
+                    intent.putExtra("LOGIN_TYPE", "kakao")
+                    intent.putExtra("KAKAO_ID", kakaoId)
+                    startActivity(intent)
+                    finish()
                 }
             }
-        }
+            .addOnFailureListener {
+                Toast.makeText(this, "프로필 확인 실패", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private val naverCallback = object : OAuthLoginCallback {
