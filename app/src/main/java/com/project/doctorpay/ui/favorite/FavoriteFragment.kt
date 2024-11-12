@@ -52,7 +52,7 @@ class FavoriteFragment : Fragment() {
         loadHospitals()
 
         binding.swipeRefreshLayout.setOnRefreshListener {
-            loadHospitals()
+            loadHospitals(forceRefresh = true)
         }
     }
 
@@ -70,7 +70,7 @@ class FavoriteFragment : Fragment() {
                     else -> null
                 }
                 viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.hospitals.value.let { hospitals ->
+                    viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).value.let { hospitals ->
                         updateUI(filterHospitals(hospitals))
                     }
                 }
@@ -83,7 +83,7 @@ class FavoriteFragment : Fragment() {
             this.text = text
             isCheckable = true
             if (text == "전체") isChecked = true
-            id = View.generateViewId()  // 각 Chip에 고유 ID 부여
+            id = View.generateViewId()
             addView(this)
         }
     }
@@ -98,19 +98,19 @@ class FavoriteFragment : Fragment() {
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.hospitals.collectLatest { hospitals ->
+            viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).collectLatest { hospitals ->
                 updateUI(filterHospitals(hospitals))
             }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.isLoading.collectLatest { isLoading ->
+            viewModel.getIsLoading(HospitalViewModel.FAVORITE_VIEW).collectLatest { isLoading ->
                 binding.swipeRefreshLayout.isRefreshing = isLoading
             }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.error.collectLatest { error ->
+            viewModel.getError(HospitalViewModel.FAVORITE_VIEW).collectLatest { error ->
                 error?.let { showError(it) }
             }
         }
@@ -123,13 +123,9 @@ class FavoriteFragment : Fragment() {
                 hospital.operationState == currentFilter
             }
         }.sortedWith(compareBy<HospitalInfo>(
-            // 영업중인 병원을 먼저 보여줌
             { it.operationState != OperationState.OPEN },
-            // 그 다음 응급실 운영
             { it.operationState != OperationState.EMERGENCY },
-            // 점심시간
             { it.operationState != OperationState.LUNCH_BREAK },
-            // 마지막으로 영업마감과 알 수 없음
             { it.operationState.ordinal }
         ))
     }
@@ -157,13 +153,15 @@ class FavoriteFragment : Fragment() {
         Toast.makeText(context, error, Toast.LENGTH_LONG).show()
     }
 
-    private fun loadHospitals() {
+    private fun loadHospitals(forceRefresh: Boolean = false) {
         val latitude = 37.6065
         val longitude = 127.0927
         viewModel.fetchNearbyHospitals(
+            viewId = HospitalViewModel.FAVORITE_VIEW,
             latitude = latitude,
             longitude = longitude,
-            radius = HospitalViewModel.DEFAULT_RADIUS
+            radius = HospitalViewModel.DEFAULT_RADIUS,
+            forceRefresh = forceRefresh
         )
     }
 

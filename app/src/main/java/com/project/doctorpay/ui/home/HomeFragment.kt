@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModel
@@ -24,6 +25,7 @@ import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
 
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
@@ -49,8 +51,7 @@ class HomeFragment : Fragment() {
         setupRecyclerView()
         setupSearchButton()
         setupCategoryButtons()
-        observeViewModel()
-
+        setupObservers()
         loadHospitals()
     }
 
@@ -59,14 +60,16 @@ class HomeFragment : Fragment() {
         val latitude = 37.6065
         val longitude = 127.0927
         viewModel.fetchNearbyHospitals(
+            viewId = HospitalViewModel.HOME_VIEW,
             latitude = latitude,
             longitude = longitude,
             radius = HospitalViewModel.DEFAULT_RADIUS
         )
     }
+
     private fun setupRecyclerView() {
         adapter = HospitalAdapter { hospital ->
-            // Handle item click here
+            // 여기서는 클릭 핸들러가 필요 없을 수 있음
         }
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
@@ -76,22 +79,21 @@ class HomeFragment : Fragment() {
         binding.searchButton.setOnClickListener {
             val searchQuery = binding.searchEditText.text.toString().trim()
             if (searchQuery.isEmpty()) {
-                viewModel.resetSearch()  // 검색어가 비어있으면 원래 데이터로 복구
+                viewModel.resetSearch(HospitalViewModel.HOME_VIEW)
             } else {
-                viewModel.searchHospitals(searchQuery)
+                viewModel.searchHospitals(HospitalViewModel.HOME_VIEW, searchQuery)
             }
         }
 
-        // 옵션: EditText 변경 감지하여 실시간 검색
         binding.searchEditText.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 val query = s.toString().trim()
                 if (query.isEmpty()) {
-                    viewModel.resetSearch()
-                } else if (query.length >= 2) { // 2글자 이상일 때만 검색
-                    viewModel.searchHospitals(query)
+                    viewModel.resetSearch(HospitalViewModel.HOME_VIEW)
+                } else if (query.length >= 2) {
+                    viewModel.searchHospitals(HospitalViewModel.HOME_VIEW, query)
                 }
             }
         })
@@ -128,12 +130,22 @@ class HomeFragment : Fragment() {
             .commit()
     }
 
-    private fun observeViewModel() {
+    private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.hospitals.collectLatest { hospitals ->
+            viewModel.getHospitals(HospitalViewModel.HOME_VIEW).collectLatest { hospitals ->
                 adapter.submitList(hospitals)
             }
         }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getError(HospitalViewModel.HOME_VIEW).collectLatest { error ->
+                error?.let { showError(it) }
+            }
+        }
+    }
+
+    private fun showError(error: String) {
+        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroyView() {

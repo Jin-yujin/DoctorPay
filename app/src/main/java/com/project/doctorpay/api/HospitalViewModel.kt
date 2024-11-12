@@ -9,6 +9,7 @@ import NonPaymentItem
 import NonPaymentResponse
 import android.location.Location
 import android.util.Log
+import androidx.constraintlayout.motion.utils.ViewState
 import androidx.lifecycle.*
 import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.db.DepartmentCategory
@@ -20,6 +21,7 @@ import com.project.doctorpay.network.NetworkModule
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import org.simpleframework.xml.core.ElementException
 import retrofit2.HttpException
 import retrofit2.Response
@@ -36,35 +38,43 @@ class HospitalViewModel(
     private val healthInsuranceApi: HealthInsuranceApi
 ) : ViewModel() {
 
-    // 상태 관리를 위한 StateFlow
-    private val _hospitals = MutableStateFlow<List<HospitalInfo>>(emptyList())
-    val hospitals: StateFlow<List<HospitalInfo>> = _hospitals
 
-    private val _filteredHospitals = MutableStateFlow<List<HospitalInfo>>(emptyList())
-    val filteredHospitals: StateFlow<List<HospitalInfo>> = _filteredHospitals
 
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading
+    // ViewState 정의
+    data class ViewState(
+        val hospitals: MutableStateFlow<List<HospitalInfo>> = MutableStateFlow(emptyList()),
+        val filteredHospitals: MutableStateFlow<List<HospitalInfo>> = MutableStateFlow(emptyList()),
+        val isLoading: MutableStateFlow<Boolean> = MutableStateFlow(false),
+        val error: MutableStateFlow<String?> = MutableStateFlow(null),
+        var currentPage: Int = 1,
+        var isLastPage: Boolean = false,
+        var lastLocation: Pair<Double, Double>? = null,
+        var cachedHospitals: List<HospitalInfo>? = null,
+        var lastFetchTime: Long = 0
+    )
 
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    private val viewStates = mutableMapOf<String, ViewState>()
+
+
+
+    companion object {
+        const val DEFAULT_RADIUS = 5000
+        private const val MAX_RETRIES = 3
+        private const val BASE_DELAY = 1000L
+        private const val REQUEST_TIMEOUT = 30000L
+        private const val CACHE_DURATION = 30 * 60 * 1000
+        const val MAP_VIEW = "MAP_VIEW"
+        const val LIST_VIEW = "LIST_VIEW"
+        const val DETAIL_VIEW = "DETAIL_VIEW"
+        const val FAVORITE_VIEW = "FAVORITE_VIEW"
+        const val HOME_VIEW = "HOME_VIEW"
+        private const val PAGE_SIZE = 50
+    }
 
     // 페이징 관련 변수
     private var currentPage = 1
     private val pageSize = 50
     private var isLastPage = false
-
-    companion object {
-        const val DEFAULT_RADIUS = 5000  // 5km
-        private const val MAX_RETRIES = 3
-        private const val BASE_DELAY = 1000L
-        private const val REQUEST_TIMEOUT = 30000L // 30초
-
-        // 캐시 관련 상수
-        private var cachedHospitals: List<HospitalInfo>? = null
-        private var lastFetchTime: Long = 0
-        private const val CACHE_DURATION = 30 * 60 * 1000 // 30분
-    }
 
     // 마지막으로 요청한 위치 저장
     private var lastLocation: Pair<Double, Double>? = null
@@ -99,74 +109,97 @@ class HospitalViewModel(
         throw lastException ?: IOException("Failed after $times attempts")
     }
 
-    fun fetchNearbyHospitals(latitude: Double, longitude: Double, radius: Int = DEFAULT_RADIUS, forceRefresh: Boolean = false) {
-        viewModelScope.launch {
-            // 캐시 확인
-            if (!forceRefresh &&
-                cachedHospitals != null &&
-                (System.currentTimeMillis() - lastFetchTime) < CACHE_DURATION &&
-                lastLocation?.first == latitude &&
-                lastLocation?.second == longitude
-            ) {
-                Log.d("CacheDebug", """
-                캐시 사용됨:
-                - 캐시된 병원 수: ${cachedHospitals?.size}
-                - 마지막 업데이트: ${formatTimeAgo(lastFetchTime)}
-                - 캐시된 위치: ${lastLocation?.first}, ${lastLocation?.second}
-                - 요청 위치: $latitude, $longitude
-            """.trimIndent())
 
-                _hospitals.value = cachedHospitals!!
-                filterHospitalsWithin5km(latitude, longitude, cachedHospitals!!)
+    // Fragment별 ViewState 가져오기
+    private fun getViewState(viewId: String): ViewState {
+        return viewStates.getOrPut(viewId) { ViewState() }
+    }
+
+    fun getHospitals(viewId: String): StateFlow<List<HospitalInfo>> =
+        getViewState(viewId).hospitals.asStateFlow()
+
+    fun getFilteredHospitals(viewId: String): StateFlow<List<HospitalInfo>> =
+        getViewState(viewId).filteredHospitals.asStateFlow()
+
+    fun getIsLoading(viewId: String): StateFlow<Boolean> =
+        getViewState(viewId).isLoading.asStateFlow()
+
+    fun getError(viewId: String): StateFlow<String?> =
+        getViewState(viewId).error.asStateFlow()
+
+    fun fetchNearbyHospitals(viewId: String, latitude: Double, longitude: Double, radius: Int = DEFAULT_RADIUS, forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            val viewState = getViewState(viewId)
+            viewState.isLoading.value = true
+
+            if (!forceRefresh &&
+                viewState.cachedHospitals != null &&
+                (System.currentTimeMillis() - viewState.lastFetchTime) < CACHE_DURATION &&
+                viewState.lastLocation?.first == latitude &&
+                viewState.lastLocation?.second == longitude
+            ) {
+                Log.d("CacheDebug", "Using cache for $viewId")
+                viewState.hospitals.value = viewState.cachedHospitals!!
+                filterHospitalsWithin5km(viewId, latitude, longitude, viewState.cachedHospitals!!)
                 return@launch
             }
 
-            _isLoading.value = true
-            _error.value = null
+            viewState.isLoading.value = true
+            viewState.error.value = null
 
             try {
-                Log.d("HospitalViewModel", "Fetching hospitals with lat=$latitude, lon=$longitude, radius=$radius")
-
                 val response = retryWithExponentialBackoff {
                     healthInsuranceApi.getHospitalInfo(
                         serviceKey = NetworkModule.getServiceKey(),
-                        pageNo = currentPage,
-                        numOfRows = pageSize,
-                        xPos = formatCoordinate(longitude),
-                        yPos = formatCoordinate(latitude),
+                        pageNo = viewState.currentPage,
+                        numOfRows = PAGE_SIZE,
+                        yPos = formatCoordinate(latitude),   // 위도를 yPos에
+                        xPos = formatCoordinate(longitude),  // 경도를 xPos에
                         radius = radius
                     )
                 }
 
-                Log.d("HospitalViewModel", "API Response Code: ${response.code()}")
+                handleHospitalResponse(viewId, response, latitude, longitude)
+            } catch (e: Exception) {
+                handleError(viewId, e)
+            } finally {
+                viewState.isLoading.value = false
+            }
+        }
+    }
 
-                when {
-                    response.isSuccessful -> {
-                        val body = response.body()
-                        Log.d("HospitalViewModel", "Response Body: $body")
+    private suspend fun handleHospitalResponse(
+        viewId: String,
+        response: Response<HospitalInfoResponse>,
+        latitude: Double,
+        longitude: Double
+    ) {
+        val viewState = getViewState(viewId)
+        viewState.isLoading.value = true
 
-                        if (body == null) {
-                            _error.value = "서버 응답이 비어있습니다"
-                            return@launch
-                        }
+        try {
+            when {
+                response.isSuccessful -> {
+                    val body = response.body()
+                    if (body == null) {
+                        viewState.error.value = "서버 응답이 비어있습니다"
+                        return
+                    }
 
-                        val newHospitals = body.body?.items?.itemList ?: emptyList()
-                        Log.d("HospitalViewModel", "Received ${newHospitals.size} hospitals from API")
+                    val newHospitals = body.body?.items?.itemList ?: emptyList()
+                    val nonPaymentResponse = retryWithExponentialBackoff { fetchNonPaymentInfo() }
+                    val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
+                        nonPaymentResponse.body()?.body?.items ?: emptyList()
+                    } else {
+                        emptyList()
+                    }
 
-                        // NonPayment 정보 가져오기
-                        val nonPaymentResponse = retryWithExponentialBackoff { fetchNonPaymentInfo() }
-                        val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
-                            nonPaymentResponse.body()?.body?.items ?: emptyList()
-                        } else {
-                            emptyList()
-                        }
+                    val combinedHospitals = combineHospitalData(newHospitals, nonPaymentItems)
 
-                        val combinedHospitals = combineHospitalData(newHospitals, nonPaymentItems)
-                        Log.d("HospitalViewModel", "Combined hospitals: ${combinedHospitals.size}")
-
-                        // 병렬로 진료과목 정보 가져오기
-                        val updatedHospitals = withContext(Dispatchers.IO) {
-                            combinedHospitals.map { hospital ->
+                    // 병렬 처리 최적화
+                    val updatedHospitals = withContext(Dispatchers.IO) {
+                        combinedHospitals.chunked(4).flatMap { chunk ->
+                            chunk.map { hospital ->
                                 async {
                                     try {
                                         val dgsbjtResponse = retryWithExponentialBackoff {
@@ -178,50 +211,61 @@ class HospitalViewModel(
                                             hospital
                                         }
                                     } catch (e: Exception) {
-                                        Log.e("HospitalViewModel", "Error fetching dgsbjt info for ${hospital.name}", e)
+                                        Log.e("HospitalViewModel", "Error fetching dgsbjt info", e)
                                         hospital
                                     }
                                 }
                             }.awaitAll()
                         }
-
-                        // 캐시 업데이트
-                        cachedHospitals = updatedHospitals
-                        lastFetchTime = System.currentTimeMillis()
-                        lastLocation = Pair(latitude, longitude)
-
-                        if (currentPage == 1) {
-                            _hospitals.value = updatedHospitals
-                        } else {
-                            _hospitals.value = _hospitals.value + updatedHospitals
-                        }
-
-                        // 5km 이내 병원만 필터링
-                        filterHospitalsWithin5km(latitude, longitude, _hospitals.value)
-
-                        isLastPage = newHospitals.size < pageSize
-                        currentPage++
                     }
-                    response.code() == 429 -> {
-                        Log.d("HospitalViewModel", "Rate limit exceeded, retrying after delay...")
-                        delay(BASE_DELAY)
-                        fetchNearbyHospitals(latitude, longitude, DEFAULT_RADIUS)
+
+                    viewState.cachedHospitals = updatedHospitals
+                    viewState.lastFetchTime = System.currentTimeMillis()
+                    viewState.lastLocation = Pair(latitude, longitude)
+
+                    if (viewState.currentPage == 1) {
+                        viewState.hospitals.value = updatedHospitals
+                    } else {
+                        viewState.hospitals.value = viewState.hospitals.value + updatedHospitals
                     }
-                    else -> {
-                        val errorBody = response.errorBody()?.string()
-                        _error.value = "서버 오류: ${response.code()} - ${response.message()}"
-                        Log.e("HospitalViewModel", "API Error: $errorBody")
-                    }
+
+                    filterHospitalsWithin5km(viewId, latitude, longitude, viewState.hospitals.value)
+                    viewState.isLastPage = newHospitals.size < 50
+                    viewState.currentPage++
                 }
-
-            } catch (e: Exception) {
-                Log.e("HospitalViewModel", "Error fetching hospitals", e)
-                handleError(e)
-            } finally {
-                _isLoading.value = false
+                response.code() == 429 -> {
+                    delay(BASE_DELAY)
+                    fetchNearbyHospitals(viewId, latitude, longitude, DEFAULT_RADIUS)
+                }
+                else -> {
+                    viewState.error.value = "서버 오류: ${response.code()} - ${response.message()}"
+                }
             }
+        } catch (e: Exception) {
+            handleError(viewId, e)
+        } finally {
+            viewState.isLoading.value = false
         }
     }
+
+
+    private fun filterHospitalsWithin5km(viewId: String, latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
+        val viewState = getViewState(viewId)
+        val filteredAndSortedList = hospitals
+            .map { hospital ->
+                val distance = calculateDistance(
+                    latitude, longitude,
+                    hospital.latitude, hospital.longitude
+                )
+                Pair(hospital, distance)
+            }
+            .filter { (_, distance) -> distance <= 5000 }
+            .sortedBy { (_, distance) -> distance }
+            .map { (hospital, _) -> hospital }
+
+        viewState.filteredHospitals.value = filteredAndSortedList
+    }
+
 
     // 시간 포맷팅 함수 추가
     private fun formatTimeAgo(timestamp: Long): String {
@@ -234,43 +278,28 @@ class HospitalViewModel(
             else -> "${diff / (60 * 60 * 1000)}시간 전"
         }
     }
-    
-    suspend fun fetchNonPaymentDetails(ykiho: String): List<NonPaymentItem> {
-        return retryWithExponentialBackoff {
-            val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
-                serviceKey = NetworkModule.getServiceKey(),
-                ykiho = ykiho
-            )
-            if (response.isSuccessful) {
+
+    // 비급여 항목 조회 메서드 수정
+    suspend fun fetchNonPaymentDetails(viewId: String, ykiho: String): List<NonPaymentItem> {
+        val viewState = getViewState(viewId)
+        viewState.isLoading.value = true
+
+        try {
+            val response = retryWithExponentialBackoff {
+                healthInsuranceApi.getNonPaymentItemHospDtlList(
+                    serviceKey = NetworkModule.getServiceKey(),
+                    ykiho = ykiho
+                )
+            }
+            return if (response.isSuccessful) {
                 response.body()?.body?.items ?: emptyList()
             } else emptyList()
+        } catch (e: Exception) {
+            viewState.error.value = "비급여 항목을 불러오는데 실패했습니다: ${e.message}"
+            return emptyList()
+        } finally {
+            viewState.isLoading.value = false
         }
-    }
-
-    fun resetPagination() {
-        currentPage = 1
-        isLastPage = false
-        _hospitals.value = emptyList()
-    }
-
-    private fun filterHospitalsWithin5km(latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
-        val filteredAndSortedList = hospitals
-            .map { hospital ->
-                // 각 병원의 거리 계산
-                val distance = calculateDistance(
-                    latitude, longitude,
-                    hospital.latitude, hospital.longitude
-                )
-                Pair(hospital, distance)
-            }
-            .filter { (_, distance) ->
-                distance <= 5000 // 5km 이내 필터링
-            }
-            .sortedBy { (_, distance) -> distance } // 거리순 정렬
-            .map { (hospital, _) -> hospital }
-
-
-        _filteredHospitals.value = filteredAndSortedList
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
@@ -543,60 +572,60 @@ class HospitalViewModel(
         EMERGENCY,      // 응급실 운영 중
         UNKNOWN         // 상태 알 수 없음
     }
-    fun searchHospitals(query: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // 캐시된 데이터가 있으면 그 중에서 검색
-                val searchBase = cachedHospitals ?: _hospitals.value
 
+    // 검색 기능 업데이트
+    fun searchHospitals(viewId: String, query: String) {
+        viewModelScope.launch {
+            val viewState = getViewState(viewId)
+            viewState.isLoading.value = true
+
+            try {
+                val searchBase = viewState.cachedHospitals ?: viewState.hospitals.value
                 val filteredHospitals = searchBase.filter { hospital ->
                     hospital.name.contains(query, ignoreCase = true) ||
                             hospital.departments.any { it.contains(query, ignoreCase = true) } ||
                             hospital.address.contains(query, ignoreCase = true)
                 }
-
-                _hospitals.value = filteredHospitals
-
+                viewState.hospitals.value = filteredHospitals
             } catch (e: Exception) {
-                _error.value = "검색 중 오류가 발생했습니다: ${e.message}"
+                viewState.error.value = "검색 중 오류가 발생했습니다: ${e.message}"
             } finally {
-                _isLoading.value = false
+                viewState.isLoading.value = false
             }
         }
     }
 
-    // 검색 초기화 (원래 데이터로 복구)
-    fun resetSearch() {
+    // 검색 초기화
+    fun resetSearch(viewId: String) {
+        val viewState = getViewState(viewId)
         viewModelScope.launch {
-            cachedHospitals?.let {
-                _hospitals.value = it
+            viewState.cachedHospitals?.let {
+                viewState.hospitals.value = it
             }
         }
     }
 
-    private fun handleError(e: Exception) {
-        Log.e("HospitalViewModel", "데이터 불러오기 오류", e)
-        val errorMessage = when (e) {
-            is TimeoutCancellationException -> "요청 시간이 초과되었습니다. 다시 시도해주세요."
-            is SocketTimeoutException -> "서버 응답 시간이 초과되었습니다. 다시 시도해주세요."
-            is UnknownHostException -> "인터넷 연결을 확인해주세요."
-            is HttpException -> {
-                when (e.code()) {
-                    429 -> "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
-                    in 500..599 -> "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-                    else -> "네트워크 오류: ${e.code()}"
-                }
-            }
-            is ElementException -> "데이터 형식 오류: ${e.message}"
-            is EOFException -> "서버 응답이 불완전합니다. 다시 시도해주세요."
-            is IOException -> "네트워크 오류가 발생했습니다: ${e.message}"
-            else -> "알 수 없는 오류가 발생했습니다: ${e.message}"
-        }
-
-        Log.e("HospitalViewModel", errorMessage)
-        _error.value = errorMessage
+    // 캐시 관리
+    fun clearCache(viewId: String) {
+        val viewState = getViewState(viewId)
+        viewState.cachedHospitals = null
+        viewState.lastFetchTime = 0
+        viewState.lastLocation = null
     }
+
+    // 페이지네이션 리셋
+    fun resetPagination(viewId: String) {
+        val viewState = getViewState(viewId)
+        viewState.currentPage = 1
+        viewState.isLastPage = false
+        viewState.hospitals.value = emptyList()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        viewStates.clear()
+    }
+
 
     private fun getDepartmentCategories(departments: List<String>): List<String> {
         return departments.map { dept ->
@@ -604,72 +633,25 @@ class HospitalViewModel(
         }.distinct()
     }
 
-    fun clearCache() {
-        cachedHospitals = null
-        lastFetchTime = 0
-        lastLocation = null
-    }
 
-    override fun onCleared() {
-        super.onCleared()
-        // 캐시는 유지하고 다른 리소스만 정리
-    }
-
-    // 특정 지역의 병원만 보여주고 싶다
-    fun fetchHospitalsByRegion(sidoCd: String, sgguCd: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            try {
-                val hospitalInfoResponse = retryWithExponentialBackoff {
-                    fetchHospitalInfo(sidoCd, sgguCd)
+    private fun handleError(viewId: String, e: Exception) {
+        val viewState = getViewState(viewId)
+        val errorMessage = when (e) {
+            is TimeoutCancellationException -> "요청 시간이 초과되었습니다."
+            is SocketTimeoutException -> "서버 응답 시간이 초과되었습니다."
+            is UnknownHostException -> "인터넷 연결을 확인해주세요."
+            is HttpException -> {
+                when (e.code()) {
+                    429 -> "요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+                    in 500..599 -> "서버 오류가 발생했습니다."
+                    else -> "네트워크 오류: ${e.code()}"
                 }
-
-                if (hospitalInfoResponse.isSuccessful) {
-                    val hospitals = hospitalInfoResponse.body()?.body?.items?.itemList ?: emptyList()
-
-                    // NonPayment 정보 가져오기
-                    val nonPaymentResponse = retryWithExponentialBackoff { fetchNonPaymentInfo() }
-                    val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
-                        nonPaymentResponse.body()?.body?.items ?: emptyList()
-                    } else {
-                        emptyList()
-                    }
-
-                    val combinedHospitals = combineHospitalData(hospitals, nonPaymentItems)
-
-                    // 진료과목 정보 가져오기 (병렬 처리)
-                    val updatedHospitals = withContext(Dispatchers.IO) {
-                        combinedHospitals.map { hospital ->
-                            async {
-                                try {
-                                    val dgsbjtResponse = retryWithExponentialBackoff {
-                                        fetchDgsbjtInfo(hospital.ykiho)
-                                    }
-                                    if (dgsbjtResponse.isSuccessful) {
-                                        updateHospitalWithDgsbjtInfo(hospital, dgsbjtResponse.body()?.body?.items?.itemList)
-                                    } else {
-                                        hospital
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e("HospitalViewModel", "Error fetching dgsbjt info: ${e.message}")
-                                    hospital
-                                }
-                            }
-                        }.awaitAll()
-                    }
-
-                    _hospitals.value = updatedHospitals
-                } else {
-                    _error.value = "데이터를 불러오는데 실패했습니다."
-                }
-            } catch (e: Exception) {
-                handleError(e)
-            } finally {
-                _isLoading.value = false
             }
+            else -> "알 수 없는 오류가 발생했습니다: ${e.message}"
         }
+        viewState.error.value = errorMessage
     }
+
     private suspend fun fetchHospitalTimeInfo(ykiho: String): HospitalTimeInfo? {
         return try {
             val response = retryWithExponentialBackoff {

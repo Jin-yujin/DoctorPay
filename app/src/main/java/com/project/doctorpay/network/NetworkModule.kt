@@ -10,11 +10,20 @@ import java.io.IOException
 import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 
+
 object NetworkModule {
+
     private const val BASE_URL = "http://apis.data.go.kr/B551182/"
     private const val SERVICE_KEY = "rctk2eXwpdEoBK9zhzZpm%2BlyA9%2BAJByBI8T8SlgPgIWlhrwsQu%2B1Ayx7UBIvZd5oLNsccSTf5Hw2OY6dW3lo5A%3D%3D"
-    private const val TIMEOUT_SECONDS = 30L
+    private const val TIMEOUT_SECONDS = 60L
     private const val MAX_RETRIES = 3
+    private const val INITIAL_RETRY_DELAY = 1000L
+    private const val MAX_PARALLEL_REQUESTS = 4
+
+    private val dispatcher = Dispatcher().apply {
+        maxRequests = MAX_PARALLEL_REQUESTS * 2
+        maxRequestsPerHost = MAX_PARALLEL_REQUESTS
+    }
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BASIC
@@ -25,6 +34,44 @@ object NetworkModule {
         val url = request.url.toString()
         Log.d("API_CALL", "URL: $url")
         chain.proceed(request)
+    }
+
+    private val retryInterceptor = Interceptor { chain ->
+        var retryCount = 0
+        var lastException: Exception? = null
+
+        while (retryCount < MAX_RETRIES) {
+            try {
+                val request = chain.request()
+                val response = chain.proceed(request)
+
+                if (response.isSuccessful) {
+                    return@Interceptor response
+                } else {
+                    response.close()
+                    throw IOException("Response not successful: ${response.code}")
+                }
+            } catch (e: Exception) {
+                lastException = e
+                retryCount++
+
+                if (retryCount < MAX_RETRIES) {
+                    val backoffDelay = INITIAL_RETRY_DELAY * (1 shl (retryCount - 1))
+                    Log.d("RetryInterceptor", "Retrying request (attempt $retryCount)")
+                    Thread.sleep(backoffDelay)
+                }
+            }
+        }
+
+        throw lastException ?: IOException("Max retries exceeded")
+    }
+
+    private val gzipInterceptor = Interceptor { chain ->
+        val request = chain.request()
+        val newRequest = request.newBuilder()
+            .header("Accept-Encoding", "identity")  // gzip 비활성화
+            .build()
+        chain.proceed(newRequest)
     }
 
     private val serviceKeyInterceptor = Interceptor { chain ->
@@ -73,34 +120,28 @@ object NetworkModule {
         }
     }
 
+    private val connectionPoolingInterceptor = Interceptor { chain ->
+        val request = chain.request().newBuilder()
+            .header("Connection", "keep-alive")
+            .build()
+        chain.proceed(request)
+    }
+
     private val okHttpClient = OkHttpClient.Builder().apply {
+        dispatcher(dispatcher)
         addInterceptor(loggingInterceptor)
-        addInterceptor(urlLoggingInterceptor)
-        addInterceptor(serviceKeyInterceptor)
-        addInterceptor(timeoutInterceptor)
+        addInterceptor(retryInterceptor)
+        addInterceptor(connectionPoolingInterceptor)
         connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
         retryOnConnectionFailure(true)
-        protocols(listOf(Protocol.HTTP_1_1))
-
-        // Keep-Alive 비활성화
-        addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Connection", "close")
-                .build()
-            chain.proceed(request)
-        }
+        connectionPool(ConnectionPool(
+            MAX_PARALLEL_REQUESTS,
+            5, // keep-alive duration
+            TimeUnit.MINUTES
+        ))
     }.build()
-
-    // API 요청당 새로운 OkHttpClient 인스턴스 생성
-    fun createNewClient(): OkHttpClient {
-        return okHttpClient.newBuilder()
-            .connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-            .build()
-    }
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
