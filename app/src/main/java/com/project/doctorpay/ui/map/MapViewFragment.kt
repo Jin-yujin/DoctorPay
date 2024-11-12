@@ -45,11 +45,20 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.project.doctorpay.db.FavoriteRepository
+import kotlinx.coroutines.flow.collectLatest
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import android.widget.TextView
+import android.widget.Button
+import androidx.appcompat.widget.AppCompatButton
 
 class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.HospitalDetailListener {
 
     private var _binding: FragmentMapviewBinding? = null
     private val binding get() = _binding!!
+
+    private val favoriteRepository = FavoriteRepository()
+    private var selectedMarkerBottomSheet: BottomSheetDialog? = null
 
     private lateinit var naverMap: NaverMap
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
@@ -173,11 +182,15 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getFilteredHospitals(HospitalViewModel.MAP_VIEW).collect { hospitals ->
                 if (hospitals.isNotEmpty()) {
-                    updateHospitalsList(hospitals)
+                    // 거리순으로 정렬하고 즐겨찾기 상태 확인
+                    val sortedHospitals = sortHospitalsByDistance(hospitals)
+                    updateHospitalsList(sortedHospitals)
+                    addHospitalMarkers(sortedHospitals)
                 }
             }
         }
@@ -198,33 +211,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private fun showError(error: String) {
         Toast.makeText(context, error, Toast.LENGTH_LONG).show()
     }
-
-    private fun updateHospitalsList(hospitals: List<HospitalInfo>) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            try {
-                // 정렬 및 UI 업데이트
-                withContext(Dispatchers.Default) {
-                    val sortedHospitals = userLocation?.let { currentLocation ->
-                        hospitals.sortedBy { hospital ->
-                            calculateDistance(
-                                currentLocation.latitude, currentLocation.longitude,
-                                hospital.latitude, hospital.longitude
-                            )
-                        }
-                    } ?: hospitals
-
-                    withContext(Dispatchers.Main) {
-                        adapter.submitList(sortedHospitals)
-                        updateMarkers(sortedHospitals)
-                        updateBottomSheetState(sortedHospitals)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MapViewFragment", "Error updating hospitals list", e)
-            }
-        }
-    }
-
 
     private fun loadHospitalsForVisibleRegion() {
         val visibleBounds = naverMap.contentBounds
@@ -386,47 +372,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
         }
     }
-
-    private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
-        if (!shouldUpdateMarkers()) return
-
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            val visibleBounds = withContext(Dispatchers.Main) {
-                naverMap.contentBounds
-            }
-
-            // 화면에 보이는 병원만 필터링
-            val visibleHospitals = hospitals.filter {
-                val position = LatLng(it.latitude, it.longitude)
-                visibleBounds.contains(position)
-            }
-
-            withContext(Dispatchers.Main) {
-                // 기존 마커 재활용
-                markers.forEach { recycleMarker(it) }
-                markers.clear()
-
-                // 새 마커 생성 및 추가
-                visibleHospitals.forEachIndexed { index, hospital ->
-                    if (isValidCoordinate(hospital.latitude, hospital.longitude)) {
-                        getMarkerFromPool().apply {
-                            position = LatLng(hospital.latitude, hospital.longitude)
-                            captionText = hospital.name
-                            tag = index
-                            map = naverMap
-                            setOnClickListener {
-                                showHospitalDetail(visibleHospitals[it.tag as Int])
-                                true
-                            }
-                            markers.add(this)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-
 
     private fun setupBottomSheet() {
         bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
@@ -607,22 +552,119 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun setupRecyclerView() {
-        adapter = HospitalAdapter { hospital ->
-            showHospitalDetail(hospital)
-        }
+        adapter = HospitalAdapter(
+            onItemClick = { hospital ->
+                showHospitalDetail(hospital)
+            },
+            lifecycleScope = viewLifecycleOwner.lifecycleScope
+        )
+
         binding.hospitalRecyclerView.apply {
             layoutManager = LinearLayoutManager(context)
             adapter = this@MapViewFragment.adapter
             setHasFixedSize(true)
         }
 
-        // 현재 위치가 있다면 어댑터에 전달
         userLocation?.let { location ->
             adapter.updateUserLocation(location)
         }
     }
 
+    private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
+        if (!shouldUpdateMarkers()) return
 
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
+            val visibleBounds = withContext(Dispatchers.Main) {
+                naverMap.contentBounds
+            }
+
+            val visibleHospitals = hospitals.filter {
+                val position = LatLng(it.latitude, it.longitude)
+                visibleBounds.contains(position)
+            }
+
+            withContext(Dispatchers.Main) {
+                markers.forEach { recycleMarker(it) }
+                markers.clear()
+
+                visibleHospitals.forEachIndexed { index, hospital ->
+                    if (isValidCoordinate(hospital.latitude, hospital.longitude)) {
+                        getMarkerFromPool().apply {
+                            position = LatLng(hospital.latitude, hospital.longitude)
+                            captionText = hospital.name
+                            tag = hospital
+                            map = naverMap
+                            setOnClickListener {
+                                val selectedHospital = it.tag as HospitalInfo
+                                // 마커 클릭 시 해당 병원을 리스트의 맨 위로 스크롤하고 bottom sheet를 펼침
+                                scrollToHospital(selectedHospital)
+                                true
+                            }
+                            markers.add(this)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun scrollToHospital(hospital: HospitalInfo) {
+        // 현재 표시된 병원 목록에서 선택된 병원의 위치를 찾음
+        val currentList = adapter.currentList
+        val position = currentList.indexOfFirst { it.ykiho == hospital.ykiho }
+
+        if (position != -1) {
+            // Bottom sheet를 반 펼침 상태로 확장
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_HALF_EXPANDED
+
+            // 해당 위치로 스크롤
+            (binding.hospitalRecyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(position, 0)
+
+            // 스크롤 후 약간의 딜레이를 주고 해당 아이템을 하이라이트
+            binding.hospitalRecyclerView.postDelayed({
+                binding.hospitalRecyclerView.findViewHolderForAdapterPosition(position)?.itemView?.apply {
+                    alpha = 0.5f
+                    animate().alpha(1.0f).setDuration(500).start()
+                }
+            }, 100)
+        }
+    }
+
+
+    private fun updateHospitalsList(hospitals: List<HospitalInfo>) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.Default) {
+                    val sortedHospitals = userLocation?.let { currentLocation ->
+                        hospitals.sortedBy { hospital ->
+                            calculateDistance(
+                                currentLocation.latitude, currentLocation.longitude,
+                                hospital.latitude, hospital.longitude
+                            )
+                        }
+                    } ?: hospitals
+
+                    withContext(Dispatchers.Main) {
+                        adapter.submitList(sortedHospitals)
+                        updateBottomSheetState(sortedHospitals)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MapViewFragment", "Error updating hospitals list", e)
+            }
+        }
+    }
+
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        selectedMarkerBottomSheet?.dismiss()
+        selectedMarkerBottomSheet = null
+        markers.forEach { recycleMarker(it) }
+        markers.clear()
+        markerPool.clear()
+        _binding = null
+    }
 
     private fun toggleBottomSheetState() {
         when (bottomSheetBehavior.state) {
@@ -672,14 +714,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     override fun onLowMemory() {
         super.onLowMemory()
         binding.mapView.onLowMemory()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        markers.forEach { recycleMarker(it) }
-        markers.clear()
-        markerPool.clear()
-        _binding = null
     }
 
     companion object {

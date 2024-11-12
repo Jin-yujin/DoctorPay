@@ -20,8 +20,10 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.db.DepartmentCategory
+import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
+import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -67,10 +69,27 @@ class HomeFragment : Fragment() {
         )
     }
 
+    private fun navigateToHospitalDetail(hospital: HospitalInfo) {
+        val detailFragment = HospitalDetailFragment.newInstance(
+            hospitalId = hospital.name,
+            isFromMap = false,
+            category = ""
+        )
+
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, detailFragment)
+            .addToBackStack(null)
+            .commit()
+
+        detailFragment.setHospitalInfo(hospital)
+    }
+
     private fun setupRecyclerView() {
-        adapter = HospitalAdapter { hospital ->
-            // 여기서는 클릭 핸들러가 필요 없을 수 있음
-        }
+
+        adapter = HospitalAdapter(
+            onItemClick = { hospital -> navigateToHospitalDetail(hospital) },
+            lifecycleScope = viewLifecycleOwner.lifecycleScope
+        )
         binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerView.adapter = adapter
     }
