@@ -29,17 +29,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
 
-        setContentView(R.layout.activity_main)
+        // Check login status from SharedPreferences first
+        val sharedPreferences = getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+        val isLoggedIn = sharedPreferences.getBoolean("is_logged_in", false)
 
         auth = FirebaseAuth.getInstance()
 
-        if (auth.currentUser == null) {
+        if (!isLoggedIn || auth.currentUser == null) {
             // If not logged in, redirect to LoginActivity
             val intent = Intent(this, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
             finish()
             return
         }
+
+        setContentView(R.layout.activity_main)
 
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -91,23 +96,41 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun logout() {
+        // Clear login state first
+        val sharedPreferences = getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+        sharedPreferences.edit().putBoolean("is_logged_in", false).apply()
+
+        // Firebase logout
         auth.signOut()
 
-        // Kakao logout
+        // Kakao logout - Add null check
         LoginClient.instance.logout { error ->
             if (error != null) {
                 // Handle error if needed
             }
         }
 
-        // Naver logout
-        NaverIdLoginSDK.logout()
+        try {
+            // Initialize Naver SDK before logout
+            NaverIdLoginSDK.initialize(this, "YYfE8Topjmu6Sp_yBcPA", "Jzh2Zl5AOM", "닥터페이")
+            NaverIdLoginSDK.logout()
+        } catch (e: Exception) {
+            // Handle any potential Naver logout errors
+        }
 
         // Google logout
-        val googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.DEFAULT_SIGN_IN)
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken(getString(R.string.default_web_client_id))
+            .requestEmail()
+            .build()
+
+        val googleSignInClient = GoogleSignIn.getClient(this, gso)
         googleSignInClient.signOut().addOnCompleteListener {
-            // 로그아웃 후 로그인 화면으로 이동
-            navigateToLoginScreen()
+            // Move to login screen after all logout processes are complete
+            val intent = Intent(this, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            startActivity(intent)
+            finish()
         }
     }
 

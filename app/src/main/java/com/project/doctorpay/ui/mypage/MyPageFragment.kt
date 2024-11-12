@@ -117,16 +117,17 @@ class MyPageFragment : Fragment() {
         builder.setMessage("로그아웃을 하시겠습니까?")
 
         builder.setPositiveButton("확인") { _, _ ->
-            (activity as? MainActivity)?.logout()
-
-            // MainActivity의 logout() 함수 호출 후 LoginActivity로 이동
-            val intent = Intent(activity, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            startActivity(intent)
-            activity?.finish()
+            try {
+                (activity as? MainActivity)?.logout()
+            } catch (e: Exception) {
+                // Fallback if MainActivity logout fails
+                val intent = Intent(activity, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                activity?.finish()
+            }
         }
 
-        // '취소' 버튼 클릭 시 아무 동작도 하지 않음
         builder.setNegativeButton("취소") { dialog, _ ->
             dialog.dismiss()
         }
