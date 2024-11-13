@@ -50,11 +50,11 @@ class HospitalViewModel(
         var isLastPage: Boolean = false,
         var lastLocation: Pair<Double, Double>? = null,
         var cachedHospitals: List<HospitalInfo>? = null,
-        var lastFetchTime: Long = 0
+        var lastFetchTime: Long = 0,
+        var isDataLoaded: Boolean = false
     )
 
     private val viewStates = mutableMapOf<String, ViewState>()
-
 
 
     companion object {
@@ -70,6 +70,7 @@ class HospitalViewModel(
         const val HOME_VIEW = "HOME_VIEW"
         private const val PAGE_SIZE = 50
     }
+
 
     // 페이징 관련 변수
     private var currentPage = 1
@@ -109,12 +110,12 @@ class HospitalViewModel(
         throw lastException ?: IOException("Failed after $times attempts")
     }
 
-
     // Fragment별 ViewState 가져오기
-    private fun getViewState(viewId: String): ViewState {
+    fun getViewState(viewId: String): ViewState {
         return viewStates.getOrPut(viewId) { ViewState() }
     }
 
+    // StateFlow getter 메서드들
     fun getHospitals(viewId: String): StateFlow<List<HospitalInfo>> =
         getViewState(viewId).hospitals.asStateFlow()
 
@@ -127,18 +128,41 @@ class HospitalViewModel(
     fun getError(viewId: String): StateFlow<String?> =
         getViewState(viewId).error.asStateFlow()
 
-    fun fetchNearbyHospitals(viewId: String, latitude: Double, longitude: Double, radius: Int = DEFAULT_RADIUS, forceRefresh: Boolean = false) {
+    // 캐시 초기화
+    fun clearCache(viewId: String) {
+        val viewState = getViewState(viewId)
+        viewState.cachedHospitals = null
+        viewState.lastFetchTime = 0
+        viewState.lastLocation = null
+        viewState.isDataLoaded = false  // 추가
+    }
+
+    // 페이지네이션 리셋
+    fun resetPagination(viewId: String) {
+        val viewState = getViewState(viewId)
+        viewState.currentPage = 1
+        viewState.isLastPage = false
+        viewState.hospitals.value = emptyList()
+    }
+
+
+    fun fetchNearbyHospitals(
+        viewId: String,
+        latitude: Double,
+        longitude: Double,
+        radius: Int = DEFAULT_RADIUS,
+        forceRefresh: Boolean = false
+    ) {
         viewModelScope.launch {
             val viewState = getViewState(viewId)
-            viewState.isLoading.value = true
 
+            // 캐시 체크
             if (!forceRefresh &&
                 viewState.cachedHospitals != null &&
                 (System.currentTimeMillis() - viewState.lastFetchTime) < CACHE_DURATION &&
                 viewState.lastLocation?.first == latitude &&
                 viewState.lastLocation?.second == longitude
             ) {
-                Log.d("CacheDebug", "Using cache for $viewId")
                 viewState.hospitals.value = viewState.cachedHospitals!!
                 filterHospitalsWithin5km(viewId, latitude, longitude, viewState.cachedHospitals!!)
                 return@launch
@@ -153,8 +177,8 @@ class HospitalViewModel(
                         serviceKey = NetworkModule.getServiceKey(),
                         pageNo = viewState.currentPage,
                         numOfRows = PAGE_SIZE,
-                        yPos = formatCoordinate(latitude),   // 위도를 yPos에
-                        xPos = formatCoordinate(longitude),  // 경도를 xPos에
+                        yPos = formatCoordinate(latitude),
+                        xPos = formatCoordinate(longitude),
                         radius = radius
                     )
                 }
@@ -168,6 +192,23 @@ class HospitalViewModel(
         }
     }
 
+    private fun filterHospitalsWithin5km(viewId: String, latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
+        val viewState = getViewState(viewId)
+        val filteredAndSortedList = hospitals
+            .map { hospital ->
+                val distance = calculateDistance(
+                    latitude, longitude,
+                    hospital.latitude, hospital.longitude
+                )
+                Pair(hospital, distance)
+            }
+            .filter { (_, distance) -> distance <= 5000 }
+            .sortedBy { (_, distance) -> distance }
+            .map { (hospital, _) -> hospital }
+
+        viewState.filteredHospitals.value = filteredAndSortedList
+    }
+
     private suspend fun handleHospitalResponse(
         viewId: String,
         response: Response<HospitalInfoResponse>,
@@ -176,6 +217,7 @@ class HospitalViewModel(
     ) {
         val viewState = getViewState(viewId)
         viewState.isLoading.value = true
+        viewState.isDataLoaded = true
 
         try {
             when {
@@ -246,24 +288,6 @@ class HospitalViewModel(
         } finally {
             viewState.isLoading.value = false
         }
-    }
-
-
-    private fun filterHospitalsWithin5km(viewId: String, latitude: Double, longitude: Double, hospitals: List<HospitalInfo>) {
-        val viewState = getViewState(viewId)
-        val filteredAndSortedList = hospitals
-            .map { hospital ->
-                val distance = calculateDistance(
-                    latitude, longitude,
-                    hospital.latitude, hospital.longitude
-                )
-                Pair(hospital, distance)
-            }
-            .filter { (_, distance) -> distance <= 5000 }
-            .sortedBy { (_, distance) -> distance }
-            .map { (hospital, _) -> hospital }
-
-        viewState.filteredHospitals.value = filteredAndSortedList
     }
 
 
@@ -603,22 +627,6 @@ class HospitalViewModel(
                 viewState.hospitals.value = it
             }
         }
-    }
-
-    // 캐시 관리
-    fun clearCache(viewId: String) {
-        val viewState = getViewState(viewId)
-        viewState.cachedHospitals = null
-        viewState.lastFetchTime = 0
-        viewState.lastLocation = null
-    }
-
-    // 페이지네이션 리셋
-    fun resetPagination(viewId: String) {
-        val viewState = getViewState(viewId)
-        viewState.currentPage = 1
-        viewState.isLastPage = false
-        viewState.hospitals.value = emptyList()
     }
 
     override fun onCleared() {

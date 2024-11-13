@@ -37,18 +37,21 @@ import com.google.android.gms.location.LocationResult
 import android.os.Looper
 
 class HospitalListFragment : Fragment() {
+
     private var _binding: ViewHospitalListBinding? = null
     private val binding get() = _binding!!
-
 
     private lateinit var adapter: HospitalAdapter
     private var category: DepartmentCategory? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var userLocation: LatLng? = null
 
+
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
+
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -64,6 +67,7 @@ class HospitalListFragment : Fragment() {
         }
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
@@ -73,6 +77,8 @@ class HospitalListFragment : Fragment() {
         }
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
     }
+
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = ViewHospitalListBinding.inflate(inflater, container, false)
 
@@ -98,15 +104,22 @@ class HospitalListFragment : Fragment() {
         setupRecyclerView()
         setupObservers()
         setupListeners()
-        checkLocationPermission()
+
+        // ViewState의 isDataLoaded 체크
+        if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+            checkLocationPermission()
+        }
+
         updateHeaderText()
     }
 
-
     private fun setupRecyclerView() {
-        adapter = HospitalAdapter { hospital ->
-            navigateToHospitalDetail(hospital)
-        }
+
+        adapter = HospitalAdapter(
+            onItemClick = { hospital -> navigateToHospitalDetail(hospital) },
+            lifecycleScope = viewLifecycleOwner.lifecycleScope
+        )
+
         binding.mListView.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@HospitalListFragment.adapter
@@ -248,45 +261,53 @@ class HospitalListFragment : Fragment() {
             }
         }
     }
+
     private fun getCurrentLocation() {
         try {
-            // 위치 요청 설정
-            val locationRequest = LocationRequest.create().apply {
-                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                interval = 10000 // 10초
+            // ViewModel의 isDataLoaded 체크
+            if (viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded && userLocation != null) {
+                Log.d(TAG, "Using cached location data")
+                return
             }
 
-            // 위치 콜백
+            val locationRequest = LocationRequest.create().apply {
+                priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+                interval = 10000
+            }
+
             val locationCallback = object : LocationCallback() {
                 override fun onLocationResult(locationResult: LocationResult) {
                     locationResult.lastLocation?.let { location ->
                         Log.d(TAG, "Location update received: ${location.latitude}, ${location.longitude}")
                         userLocation = LatLng(location.latitude, location.longitude)
                         adapter.updateUserLocation(userLocation!!)
-                        viewModel.fetchNearbyHospitals(
-                            viewId = HospitalViewModel.LIST_VIEW,
-                            latitude = location.latitude,
-                            longitude = location.longitude
-                        )
-                        // 위치를 받았으면 업데이트 중단
+
+                        if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+                            viewModel.fetchNearbyHospitals(
+                                viewId = HospitalViewModel.LIST_VIEW,
+                                latitude = location.latitude,
+                                longitude = location.longitude
+                            )
+                        }
                         fusedLocationClient.removeLocationUpdates(this)
                     }
                 }
             }
 
-            // 마지막 위치 먼저 시도
             fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
                 if (location != null) {
                     Log.d(TAG, "Last known location: ${location.latitude}, ${location.longitude}")
                     userLocation = LatLng(location.latitude, location.longitude)
                     adapter.updateUserLocation(userLocation!!)
-                    viewModel.fetchNearbyHospitals(
-                        viewId = HospitalViewModel.LIST_VIEW,
-                        latitude = location.latitude,
-                        longitude = location.longitude
-                    )
+
+                    if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+                        viewModel.fetchNearbyHospitals(
+                            viewId = HospitalViewModel.LIST_VIEW,
+                            latitude = location.latitude,
+                            longitude = location.longitude
+                        )
+                    }
                 } else {
-                    // 마지막 위치가 없으면 위치 업데이트 요청
                     Log.d(TAG, "Requesting location updates")
                     fusedLocationClient.requestLocationUpdates(
                         locationRequest,
@@ -303,18 +324,57 @@ class HospitalListFragment : Fragment() {
             loadDefaultLocationData()
         }
     }
+
     private fun loadDefaultLocationData() {
-        // 서울 시청 좌표로 수정 (위도, 경도 순서 주의)
+        if (viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+            Log.d(TAG, "Using cached default location data")
+            return
+        }
+
         val defaultLocation = LatLng(37.5666805, 127.0784147)
-        Log.d(TAG, "Loading default location: ${defaultLocation.latitude}, ${defaultLocation.longitude}")
         userLocation = defaultLocation
         adapter.updateUserLocation(defaultLocation)
-        viewModel.fetchNearbyHospitals(
-            viewId = HospitalViewModel.LIST_VIEW,
-            latitude = defaultLocation.latitude,
-            longitude = defaultLocation.longitude,
-            radius = 5000
-        )
+
+        if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+            viewModel.fetchNearbyHospitals(
+                viewId = HospitalViewModel.LIST_VIEW,
+                latitude = defaultLocation.latitude,
+                longitude = defaultLocation.longitude,
+                radius = 5000
+            )
+        }
+    }
+
+    private fun getCurrentLocationAndLoadData(forceRefresh: Boolean = false) {
+        if (!forceRefresh && viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+            Log.d(TAG, "Skipping data reload - already loaded")
+            return
+        }
+
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                location?.let {
+                    userLocation = LatLng(it.latitude, it.longitude)
+                    adapter.updateUserLocation(userLocation!!)
+                    viewModel.fetchNearbyHospitals(
+                        viewId = HospitalViewModel.LIST_VIEW,
+                        latitude = it.latitude,
+                        longitude = it.longitude,
+                        forceRefresh = forceRefresh
+                    )
+                } ?: loadDefaultLocationData()
+            }
+        } catch (e: SecurityException) {
+            loadDefaultLocationData()
+        }
+    }
+
+    // SwipeRefresh 리스너에서는 forceRefresh를 true로 설정
+    private fun setupListeners() {
+        binding.swipeRefreshLayout.setOnRefreshListener {
+            viewModel.clearCache(HospitalViewModel.LIST_VIEW)  // 캐시 초기화
+            getCurrentLocationAndLoadData(forceRefresh = true)
+        }
     }
 
     private fun showLocationPermissionRationale() {
@@ -350,46 +410,6 @@ class HospitalListFragment : Fragment() {
             text = error
         }
         Toast.makeText(context, error, Toast.LENGTH_LONG).show()
-    }
-
-    private fun setupListeners() {
-        binding.swipeRefreshLayout.setOnRefreshListener {
-            // 강제 새로고침 시에는 forceRefresh = true
-            getCurrentLocationAndLoadData(forceRefresh = true)
-        }
-    }
-
-
-    private fun getCurrentLocationAndLoadData(forceRefresh: Boolean = false) {
-        try {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
-                location?.let {
-                    userLocation = LatLng(it.latitude, it.longitude)
-                    adapter.updateUserLocation(userLocation!!)
-                    viewModel.fetchNearbyHospitals(
-                        viewId = HospitalViewModel.LIST_VIEW,
-                        latitude = it.latitude,
-                        longitude = it.longitude,
-                        forceRefresh = forceRefresh
-                    )
-                } ?: loadDefaultLocationData(forceRefresh)
-            }
-        } catch (e: SecurityException) {
-            loadDefaultLocationData(forceRefresh)
-        }
-    }
-
-    private fun loadDefaultLocationData(forceRefresh: Boolean = false) {
-        val defaultLocation = LatLng(37.5666805, 126.9784147)
-        userLocation = defaultLocation
-        adapter.updateUserLocation(defaultLocation)
-        viewModel.fetchNearbyHospitals(
-            viewId = HospitalViewModel.LIST_VIEW,
-            latitude = defaultLocation.latitude,
-            longitude = defaultLocation.longitude,
-            radius = 5000,
-            forceRefresh = forceRefresh
-        )
     }
 
     private fun updateHeaderText() {
@@ -458,7 +478,8 @@ class HospitalListFragment : Fragment() {
         }
 
         parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, detailFragment)
+            .hide(this) // 현재 HospitalListFragment를 숨김
+            .add(R.id.fragment_container, detailFragment) // DetailFragment를 추가
             .addToBackStack(null)
             .commit()
     }
