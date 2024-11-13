@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.widget.AppCompatButton
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.recyclerview.widget.DiffUtil
@@ -106,6 +107,14 @@ class HospitalAdapter(
         private val distanceTextView: TextView = view.findViewById(R.id.item_hospitalDistance)
         private val favoriteButton: AppCompatButton = view.findViewById(R.id.btnFavorite)
 
+        init {
+            // 버튼 클릭 시 ripple 효과를 위한 설정
+            favoriteButton.apply {
+                isClickable = true
+                isFocusable = true
+            }
+        }
+
         fun bind(hospital: HospitalInfo, distance: String) {
             nameTextView.text = hospital.name
             addressTextView.text = hospital.address
@@ -114,45 +123,42 @@ class HospitalAdapter(
             stateTextView.text = hospital.state
             distanceTextView.text = distance
 
-            // 초기 즐겨찾기 상태 확인 및 설정
+            // 즐겨찾기 상태 초기화
             lifecycleScope.launch {
                 try {
                     val isFavorite = favoriteRepository.isFavorite(hospital.ykiho)
                     updateFavoriteButton(isFavorite)
+
+                    // 버튼 클릭 리스너 설정
+                    favoriteButton.setOnClickListener {
+                        lifecycleScope.launch {
+                            try {
+                                val currentState = favoriteRepository.isFavorite(hospital.ykiho)
+                                if (currentState) {
+                                    favoriteRepository.removeFavorite(hospital.ykiho)
+                                    updateFavoriteButton(false)
+                                    onFavoriteChanged(hospital.ykiho, false)
+                                } else {
+                                    favoriteRepository.addFavorite(hospital)
+                                    updateFavoriteButton(true)
+                                    onFavoriteChanged(hospital.ykiho, true)
+                                }
+                            } catch (e: Exception) {
+                                Log.e("HospitalViewHolder", "Error toggling favorite", e)
+                                Toast.makeText(itemView.context, "즐겨찾기 상태 변경 실패", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
                     Log.e("HospitalViewHolder", "Error checking initial favorite state", e)
-                }
-            }
-
-            // 즐겨찾기 버튼 클릭 리스너 설정
-            favoriteButton.setOnClickListener {
-                lifecycleScope.launch {
-                    try {
-                        val isFavorite = favoriteRepository.isFavorite(hospital.ykiho)
-                        if (isFavorite) {
-                            favoriteRepository.removeFavorite(hospital.ykiho)
-                            updateFavoriteButton(false)
-                            onFavoriteChanged(hospital.ykiho, false)
-                        } else {
-                            favoriteRepository.addFavorite(hospital)
-                            updateFavoriteButton(true)
-                            onFavoriteChanged(hospital.ykiho, true)
-                        }
-                    } catch (e: Exception) {
-                        Log.e("HospitalViewHolder", "Error toggling favorite", e)
-                    }
                 }
             }
         }
 
         fun updateFavoriteButton(isFavorite: Boolean) {
             favoriteButton.isSelected = isFavorite
-            // 시각적 피드백을 위한 배경 리소스 변경
-            favoriteButton.background = if (isFavorite) {
-                itemView.context.getDrawable(R.drawable.selector_favorite)
-            } else {
-                itemView.context.getDrawable(R.drawable.selector_favorite)
-            }
+            // 시각적 상태 업데이트
+            favoriteButton.setBackgroundResource(R.drawable.selector_favorite)
         }
     }
 

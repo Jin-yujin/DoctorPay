@@ -8,7 +8,6 @@ import kotlinx.coroutines.tasks.await
 class FavoriteRepository {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-    private val favoritesCollection = firestore.collection("favorites")
 
     companion object {
         private const val TAG = "FavoriteRepository"
@@ -18,6 +17,10 @@ class FavoriteRepository {
     private fun checkAuthAndGetUserId(): String {
         return auth.currentUser?.uid ?: throw IllegalStateException("로그인이 필요합니다")
     }
+
+    // users/{userId}/favorites 컬렉션 참조 가져오기
+    private fun getUserFavoritesCollection(userId: String) =
+        firestore.collection("users").document(userId).collection("favorites")
 
     suspend fun addFavorite(hospital: HospitalInfo) {
         try {
@@ -30,8 +33,8 @@ class FavoriteRepository {
                 timestamp = System.currentTimeMillis()
             )
 
-            favoritesCollection
-                .document("${userId}_${hospital.ykiho}")
+            getUserFavoritesCollection(userId)
+                .document(hospital.ykiho)  // ykiho를 문서 ID로 사용
                 .set(favorite)
                 .await()
 
@@ -48,8 +51,8 @@ class FavoriteRepository {
     suspend fun removeFavorite(ykiho: String) {
         try {
             val userId = checkAuthAndGetUserId()
-            favoritesCollection
-                .document("${userId}_${ykiho}")
+            getUserFavoritesCollection(userId)
+                .document(ykiho)
                 .delete()
                 .await()
         } catch (e: Exception) {
@@ -64,7 +67,7 @@ class FavoriteRepository {
     suspend fun isFavorite(ykiho: String): Boolean {
         return try {
             val userId = checkAuthAndGetUserId()
-            val docRef = favoritesCollection.document("${userId}_${ykiho}")
+            val docRef = getUserFavoritesCollection(userId).document(ykiho)
             docRef.get().await().exists()
         } catch (e: Exception) {
             Log.e(TAG, "Error checking favorite status", e)
@@ -75,8 +78,7 @@ class FavoriteRepository {
     suspend fun getFavoriteYkihos(): List<String> {
         return try {
             val userId = checkAuthAndGetUserId()
-            favoritesCollection
-                .whereEqualTo("userId", userId)
+            getUserFavoritesCollection(userId)
                 .get()
                 .await()
                 .documents
