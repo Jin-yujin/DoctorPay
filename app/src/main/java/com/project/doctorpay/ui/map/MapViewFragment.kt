@@ -102,9 +102,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true -> {
                 enableLocationTracking()
             }
-            else -> {
-                showLocationPermissionRationale()
-            }
         }
     }
 
@@ -485,9 +482,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ) == PackageManager.PERMISSION_GRANTED -> {
                     enableLocationTracking()
-                }
-                shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) -> {
-                    showLocationPermissionRationale()
                 }
                 else -> {
                   if (isAdded) {  // 권한 요청 전 한번 더 확인

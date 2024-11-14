@@ -50,31 +50,38 @@ class HospitalViewModel(
         var isLastPage: Boolean = false,
         var lastLocation: Pair<Double, Double>? = null,
         var cachedHospitals: List<HospitalInfo>? = null,
+        var categoryCache: MutableMap<String, List<HospitalInfo>> = mutableMapOf(),
         var lastFetchTime: Long = 0,
         var isDataLoaded: Boolean = false
     )
 
+    // 전역 캐시 추가
+    private var globalCache: List<HospitalInfo>? = null
+    private var globalCacheTime: Long = 0
+    private val CACHE_DURATION = 30 * 60 * 1000 // 30분
+
+
     private val viewStates = mutableMapOf<String, ViewState>()
 
-
     companion object {
-        const val DEFAULT_RADIUS = 5000
-        private const val MAX_RETRIES = 3
-        private const val BASE_DELAY = 1000L
-        private const val REQUEST_TIMEOUT = 30000L
-        private const val CACHE_DURATION = 30 * 60 * 1000
         const val MAP_VIEW = "MAP_VIEW"
         const val LIST_VIEW = "LIST_VIEW"
         const val DETAIL_VIEW = "DETAIL_VIEW"
         const val FAVORITE_VIEW = "FAVORITE_VIEW"
         const val HOME_VIEW = "HOME_VIEW"
-        private const val PAGE_SIZE = 50
+        const val DEFAULT_RADIUS = 5000
+        private const val CACHE_DURATION = 30 * 60 * 1000 // 30분
+        private const val MAX_RETRIES = 3
+        private const val BASE_DELAY = 1000L
+        private const val REQUEST_TIMEOUT = 30000L
+        private const val PAGE_SIZE = 100
     }
+
 
 
     // 페이징 관련 변수
     private var currentPage = 1
-    private val pageSize = 50
+    private val pageSize = 100
     private var isLastPage = false
 
     // 마지막으로 요청한 위치 저장
@@ -128,13 +135,58 @@ class HospitalViewModel(
     fun getError(viewId: String): StateFlow<String?> =
         getViewState(viewId).error.asStateFlow()
 
+
+    // 카테고리별 데이터 가져오기
+    fun getHospitalsByCategory(
+        viewId: String,
+        category: DepartmentCategory?,
+        latitude: Double,
+        longitude: Double,
+        forceRefresh: Boolean = false
+    ) {
+        viewModelScope.launch {
+            val viewState = getViewState(viewId)
+
+            // 1. 글로벌 캐시 체크
+            if (globalCache == null ||
+                System.currentTimeMillis() - globalCacheTime > CACHE_DURATION ||
+                forceRefresh
+            ) {
+                // 캐시가 없거나 만료되었거나 강제 새로고침인 경우
+                viewState.isLoading.value = true
+                fetchNearbyHospitals(
+                    viewId = viewId,
+                    latitude = latitude,
+                    longitude = longitude,
+                    updateGlobalCache = true
+                )
+            } else {
+                // 2. 캐시된 데이터 사용
+                val categoryKey = category?.name ?: "ALL"
+                val cachedData = viewState.categoryCache[categoryKey]
+
+                if (cachedData != null && !forceRefresh) {
+                    // 카테고리별 캐시가 있는 경우
+                    viewState.hospitals.value = cachedData
+                    viewState.isLoading.value = false
+                } else {
+                    // 카테고리별 필터링 수행
+                    val filteredData = filterHospitalsByCategory(globalCache!!, category)
+                    viewState.categoryCache[categoryKey] = filteredData
+                    viewState.hospitals.value = filteredData
+                    viewState.isLoading.value = false
+                }
+            }
+        }
+    }
+
     // 캐시 초기화
     fun clearCache(viewId: String) {
         val viewState = getViewState(viewId)
-        viewState.cachedHospitals = null
-        viewState.lastFetchTime = 0
-        viewState.lastLocation = null
-        viewState.isDataLoaded = false  // 추가
+        viewState.categoryCache.clear()
+        globalCache = null
+        globalCacheTime = 0
+        viewState.isDataLoaded = false
     }
 
     // 페이지네이션 리셋
@@ -145,26 +197,48 @@ class HospitalViewModel(
         viewState.hospitals.value = emptyList()
     }
 
+    private suspend fun processHospitalResponse(
+        response: Response<HospitalInfoResponse>,
+        latitude: Double,
+        longitude: Double
+    ): List<HospitalInfo> {
+        val body = response.body()
+        if (body == null) {
+            throw IOException("서버 응답이 비어있습니다")
+        }
+
+        val newHospitals = body.body?.items?.itemList ?: emptyList()
+        val nonPaymentResponse = retryWithExponentialBackoff { fetchNonPaymentInfo() }
+        val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
+            nonPaymentResponse.body()?.body?.items ?: emptyList()
+        } else {
+            emptyList()
+        }
+
+        return withContext(Dispatchers.IO) {
+            combineHospitalData(newHospitals, nonPaymentItems)
+        }
+    }
+
 
     fun fetchNearbyHospitals(
         viewId: String,
         latitude: Double,
         longitude: Double,
         radius: Int = DEFAULT_RADIUS,
-        forceRefresh: Boolean = false
+        forceRefresh: Boolean = false,
+        updateGlobalCache: Boolean = false
     ) {
         viewModelScope.launch {
             val viewState = getViewState(viewId)
 
             // 캐시 체크
             if (!forceRefresh &&
-                viewState.cachedHospitals != null &&
-                (System.currentTimeMillis() - viewState.lastFetchTime) < CACHE_DURATION &&
-                viewState.lastLocation?.first == latitude &&
-                viewState.lastLocation?.second == longitude
+                globalCache != null &&
+                System.currentTimeMillis() - globalCacheTime < CACHE_DURATION
             ) {
-                viewState.hospitals.value = viewState.cachedHospitals!!
-                filterHospitalsWithin5km(viewId, latitude, longitude, viewState.cachedHospitals!!)
+                viewState.hospitals.value = globalCache!!
+                viewState.isDataLoaded = true
                 return@launch
             }
 
@@ -183,7 +257,18 @@ class HospitalViewModel(
                     )
                 }
 
-                handleHospitalResponse(viewId, response, latitude, longitude)
+                if (response.isSuccessful) {
+                    val hospitals = processHospitalResponse(response, latitude, longitude)
+                    if (updateGlobalCache) {
+                        globalCache = hospitals
+                        globalCacheTime = System.currentTimeMillis()
+                    }
+                    viewState.hospitals.value = hospitals
+                    viewState.isDataLoaded = true
+                    viewState.lastLocation = Pair(latitude, longitude)
+                } else {
+                    throw HttpException(response)
+                }
             } catch (e: Exception) {
                 handleError(viewId, e)
             } finally {
@@ -629,12 +714,6 @@ class HospitalViewModel(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        viewStates.clear()
-    }
-
-
     private fun getDepartmentCategories(departments: List<String>): List<String> {
         return departments.map { dept ->
             DepartmentCategory.values().find { it.categoryName == dept }?.name ?: DepartmentCategory.OTHER_SPECIALTIES.name
@@ -780,5 +859,11 @@ class HospitalViewModel(
             Log.e("TimeInfo", "Invalid lunch time format: $lunchTimeStr")
             null
         }
+    }
+
+
+    override fun onCleared() {
+        super.onCleared()
+        viewStates.clear()
     }
 }

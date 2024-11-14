@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
@@ -33,11 +34,23 @@ class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
+    private lateinit var viewModel: HospitalViewModel
+
+    companion object {
+        fun newInstance(viewModel: HospitalViewModel) = HomeFragment().apply {
+            this.viewModel = viewModel
+        }
     }
 
     private lateinit var adapter: HospitalAdapter
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (!::viewModel.isInitialized) {
+            viewModel = (requireActivity() as MainActivity).hospitalViewModel
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -141,13 +154,6 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun navigateToHospitalList(category: DepartmentCategory) {
-        val hospitalListFragment = HospitalListFragment.newInstance(category.name)
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, hospitalListFragment)
-            .addToBackStack(null)
-            .commit()
-    }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -161,6 +167,14 @@ class HomeFragment : Fragment() {
                 error?.let { showError(it) }
             }
         }
+    }
+
+    private fun navigateToHospitalList(category: DepartmentCategory) {
+        val hospitalListFragment = HospitalListFragment.newInstance(category.name)
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, hospitalListFragment)
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun showError(error: String) {

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.activity.viewModels
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -11,6 +12,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.navercorp.nid.NaverIdLoginSDK
+import com.project.doctorpay.api.HospitalViewModel
+import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.calendar.Appointment
 import com.project.doctorpay.ui.calendar.CalendarFragment
 import com.project.doctorpay.ui.favorite.FavoriteFragment
@@ -25,6 +29,10 @@ class MainActivity : AppCompatActivity() {
     private val _newAppointment = MutableLiveData<Appointment?>()
     val newAppointment: LiveData<Appointment?> = _newAppointment
 
+
+    val hospitalViewModel: HospitalViewModel by viewModels {
+        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
@@ -46,16 +54,21 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.setOnItemSelectedListener { item ->
-            when(item.itemId) {
+            when (item.itemId) {
                 R.id.navigation_home -> {
-                    // 홈 프래그먼트로 전환
+                    // HomeFragment에 ViewModel 전달
                     supportFragmentManager.beginTransaction()
-                        .replace(R.id.fragment_container, HomeFragment())
+                        .replace(
+                            R.id.fragment_container,
+                            HomeFragment.newInstance(hospitalViewModel)
+                        )
                         .commit()
                     true
                 }
+
                 R.id.navigation_map_list -> {
                     // 지도 프래그먼트로 전환
                     supportFragmentManager.beginTransaction()
@@ -63,6 +76,7 @@ class MainActivity : AppCompatActivity() {
                         .commit()
                     true
                 }
+
                 R.id.navigation_calendar -> {
                     // 캘린더 프래그먼트로 전환
                     supportFragmentManager.beginTransaction()
@@ -70,6 +84,7 @@ class MainActivity : AppCompatActivity() {
                         .commit()
                     true
                 }
+
                 R.id.navigation_mypage -> {
                     // 마이페이지 프래그먼트로 전환
                     supportFragmentManager.beginTransaction()
@@ -77,6 +92,7 @@ class MainActivity : AppCompatActivity() {
                         .commit()
                     true
                 }
+
                 R.id.navigation_like_list -> {
                     // 찜 목록 프래그먼트로 전환
                     supportFragmentManager.beginTransaction()
@@ -84,15 +100,15 @@ class MainActivity : AppCompatActivity() {
                         .commit()
                     true
                 }
+
                 else -> false
             }
         }
 
-        // 기본 프래그먼트 설정 (예: 홈)
+        // 기본 프래그먼트 설정에도 ViewModel 전달
         supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, HomeFragment())
+            .replace(R.id.fragment_container, HomeFragment.newInstance(hospitalViewModel))
             .commit()
-
     }
 
     fun logout() {
