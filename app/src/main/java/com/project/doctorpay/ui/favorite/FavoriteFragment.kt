@@ -117,15 +117,23 @@ class FavoriteFragment : Fragment() {
             addChip("영업중")
             addChip("영업마감")
 
-            setOnCheckedChangeListener { _, checkedId ->
-                val chip = findViewById<Chip>(checkedId)
+            setOnCheckedChangeListener { group, checkedId ->
+                if (checkedId == View.NO_ID) {
+                    // 모든 칩이 선택 해제된 경우 전체 선택
+                    group.check(group.getChildAt(0).id)
+                    return@setOnCheckedChangeListener
+                }
+
+                val chip = group.findViewById<Chip>(checkedId)
                 currentFilter = when (chip?.text?.toString()) {
                     "영업중" -> OperationState.OPEN
                     "영업마감" -> OperationState.CLOSED
                     else -> null
                 }
+
                 viewLifecycleOwner.lifecycleScope.launch {
-                    filterAndUpdateHospitals()
+                    val hospitals = viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).value
+                    filterAndUpdateHospitals(hospitals)
                 }
             }
         }
@@ -182,11 +190,16 @@ class FavoriteFragment : Fragment() {
             val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
             val favoriteHospitals = hospitals.filter { hospital ->
                 favoriteYkihos.contains(hospital.ykiho)
-            }.distinct() // 중복 제거
+            }.distinct()
 
             val filteredHospitals = when (currentFilter) {
-                null -> favoriteHospitals
-                else -> favoriteHospitals.filter { it.operationState == currentFilter }
+                OperationState.OPEN -> favoriteHospitals.filter {
+                    it.operationState == OperationState.OPEN
+                }
+                OperationState.CLOSED -> favoriteHospitals.filter {
+                    it.operationState == OperationState.CLOSED || it.timeInfo == null
+                }
+                else -> favoriteHospitals
             }
 
             val sortedHospitals = filteredHospitals.sortedWith(
