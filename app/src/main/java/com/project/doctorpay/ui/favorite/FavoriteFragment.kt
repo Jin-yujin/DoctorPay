@@ -1,6 +1,7 @@
 package com.project.doctorpay.ui.favorite
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -47,15 +48,10 @@ class FavoriteFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupRecyclerView()
         setupFilterChips()
         setupObservers()
-        loadHospitals()
-
-        binding.swipeRefreshLayout.setOnRefreshListener {
-            loadHospitals(forceRefresh = true)
-        }
+        loadFavoriteHospitals()
     }
 
     private fun setupFilterChips() {
@@ -64,7 +60,7 @@ class FavoriteFragment : Fragment() {
             addChip("영업중")
             addChip("영업마감")
 
-            setOnCheckedChangeListener { _: ChipGroup, checkedId: Int ->
+            setOnCheckedChangeListener { _, checkedId ->
                 val chip = findViewById<Chip>(checkedId)
                 currentFilter = when (chip?.text?.toString()) {
                     "영업중" -> OperationState.OPEN
@@ -72,9 +68,7 @@ class FavoriteFragment : Fragment() {
                     else -> null
                 }
                 viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).value.let { hospitals ->
-                        updateUI(filterHospitals(hospitals))
-                    }
+                    filterAndUpdateHospitals()
                 }
             }
         }
@@ -91,28 +85,20 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-
         adapter = HospitalAdapter(
             onItemClick = { hospital -> navigateToHospitalDetail(hospital) },
             lifecycleScope = viewLifecycleOwner.lifecycleScope
         )
-        binding.favoriteRecyclerView.layoutManager = LinearLayoutManager(requireContext())
-        binding.favoriteRecyclerView.adapter = adapter
+        binding.favoriteRecyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = this@FavoriteFragment.adapter
+        }
     }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).collectLatest { hospitals ->
-                try {
-                    // 즐겨찾기된 병원만 필터링
-                    val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
-                    val favoriteHospitals = hospitals.filter { hospital ->
-                        favoriteYkihos.contains(hospital.ykiho)
-                    }
-                    updateUI(filterHospitals(favoriteHospitals))
-                } catch (e: Exception) {
-                    showError("즐겨찾기 상태를 확인하는데 실패했습니다.")
-                }
+                filterAndUpdateHospitals(hospitals)
             }
         }
 
@@ -126,6 +112,32 @@ class FavoriteFragment : Fragment() {
             viewModel.getError(HospitalViewModel.FAVORITE_VIEW).collectLatest { error ->
                 error?.let { showError(it) }
             }
+        }
+    }
+
+    private suspend fun filterAndUpdateHospitals(hospitals: List<HospitalInfo> = emptyList()) {
+        try {
+            val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
+            val favoriteHospitals = hospitals.filter { hospital ->
+                favoriteYkihos.contains(hospital.ykiho)
+            }
+
+            val filteredHospitals = when (currentFilter) {
+                null -> favoriteHospitals
+                else -> favoriteHospitals.filter { it.operationState == currentFilter }
+            }
+
+            val sortedHospitals = filteredHospitals.sortedWith(
+                compareBy<HospitalInfo> { it.operationState != OperationState.OPEN }
+                    .thenBy { it.operationState != OperationState.EMERGENCY }
+                    .thenBy { it.operationState != OperationState.LUNCH_BREAK }
+                    .thenBy { it.operationState.ordinal }
+            )
+
+            updateUI(sortedHospitals)
+        } catch (e: Exception) {
+            Log.e("FavoriteFragment", "Error filtering hospitals", e)
+            showError("즐겨찾기 목록을 불러오는데 실패했습니다")
         }
     }
 
@@ -144,48 +156,48 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun updateUI(hospitals: List<HospitalInfo>) {
-        adapter.submitList(hospitals)
-        binding.swipeRefreshLayout.isRefreshing = false
-
         if (hospitals.isEmpty()) {
-            binding.emptyView.visibility = View.VISIBLE
-            binding.favoriteRecyclerView.visibility = View.GONE
-            val message = when {
-                currentFilter != null -> getString(R.string.no_hospitals_with_filter)
-                else -> "즐겨찾기한 병원이 없습니다.\n병원 상세페이지에서 즐겨찾기를 추가해보세요."
+            binding.emptyView.apply {
+                visibility = View.VISIBLE
+                text = when {
+                    currentFilter != null -> "해당 조건의 병원이 없습니다"
+                    else -> "즐겨찾기한 병원이 없습니다.\n병원 상세페이지에서 즐겨찾기를 추가해보세요."
+                }
             }
-            binding.emptyView.text = message
+            binding.favoriteRecyclerView.visibility = View.GONE
         } else {
             binding.emptyView.visibility = View.GONE
             binding.favoriteRecyclerView.visibility = View.VISIBLE
+            adapter.submitList(hospitals)
         }
-    }
-
-    private fun showError(error: String) {
-        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
         binding.swipeRefreshLayout.isRefreshing = false
     }
 
-    private fun loadHospitals(forceRefresh: Boolean = false) {
+    private fun loadFavoriteHospitals(forceRefresh: Boolean = false) {
         lifecycleScope.launch {
             try {
-                // 1. 먼저 사용자의 즐겨찾기 목록 가져오기
                 val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
+                if (favoriteYkihos.isEmpty()) {
+                    updateUI(emptyList())
+                    return@launch
+                }
 
-                // 2. 주변 병원 데이터 가져오기
-                val latitude = 37.6065
-                val longitude = 127.0927
                 viewModel.fetchNearbyHospitals(
                     viewId = HospitalViewModel.FAVORITE_VIEW,
-                    latitude = latitude,
-                    longitude = longitude,
-                    radius = HospitalViewModel.DEFAULT_RADIUS,
+                    latitude = 37.5666805,  // Default location (Seoul)
+                    longitude = 126.9784147,
+                    radius = 5000,
                     forceRefresh = forceRefresh
                 )
             } catch (e: Exception) {
-                showError("즐겨찾기 목록을 불러오는데 실패했습니다.")
+                showError("즐겨찾기 목록을 불러오는데 실패했습니다")
             }
         }
+    }
+
+    private fun showError(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        binding.swipeRefreshLayout.isRefreshing = false
     }
 
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
@@ -193,14 +205,14 @@ class FavoriteFragment : Fragment() {
             hospitalId = hospital.name,
             isFromMap = false,
             category = ""
-        )
+        ).apply {
+            setHospitalInfo(hospital)
+        }
 
         parentFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, detailFragment)
             .addToBackStack(null)
             .commit()
-
-        detailFragment.setHospitalInfo(hospital)
     }
 
     override fun onDestroyView() {
