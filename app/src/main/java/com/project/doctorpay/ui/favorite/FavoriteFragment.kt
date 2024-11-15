@@ -197,7 +197,7 @@ class FavoriteFragment : Fragment() {
                     it.operationState == OperationState.OPEN
                 }
                 OperationState.CLOSED -> favoriteHospitals.filter {
-                    it.operationState == OperationState.CLOSED || it.timeInfo == null
+                    it.operationState != OperationState.OPEN
                 }
                 else -> favoriteHospitals
             }
