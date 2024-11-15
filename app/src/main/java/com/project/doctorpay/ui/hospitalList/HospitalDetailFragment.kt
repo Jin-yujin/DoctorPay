@@ -447,6 +447,7 @@ class HospitalDetailFragment : Fragment() {
             arguments = Bundle().apply {
                 putString("hospitalId", hospital.ykiho)
                 putString("hospitalName", hospital.name)
+                putStringArrayList("departments", ArrayList(hospital.departments))
             }
         }
 

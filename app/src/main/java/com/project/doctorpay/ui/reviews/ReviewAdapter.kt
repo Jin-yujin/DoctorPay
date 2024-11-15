@@ -19,6 +19,8 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
     private val db = FirebaseFirestore.getInstance()
     private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     private var actionListener: ReviewActionListener? = null
+    private var originalList = listOf<Review>()
+    private var currentFilter = ReviewFilter()
 
     // 수정/삭제 이벤트 처리를 위한 인터페이스
     interface ReviewActionListener {
@@ -51,8 +53,18 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 
     // 리스트 업데이트 함수
     fun updateList(newList: List<Review>) {
-        submitList(null)  // 기존 리스트 초기화
-        submitList(newList.toList())  // 새 리스트 설정
+        originalList = newList
+        applyFilter(currentFilter)
+    }
+
+    fun applyFilter(filter: ReviewFilter) {
+        currentFilter = filter
+        val filteredList = originalList.filter { review ->
+            val departmentMatch = filter.department == "전체" || review.department == filter.department
+            val ratingMatch = review.rating >= filter.minRating
+            departmentMatch && ratingMatch
+        }
+        submitList(filteredList)
     }
 
     class ReviewViewHolder(
@@ -125,5 +137,6 @@ data class Review(
     val rating: Float = 0f,
     val content: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val isVerifiedVisit: Boolean = false
+    val isVerifiedVisit: Boolean = false,
+    val department: String = ""
 )
