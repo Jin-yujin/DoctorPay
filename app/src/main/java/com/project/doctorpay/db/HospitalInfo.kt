@@ -146,6 +146,16 @@ data class HospitalInfo(
 ) {
     val operationState: OperationState
         get() = timeInfo?.getCurrentState() ?: OperationState.UNKNOWN
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is HospitalInfo) return false
+        return ykiho == other.ykiho // ykiho로 동일성 비교
+    }
+
+    override fun hashCode(): Int {
+        return ykiho.hashCode()
+    }
 }
 
 

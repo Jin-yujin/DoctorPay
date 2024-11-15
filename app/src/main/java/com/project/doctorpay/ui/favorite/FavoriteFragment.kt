@@ -1,17 +1,22 @@
 package com.project.doctorpay.ui.favorite
 
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
+import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.OperationState  // OperationState를 db 패키지에서 import
@@ -24,6 +29,7 @@ import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import android.Manifest
 
 class FavoriteFragment : Fragment() {
     private var _binding: FragmentFavoriteBinding? = null
@@ -33,8 +39,16 @@ class FavoriteFragment : Fragment() {
     private var currentFilter: OperationState? = null
     private val favoriteRepository = FavoriteRepository()
 
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var userLocation: LatLng? = null
+
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
     }
 
     override fun onCreateView(
@@ -51,7 +65,50 @@ class FavoriteFragment : Fragment() {
         setupRecyclerView()
         setupFilterChips()
         setupObservers()
-        loadFavoriteHospitals()
+        checkLocationPermission() // 위치 권한 체크 및 위치 정보
+    }
+
+    private fun checkLocationPermission() {
+        when {
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                getCurrentLocation()
+            }
+            else -> {
+                // 기본 위치로 서울 설정
+                userLocation = LatLng(37.5666805, 126.9784147)
+                adapter.updateUserLocation(userLocation!!)
+                loadFavoriteHospitals()
+            }
+        }
+    }
+
+    private fun getCurrentLocation() {
+        try {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                location?.let { loc ->
+                    userLocation = LatLng(loc.latitude, loc.longitude)
+                    adapter.updateUserLocation(userLocation!!)
+                    loadFavoriteHospitals()
+                } ?: run {
+                    // 위치를 가져올 수 없는 경우 기본 위치(서울) 사용
+                    userLocation = LatLng(37.5666805, 126.9784147)
+                    adapter.updateUserLocation(userLocation!!)
+                    loadFavoriteHospitals()
+                }
+            }.addOnFailureListener {
+                // 위치 가져오기 실패시 기본 위치 사용
+                userLocation = LatLng(37.5666805, 126.9784147)
+                adapter.updateUserLocation(userLocation!!)
+                loadFavoriteHospitals()
+            }
+        } catch (e: SecurityException) {
+            userLocation = LatLng(37.5666805, 126.9784147)
+            adapter.updateUserLocation(userLocation!!)
+            loadFavoriteHospitals()
+        }
     }
 
     private fun setupFilterChips() {
@@ -96,18 +153,23 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun setupObservers() {
+        // 병원 데이터 옵저버 하나만 유지
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).collectLatest { hospitals ->
-                filterAndUpdateHospitals(hospitals)
+                if (hospitals.isNotEmpty()) {
+                    filterAndUpdateHospitals(hospitals)
+                }
             }
         }
 
+        // 로딩 상태 옵저버
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getIsLoading(HospitalViewModel.FAVORITE_VIEW).collectLatest { isLoading ->
                 binding.swipeRefreshLayout.isRefreshing = isLoading
             }
         }
 
+        // 에러 옵저버
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getError(HospitalViewModel.FAVORITE_VIEW).collectLatest { error ->
                 error?.let { showError(it) }
@@ -120,7 +182,7 @@ class FavoriteFragment : Fragment() {
             val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
             val favoriteHospitals = hospitals.filter { hospital ->
                 favoriteYkihos.contains(hospital.ykiho)
-            }
+            }.distinct() // 중복 제거
 
             val filteredHospitals = when (currentFilter) {
                 null -> favoriteHospitals
@@ -139,20 +201,6 @@ class FavoriteFragment : Fragment() {
             Log.e("FavoriteFragment", "Error filtering hospitals", e)
             showError("즐겨찾기 목록을 불러오는데 실패했습니다")
         }
-    }
-
-    private fun filterHospitals(hospitals: List<HospitalInfo>): List<HospitalInfo> {
-        return when (currentFilter) {
-            null -> hospitals
-            else -> hospitals.filter { hospital ->
-                hospital.operationState == currentFilter
-            }
-        }.sortedWith(compareBy<HospitalInfo>(
-            { it.operationState != OperationState.OPEN },
-            { it.operationState != OperationState.EMERGENCY },
-            { it.operationState != OperationState.LUNCH_BREAK },
-            { it.operationState.ordinal }
-        ))
     }
 
     private fun updateUI(hospitals: List<HospitalInfo>) {
@@ -182,10 +230,11 @@ class FavoriteFragment : Fragment() {
                     return@launch
                 }
 
+                val location = userLocation ?: LatLng(37.5666805, 126.9784147)
                 viewModel.fetchNearbyHospitals(
                     viewId = HospitalViewModel.FAVORITE_VIEW,
-                    latitude = 37.5666805,  // Default location (Seoul)
-                    longitude = 126.9784147,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
                     radius = 5000,
                     forceRefresh = forceRefresh
                 )
