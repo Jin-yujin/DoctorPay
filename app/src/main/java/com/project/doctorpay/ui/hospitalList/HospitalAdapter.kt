@@ -66,29 +66,29 @@ class HospitalAdapter(
         }
     }
 
+
     private fun calculateDistance(hospital: HospitalInfo): String {
-        return userLocation?.let { currentLocation ->
-            val results = FloatArray(1)
-            try {
+        return try {
+            val userLoc = userLocation
+            if (userLoc != null) {
+                val results = FloatArray(1)
                 Location.distanceBetween(
-                    currentLocation.latitude,
-                    currentLocation.longitude,
+                    userLoc.latitude,
+                    userLoc.longitude,
                     hospital.latitude,
                     hospital.longitude,
                     results
                 )
-
                 when {
-                    results[0] < 1000 -> "${results[0].roundToInt()}m"
+                    results[0] < 1000 -> "${results[0].toInt()}m"
                     else -> String.format("%.1fkm", results[0] / 1000)
                 }
-            } catch (e: Exception) {
-                Log.e("HospitalAdapter", "Error calculating distance for ${hospital.name}", e)
-                "거리 계산 오류"
+            } else {
+                "거리 정보 없음"
             }
-        } ?: run {
-            Log.d("HospitalAdapter", "User location is null")
-            "거리 정보 없음"
+        } catch (e: Exception) {
+            Log.e("HospitalAdapter", "Error calculating distance", e)
+            "거리 계산 오류"
         }
     }
 

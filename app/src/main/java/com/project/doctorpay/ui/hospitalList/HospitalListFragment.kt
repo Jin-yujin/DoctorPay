@@ -165,20 +165,8 @@ class HospitalListFragment : Fragment() {
     }
 
     private fun setupObservers() {
-        // 로딩 상태 관찰
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.getIsLoading(HospitalViewModel.LIST_VIEW).collectLatest { isLoading ->
-                binding.swipeRefreshLayout.isRefreshing = isLoading
-                // 로딩 중일 때는 빈 화면 메시지 숨기기
-                if (isLoading) {
-                    binding.emptyView.visibility = View.GONE
-                }
-            }
-        }
-
         // 병원 데이터 관찰
         viewLifecycleOwner.lifecycleScope.launch {
-            // filteredHospitals 대신 hospitals를 먼저 관찰
             viewModel.getHospitals(HospitalViewModel.LIST_VIEW).collectLatest { hospitals ->
                 Log.d(TAG, "Received base hospitals: ${hospitals.size}")
                 if (hospitals.isNotEmpty()) {
@@ -197,16 +185,34 @@ class HospitalListFragment : Fragment() {
                         filteredHospitals
                     }
 
-                    // 정렬: 거리순으로 정렬
-                    val sortedHospitals = sortHospitalsByDistance(finalHospitals)
-                    Log.d(TAG, "Final sorted hospitals: ${sortedHospitals.size}")
-
-                    updateUI(sortedHospitals)
+                    // userLocation이 null이 아닌지 확인하고, null이면 현재 위치 가져오기
+                    if (userLocation == null) {
+                        getCurrentLocation { _, _ ->
+                            // 위치를 가져온 후 병원 목록 다시 정렬
+                            val sortedHospitals = sortHospitalsByDistance(finalHospitals)
+                            updateUI(sortedHospitals)
+                        }
+                    } else {
+                        val sortedHospitals = sortHospitalsByDistance(finalHospitals)
+                        updateUI(sortedHospitals)
+                    }
                 } else {
                     updateUI(emptyList())
                 }
             }
         }
+
+        // 로딩 상태 관찰
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getIsLoading(HospitalViewModel.LIST_VIEW).collectLatest { isLoading ->
+                binding.swipeRefreshLayout.isRefreshing = isLoading
+                // 로딩 중일 때는 빈 화면 메시지 숨기기
+                if (isLoading) {
+                    binding.emptyView.visibility = View.GONE
+                }
+            }
+        }
+
 
         // 에러 상태 관찰
         viewLifecycleOwner.lifecycleScope.launch {
@@ -299,6 +305,7 @@ class HospitalListFragment : Fragment() {
         }
     }
 
+
     private fun getCurrentLocation(onLocationReady: (Double, Double) -> Unit) {
         try {
             if (ContextCompat.checkSelfPermission(
@@ -308,6 +315,10 @@ class HospitalListFragment : Fragment() {
             ) {
                 fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
                     location?.let {
+                        // userLocation 업데이트 추가
+                        userLocation = LatLng(it.latitude, it.longitude)
+                        // adapter에 location 전달
+                        adapter.updateUserLocation(userLocation!!)
                         onLocationReady(it.latitude, it.longitude)
                     } ?: loadDefaultLocation(onLocationReady)
                 }
@@ -321,8 +332,15 @@ class HospitalListFragment : Fragment() {
 
     private fun loadDefaultLocation(onLocationReady: (Double, Double) -> Unit) {
         // 서울 중심부 좌표
-        onLocationReady(37.5666805, 127.0784147)
+        val defaultLat = 37.5666805
+        val defaultLng = 127.0784147
+        // userLocation 업데이트 추가
+        userLocation = LatLng(defaultLat, defaultLng)
+        // adapter에 location 전달
+        adapter.updateUserLocation(userLocation!!)
+        onLocationReady(defaultLat, defaultLng)
     }
+
 
     private fun loadDefaultLocationData() {
         if (viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {

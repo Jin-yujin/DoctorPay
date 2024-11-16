@@ -39,19 +39,6 @@ enum class DepartmentCategory(val categoryName: String, val codes: List<String>,
     }
 }
 
-enum class OperationState {
-    OPEN,           // 영업 중
-    CLOSED,         // 영업 종료
-    LUNCH_BREAK,    // 점심시간
-    EMERGENCY,      // 응급실 운영 중
-    UNKNOWN         // 상태 알 수 없음
-}
-
-data class TimeRange(
-    val start: LocalTime?,
-    val end: LocalTime?
-)
-
 data class HospitalTimeInfo(
     val weekdayTime: TimeRange?,
     val saturdayTime: TimeRange?,
@@ -62,14 +49,24 @@ data class HospitalTimeInfo(
     val isEmergencyNight: Boolean,
     val emergencyDayContact: String?,
     val emergencyNightContact: String?,
-    val isClosed: Boolean = false
+    val isClosed: Boolean = false,
+    val timeInfo: HospitalTimeInfo? = null
+
 ) {
-    fun getCurrentState(currentTime: LocalTime = LocalTime.now(),
-                        currentDay: LocalDate = LocalDate.now()): OperationState {
+    val operationState: OperationState
+        get() = timeInfo?.getCurrentState() ?: OperationState.UNKNOWN
+
+    val stateText: String
+        get() = operationState.toDisplayText()
+
+    fun getCurrentState(): OperationState {
         if (isClosed) return OperationState.CLOSED
         if (isEmergencyDay || isEmergencyNight) return OperationState.EMERGENCY
 
-        val timeRange = when (currentDay.dayOfWeek) {
+        val currentTime = LocalTime.now()
+        val currentDay = LocalDate.now().dayOfWeek
+
+        val timeRange = when (currentDay) {
             DayOfWeek.SUNDAY -> sundayTime
             DayOfWeek.SATURDAY -> saturdayTime
             else -> weekdayTime
@@ -78,8 +75,7 @@ data class HospitalTimeInfo(
         return when {
             timeRange?.start == null || timeRange.end == null -> OperationState.UNKNOWN
             currentTime.isAfter(timeRange.start) && currentTime.isBefore(timeRange.end) -> {
-                // 점심시간 체크
-                val lunchTimeRange = if (currentDay.dayOfWeek == DayOfWeek.SATURDAY) {
+                val lunchTimeRange = if (currentDay == DayOfWeek.SATURDAY) {
                     saturdayLunchTime
                 } else {
                     lunchTime
@@ -100,33 +96,29 @@ data class HospitalTimeInfo(
             else -> OperationState.CLOSED
         }
     }
-
-    companion object {
-        fun parseTime(timeStr: String?): LocalTime? {
-            if (timeStr.isNullOrBlank()) return null
-            return try {
-                val formatter = DateTimeFormatter.ofPattern("HHmm", Locale.getDefault())
-                LocalTime.parse(timeStr, formatter)
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        fun parseLunchTime(lunchTimeStr: String?): TimeRange? {
-            if (lunchTimeStr.isNullOrBlank()) return null
-            val times = lunchTimeStr.split("-")
-            return if (times.size == 2) {
-                TimeRange(
-                    parseTime(times[0].trim()),
-                    parseTime(times[1].trim())
-                )
-            } else {
-                null
-            }
-        }
-    }
 }
 
+data class TimeRange(
+    val start: LocalTime?,
+    val end: LocalTime?
+)
+
+enum class OperationState {
+    OPEN,           // 영업 중
+    CLOSED,         // 영업 종료
+    LUNCH_BREAK,    // 점심시간
+    EMERGENCY,      // 응급실 운영 중
+    UNKNOWN;        // 상태 알 수 없음
+
+    // 상태 텍스트 변환 함수를 enum 클래스 내부로 이동
+    fun toDisplayText(): String = when (this) {
+        OPEN -> "영업중"
+        CLOSED -> "영업마감"
+        LUNCH_BREAK -> "점심시간"
+        EMERGENCY -> "응급실 운영중"
+        UNKNOWN -> "운영시간 정보없음"
+    }
+}
 // HospitalInfo 데이터 클래스 수정
 data class HospitalInfo(
     val location: LatLng,
