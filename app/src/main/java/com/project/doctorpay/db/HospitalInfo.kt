@@ -5,13 +5,11 @@ import NonPaymentItem
 import android.os.Parcelable
 import com.naver.maps.geometry.LatLng
 import kotlinx.parcelize.Parcelize
-import com.project.doctorpay.R
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
+// 기존 enum 클래스들과 data 클래스들은 그대로 유지
 enum class DepartmentCategory(val categoryName: String, val codes: List<String>, val keywords: List<String>) {
     GENERAL_MEDICINE("일반의", listOf("00", "23", "41"), listOf("일반의")),
     INTERNAL_MEDICINE("내과", listOf("01", "20"), listOf("내과")),
@@ -51,7 +49,6 @@ data class HospitalTimeInfo(
     val emergencyNightContact: String?,
     val isClosed: Boolean = false,
     val timeInfo: HospitalTimeInfo? = null
-
 ) {
     val operationState: OperationState
         get() = timeInfo?.getCurrentState() ?: OperationState.UNKNOWN
@@ -110,7 +107,6 @@ enum class OperationState {
     EMERGENCY,      // 응급실 운영 중
     UNKNOWN;        // 상태 알 수 없음
 
-    // 상태 텍스트 변환 함수를 enum 클래스 내부로 이동
     fun toDisplayText(): String = when (this) {
         OPEN -> "영업중"
         CLOSED -> "영업마감"
@@ -119,7 +115,7 @@ enum class OperationState {
         UNKNOWN -> "운영시간 정보없음"
     }
 }
-// HospitalInfo 데이터 클래스 수정
+
 data class HospitalInfo(
     val location: LatLng,
     val name: String,
@@ -127,10 +123,10 @@ data class HospitalInfo(
     val departments: List<String>,
     val departmentCategories: List<String>,
     val phoneNumber: String,
-    val state: String,        // 현재 운영 상태를 나타내는 텍스트
+    val state: String,
     val rating: Double,
-    val latitude: Double = 0.0, // 위도
-    val longitude: Double = 0.0, // 경도
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val nonPaymentItems: List<NonPaymentItem>,
     val clCdNm: String,
     val ykiho: String,
@@ -142,7 +138,7 @@ data class HospitalInfo(
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is HospitalInfo) return false
-        return ykiho == other.ykiho // ykiho로 동일성 비교
+        return ykiho == other.ykiho
     }
 
     override fun hashCode(): Int {
@@ -150,6 +146,28 @@ data class HospitalInfo(
     }
 }
 
+// 데이터 매핑 관련 확장 함수들은 Repository로 이동
+fun inferDepartments(hospitalName: String, nonPaymentItems: List<NonPaymentItem>, departmentCodes: List<String>): List<String> {
+    val departments = mutableSetOf<String>()
+
+    DepartmentCategory.values().forEach { category ->
+        if (category.keywords.any { hospitalName.contains(it, ignoreCase = true) }) {
+            departments.add(category.categoryName)
+        }
+    }
+
+    nonPaymentItems.forEach { item ->
+        item.itemNm?.let { itemName ->
+            departments.add(DepartmentCategory.getCategoryByKeyword(itemName).categoryName)
+        }
+    }
+
+    departmentCodes.forEach { code ->
+        departments.add(DepartmentCategory.getCategory(code).categoryName)
+    }
+
+    return departments.toList()
+}
 
 // API 응답을 통합 모델로 변환하는 확장 함수
 fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>, timeInfo: HospitalTimeInfo? = null): HospitalInfo {
@@ -187,29 +205,4 @@ fun HospitalInfoItem.toHospitalInfo(nonPaymentItems: List<NonPaymentItem>, timeI
         ykiho = this.ykiho ?: "",
         timeInfo = timeInfo
     )
-}
-
-fun inferDepartments(hospitalName: String, nonPaymentItems: List<NonPaymentItem>, departmentCodes: List<String>): List<String> {
-    val departments = mutableSetOf<String>()
-
-    // 병원 이름에서 과 추론
-    DepartmentCategory.values().forEach { category ->
-        if (category.keywords.any { hospitalName.contains(it, ignoreCase = true) }) {
-            departments.add(category.categoryName)
-        }
-    }
-
-    // 비급여 항목에서 추가 진료과목 추론
-    nonPaymentItems.forEach { item ->
-        item.itemNm?.let { itemName ->
-            departments.add(DepartmentCategory.getCategoryByKeyword(itemName).categoryName)
-        }
-    }
-
-    // dgsbjtCd로 진료과 추론
-    departmentCodes.forEach { code ->
-        departments.add(DepartmentCategory.getCategory(code).categoryName)
-    }
-
-    return departments.toList()
 }

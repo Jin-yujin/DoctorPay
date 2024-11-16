@@ -26,7 +26,7 @@ import com.project.doctorpay.databinding.FragmentFavoriteBinding
 import com.project.doctorpay.db.FavoriteRepository
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
-import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
+import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import android.Manifest

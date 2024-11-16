@@ -35,30 +35,20 @@ import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentMapviewBinding
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
-import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
+import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.project.doctorpay.db.FavoriteRepository
-import kotlinx.coroutines.flow.collectLatest
 import com.google.android.material.bottomsheet.BottomSheetDialog
-import android.widget.TextView
-import android.widget.Button
-import androidx.appcompat.widget.AppCompatButton
-import androidx.core.location.LocationManagerCompat.getCurrentLocation
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import com.project.doctorpay.MainActivity
 import kotlinx.coroutines.withTimeout
 
 class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.HospitalDetailListener {
@@ -229,7 +219,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         naverMap.apply {
             locationTrackingMode = LocationTrackingMode.Follow
             uiSettings.apply {
-                isLocationButtonEnabled = true
+                isLocationButtonEnabled = false
                 isZoomControlEnabled = true
                 isCompassEnabled = true
             }

@@ -1,4 +1,4 @@
-package com.project.doctorpay.ui.hospitalList
+package com.project.doctorpay.ui.Detail
 
 import NonPaymentItem
 import android.app.AlertDialog
@@ -23,7 +23,6 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
 import com.project.doctorpay.db.HospitalInfo
@@ -32,6 +31,7 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.calendar.Appointment
+import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import com.project.doctorpay.ui.reviews.Review
 import com.project.doctorpay.ui.reviews.ReviewFragment
 import kotlinx.coroutines.launch
@@ -126,6 +126,9 @@ class HospitalDetailFragment : Fragment() {
             } else {
                 "진료과목 정보 없음"
             }
+
+            // 리뷰 정보 로드
+            loadReviewPreviews()
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -211,7 +214,24 @@ class HospitalDetailFragment : Fragment() {
             btnMoreReviews.setOnClickListener { navigateToReviewsFragment() }
             btnMoreNonCoveredItems.setOnClickListener { /* TODO: Implement non-covered items list functionality */ }
             btnBack.setOnClickListener { navigateBack() }
+            btnMoreNonCoveredItems.setOnClickListener { showAllNonCoveredItems() }
+
         }
+    }
+
+
+    private fun showAllNonCoveredItems() {
+        val nonCoveredFragment = NonCoveredItemsFragment().apply {
+            arguments = Bundle().apply {
+                putString("hospitalId", hospital.ykiho)
+                putString("hospitalName", hospital.name)
+            }
+        }
+
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, nonCoveredFragment)
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun showAppointmentDialog() {
