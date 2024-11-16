@@ -127,21 +127,19 @@ object NetworkModule {
         chain.proceed(request)
     }
 
+    // NetworkModule.kt
     private val okHttpClient = OkHttpClient.Builder().apply {
-        dispatcher(dispatcher)
-        addInterceptor(loggingInterceptor)
-        addInterceptor(retryInterceptor)
-        addInterceptor(connectionPoolingInterceptor)
-        connectTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        writeTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        dispatcher(Dispatcher().apply {
+            maxRequests = 30
+            maxRequestsPerHost = 10
+        })
+        connectTimeout(20, TimeUnit.SECONDS)
+        readTimeout(20, TimeUnit.SECONDS)
+        writeTimeout(20, TimeUnit.SECONDS)
         retryOnConnectionFailure(true)
-        connectionPool(ConnectionPool(
-            MAX_PARALLEL_REQUESTS,
-            5, // keep-alive duration
-            TimeUnit.MINUTES
-        ))
+        connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
     }.build()
+
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
