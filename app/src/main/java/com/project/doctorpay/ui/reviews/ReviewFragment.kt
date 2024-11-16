@@ -5,9 +5,12 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.RatingBar
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -25,6 +28,10 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
     private lateinit var reviewAdapter: ReviewAdapter
     private lateinit var hospitalId: String
 
+    private lateinit var reviewFilter: ReviewFilter
+    private lateinit var departmentSpinner: Spinner
+    private lateinit var ratingSpinner: Spinner
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentReviewsBinding.inflate(inflater, container, false)
         return binding.root
@@ -40,6 +47,7 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
         binding.averageRatingText.text = "0.0"
         binding.averageRatingBar.rating = 0f
 
+        setupFilterViews()
         setupToolbar()
         setupRecyclerView()
         setupObservers()
@@ -92,6 +100,55 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
             }
             .setNegativeButton("취소", null)
             .show()
+    }
+
+    private fun setupFilterViews() {
+        reviewFilter = ReviewFilter()
+
+        // 진료과 목록 가져오기
+        val departments = arguments?.getStringArrayList("departments")?.toList() ?: listOf()
+        val allDepartments = listOf("전체") + departments
+
+        // 진료과 스피너 설정
+        departmentSpinner = binding.spinnerDepartment.apply {
+            adapter = ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_spinner_item,
+                allDepartments
+            ).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    reviewFilter.department = allDepartments[position]
+                    reviewAdapter.applyFilter(reviewFilter)
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
+
+        // 별점 스피너 설정
+        val ratings = listOf("전체 점수") + (1..5).map { rating -> "${rating}점 이상" }
+        ratingSpinner = binding.spinnerRating.apply {
+            adapter = ArrayAdapter(
+                requireContext(),
+                android.R.layout.simple_spinner_item,
+                ratings
+            ).apply {
+                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            }
+
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    reviewFilter.minRating = if (position == 0) 0f else position.toFloat()
+                    reviewAdapter.applyFilter(reviewFilter)
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            }
+        }
     }
 
     private fun setupToolbar() {
