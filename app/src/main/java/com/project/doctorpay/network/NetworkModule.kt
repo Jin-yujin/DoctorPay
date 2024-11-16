@@ -7,6 +7,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.simplexml.SimpleXmlConverterFactory
 import java.io.IOException
+import java.net.SocketTimeoutException
 import java.net.URLDecoder
 import java.util.concurrent.TimeUnit
 
@@ -129,17 +130,23 @@ object NetworkModule {
 
     // NetworkModule.kt
     private val okHttpClient = OkHttpClient.Builder().apply {
-        dispatcher(Dispatcher().apply {
-            maxRequests = 30
-            maxRequestsPerHost = 10
-        })
-        connectTimeout(20, TimeUnit.SECONDS)
-        readTimeout(20, TimeUnit.SECONDS)
-        writeTimeout(20, TimeUnit.SECONDS)
+        connectTimeout(5, TimeUnit.SECONDS)
+        readTimeout(5, TimeUnit.SECONDS)
+        writeTimeout(5, TimeUnit.SECONDS)
         retryOnConnectionFailure(true)
         connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
+        addInterceptor { chain ->
+            val request = chain.request()
+            try {
+                chain.proceed(request)
+            } catch (e: Exception) {
+                if (e is SocketTimeoutException) {
+                    // 타임아웃 발생 시 재시도
+                    chain.proceed(request)
+                } else throw e
+            }
+        }
     }.build()
-
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
