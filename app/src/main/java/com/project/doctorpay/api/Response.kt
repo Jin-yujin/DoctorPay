@@ -219,3 +219,60 @@ data class HospitalDetailItem(
     @field:Element(name = "emyDayTelNo1", required = false) var emyDayTelNo1: String? = null,
     @field:Element(name = "emyNgtTelNo1", required = false) var emyNgtTelNo1: String? = null
 )
+//
+//@Root(name = "response", strict = false)
+//data class NonPaymentResponse(
+//    @field:Element(name = "header", required = false)
+//    var header: Header? = null,
+//
+//    @field:Element(name = "body", required = false)
+//    var body: NonPaymentBody? = null
+//)
+//
+//@Root(strict = false)
+//data class NonPaymentBody(
+//    @field:Element(name = "items", required = false)
+//    var items: NonPaymentItems? = null,
+//
+//    @field:Element(name = "numOfRows", required = false)
+//    var numOfRows: Int = 0,
+//
+//    @field:Element(name = "pageNo", required = false)
+//    var pageNo: Int = 0,
+//
+//    @field:Element(name = "totalCount", required = false)
+//    var totalCount: Int = 0
+//)
+//
+//@Root(strict = false)
+//data class NonPaymentItems(
+//    @field:ElementList(inline = true, entry = "item", required = false)
+//    var itemList: List<NonPaymentItem>? = null
+//)
+//
+//@Root(strict = false)
+//data class NonPaymentItem(
+//    @field:Element(name = "yadmNm", required = false)
+//    val yadmNm: String? = null,
+//
+//    @field:Element(name = "clCd", required = false)
+//    val clCd: String? = null,
+//
+//    @field:Element(name = "clCdNm", required = false)
+//    val clCdNm: String? = null,
+//
+//    @field:Element(name = "itemCd", required = false)
+//    val itemCd: String? = null,
+//
+//    @field:Element(name = "itemNm", required = false)
+//    val itemNm: String? = null,
+//
+//    @field:Element(name = "npayKorNm", required = false)
+//    val npayKorNm: String? = null,
+//
+//    @field:Element(name = "curAmt", required = false)
+//    val curAmt: String? = null,
+//
+//    @field:Element(name = "spcmfyCatn", required = false)
+//    val spcmfyCatn: String? = null
+//)

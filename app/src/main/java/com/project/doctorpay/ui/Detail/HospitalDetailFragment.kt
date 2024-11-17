@@ -17,6 +17,7 @@ import android.widget.RatingBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -137,7 +138,7 @@ class HospitalDetailFragment : Fragment() {
                     viewId = HospitalViewModel.DETAIL_VIEW,
                     ykiho = hospital.ykiho
                 )
-                loadNonCoveredItems(nonPaymentItems)
+                loadNonCoveredItems()
             } catch (e: Exception) {
                 Log.e("HospitalDetailFragment", "Error fetching non-payment details", e)
                 Toast.makeText(context, "비급여 항목 정보를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show()
@@ -220,19 +221,6 @@ class HospitalDetailFragment : Fragment() {
     }
 
 
-    private fun showAllNonCoveredItems() {
-        val nonCoveredFragment = NonCoveredItemsFragment().apply {
-            arguments = Bundle().apply {
-                putString("hospitalId", hospital.ykiho)
-                putString("hospitalName", hospital.name)
-            }
-        }
-
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, nonCoveredFragment)
-            .addToBackStack(null)
-            .commit()
-    }
 
     private fun showAppointmentDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_appointment, null)
@@ -407,17 +395,111 @@ class HospitalDetailFragment : Fragment() {
         }
     }
 
-    private fun loadNonCoveredItems(items: List<NonPaymentItem>) {
-        binding.layoutNonCoveredItems.removeAllViews()
-        items.forEach { item ->
-            val itemView = LayoutInflater.from(requireContext())
-                .inflate(R.layout.item_non_covered, binding.layoutNonCoveredItems, false)
+    private fun loadNonCoveredItems() {
+        if (!isViewCreated || !isAdded || _binding == null) return
 
-            itemView.findViewById<TextView>(R.id.tvItemName).text = item.npayKorNm ?: "Unknown Item"
-            itemView.findViewById<TextView>(R.id.tvItemPrice).text = "${item.curAmt}원"  // Use curAmt for price
-
-            binding.layoutNonCoveredItems.addView(itemView)
+        val ykiho = hospital.ykiho
+        if (ykiho.isBlank()) {
+            Log.e("NonPaymentAPI", "ykiho is blank")
+            binding.layoutNonCoveredItems.removeAllViews()
+            addEmptyNonCoveredView()
+            return
         }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                Log.d("NonPaymentAPI", "Fetching non-payment items for ykiho: $ykiho")
+
+                val nonPaymentItems = viewModel.fetchNonPaymentDetails(
+                    viewId = HospitalViewModel.DETAIL_VIEW,
+                    ykiho = ykiho
+                )
+
+                Log.d("NonPaymentAPI", "Fetched ${nonPaymentItems.size} items")
+
+                if (nonPaymentItems.isEmpty()) {
+                    Log.d("NonPaymentAPI", "No items found")
+                    binding.layoutNonCoveredItems.removeAllViews()
+                    addEmptyNonCoveredView()
+                    return@launch
+                }
+
+                binding.layoutNonCoveredItems.removeAllViews()
+                nonPaymentItems.take(3).forEachIndexed { index, item ->
+                    Log.d("NonPaymentAPI", "Adding item $index: ${item.npayKorNm}")
+                    addNonCoveredItemPreview(item)
+                }
+
+                binding.btnMoreNonCoveredItems.isVisible = nonPaymentItems.size > 3
+
+            } catch (e: Exception) {
+                Log.e("NonPaymentAPI", "Error loading non-covered items", e)
+                binding.layoutNonCoveredItems.removeAllViews()
+                addEmptyNonCoveredView()
+            }
+        }
+    }
+
+    private fun addNonCoveredItemPreview(item: NonPaymentItem) {
+        val itemView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_non_covered_full, binding.layoutNonCoveredItems, false)
+
+        itemView.apply {
+            findViewById<TextView>(R.id.tvItemName).apply {
+                text = item.npayKorNm ?: "항목명 없음"
+                Log.d("NonPaymentAPI", "Setting item name: ${item.npayKorNm}")
+            }
+
+            findViewById<TextView>(R.id.tvItemPrice).apply {
+                text = if (!item.curAmt.isNullOrEmpty()) {
+                    "${item.curAmt}원"
+                } else {
+                    "가격 정보 없음"
+                }
+                Log.d("NonPaymentAPI", "Setting item price: ${item.curAmt}")
+            }
+
+            findViewById<TextView>(R.id.tvItemCode).apply {
+                text = "코드: ${item.itemCd ?: "없음"}"
+                isVisible = !item.itemCd.isNullOrEmpty()
+                Log.d("NonPaymentAPI", "Setting item code: ${item.itemCd}")
+            }
+
+            findViewById<TextView>(R.id.tvSpecialNote).apply {
+                text = item.spcmfyCatn
+                isVisible = !item.spcmfyCatn.isNullOrEmpty()
+                Log.d("NonPaymentAPI", "Setting special note: ${item.spcmfyCatn}")
+            }
+        }
+
+        binding.layoutNonCoveredItems.addView(itemView)
+    }
+
+    private fun addEmptyNonCoveredView() {
+        val emptyView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_non_covered_full, binding.layoutNonCoveredItems, false)
+
+        emptyView.apply {
+            findViewById<TextView>(R.id.tvItemName).text = "비급여 항목이 없습니다"
+            findViewById<TextView>(R.id.tvItemPrice).visibility = View.GONE
+            findViewById<TextView>(R.id.tvItemCode).visibility = View.GONE
+            findViewById<TextView>(R.id.tvSpecialNote).visibility = View.GONE
+        }
+
+        binding.layoutNonCoveredItems.addView(emptyView)
+    }
+
+    // 비급여 상세 목록으로 이동
+    private fun showAllNonCoveredItems() {
+        val nonCoveredFragment = NonCoveredItemsFragment.newInstance(
+            hospitalId = hospital.ykiho,
+            hospitalName = hospital.name
+        )
+
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, nonCoveredFragment)
+            .addToBackStack(null)
+            .commit()
     }
 
     // 뷰 미리보기 추가 메서드
