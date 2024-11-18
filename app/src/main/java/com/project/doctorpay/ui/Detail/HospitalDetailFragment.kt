@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.graphics.PorterDuff
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -17,6 +18,7 @@ import android.widget.RatingBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -175,10 +177,23 @@ class HospitalDetailFragment : Fragment() {
     }
 
     private fun updateFavoriteButtonState(isFavorite: Boolean) {
-        binding.btnSave.setImageResource(
-            if (isFavorite) android.R.drawable.btn_star_big_on
-            else android.R.drawable.btn_star_big_off
-        )
+        val drawable = if (isFavorite) {
+            android.R.drawable.btn_star_big_on
+        } else {
+            android.R.drawable.btn_star_big_off
+        }
+
+        binding.btnSave.setImageResource(drawable)
+
+        // Only apply color filter if favorite
+        if (isFavorite) {
+            binding.btnSave.setColorFilter(
+                ContextCompat.getColor(requireContext(), R.color.favoriteColor),
+                PorterDuff.Mode.SRC_IN
+            )
+        } else {
+            binding.btnSave.clearColorFilter()
+        }
     }
 
     // 사용자 정보 로드 및 중복 체크 처리
