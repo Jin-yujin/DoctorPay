@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1019633760773",
+    "project_id": "doctorpay-956d6",
+    "storage_bucket": "doctorpay-956d6.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1019633760773:android:2eb0812d388b81840d7a6c",
+        "android_client_info": {
+          "package_name": "com.project.doctorpay"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1019633760773-1bg9m4i8lf5mcngpatpo6in1rgchqa0m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.project.doctorpay",
+            "certificate_hash": "3c73969a66a5be45300d328f60b22f709ef206c7"
+          }
+        },
+        {
+          "client_id": "1019633760773-cm4jp00mua8e1ltp2lua6lmotbrid1p7.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1019633760773-cm4jp00mua8e1ltp2lua6lmotbrid1p7.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

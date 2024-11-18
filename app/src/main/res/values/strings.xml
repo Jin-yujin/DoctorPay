@@ -1,3 +1,39 @@
 <resources>
-    <string name="app_name">DoctorPay</string>
+    <string name="app_name">닥터페이</string>
+
+
+    <string name="title_home">홈</string>
+    <string name="title_maplist">지도</string>
+    <string name="title_favorite">찜</string>
+    <string name="title_calender">일정</string>
+    <string name="title_mypage">마이</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
+
+    <string name="INTERNAL_MEDICINE">내과</string>
+    <string name="SURGERY">외과</string>
+    <string name="DENTISTRY">치과</string>
+
+    <string name="REHABILITATION">정형외과</string>
+    <string name="OTOLARYNGOLOGY">이비인후과</string>
+    <string name="OPHTHALMOLOGY">안과</string>
+
+    <string name="MENTAL_NEUROLOGY">정신/신경과</string>
+    <string name="OBSTETRICS">산부인과</string>
+    <string name="DERMATOLOGY">피부과</string>
+
+    <string name="ORIENTAL_MEDICINE">한의원</string>
+    <string name="OTHER_SPECIALTIES">기타 전문과</string>
+    <string name="GENERAL_MEDICINE">일반의</string>
+
+    <string name="no_hospitals_found">병원을 찾을 수 없습니다.</string>
+    <string name="no_hospitals_with_filter">선택한 필터에 해당하는 병원이 없습니다</string>
+    <string name="no_favorite_hospitals">즐겨찾기한 병원이 없습니다</string>    <string name="hospital_list_header">병원 목록</string>
+    <string name="category_header_format">%s</string>
+
+    <string name="profile_edit_underline"><u>프로필 수정</u></string>
+
+
+    <string name="default_web_client_id">AIzaSyALQn_H5vOXqSqhtnGpLiL9r1dLgqd4zdM</string>
+
 </resources>
