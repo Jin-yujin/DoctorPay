@@ -229,6 +229,11 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
                 val avgRating = reviews.map { it.rating }.average().toFloat()
                 binding.averageRatingBar.rating = avgRating
                 binding.averageRatingText.text = String.format("%.1f", avgRating)
+
+                // 리뷰 목록이 업데이트될 때마다 맨 위로 스크롤
+                binding.recyclerViewReviews.post {
+                    binding.recyclerViewReviews.smoothScrollToPosition(0)
+                }
             }
         }
 
@@ -237,6 +242,10 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
             when (status) {
                 is ReviewViewModel.ReviewStatus.Success -> {
                     Toast.makeText(context, "리뷰가 등록되었습니다", Toast.LENGTH_SHORT).show()
+                    // 성공 시에도 맨 위로 스크롤
+                    binding.recyclerViewReviews.post {
+                        binding.recyclerViewReviews.smoothScrollToPosition(0)
+                    }
                 }
                 is ReviewViewModel.ReviewStatus.Error -> {
                     Toast.makeText(context, status.message, Toast.LENGTH_LONG).show()
