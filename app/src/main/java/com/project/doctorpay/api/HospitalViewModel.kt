@@ -352,9 +352,12 @@ class HospitalViewModel(
             emptyList()
         }
     }
-    // 비급여 정보만 가져오는 메서드
+
+    // 비급여 정보만 가져오는 메서드 추가
     suspend fun fetchNonPaymentItemsOnly(ykiho: String): List<NonPaymentItem> {
         return try {
+            Log.d("NonPaymentAPI", "Fetching non-payment items for ykiho: $ykiho")
+
             val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
                 serviceKey = NetworkModule.getServiceKey(),
                 ykiho = ykiho,
@@ -363,8 +366,11 @@ class HospitalViewModel(
             )
 
             if (response.isSuccessful) {
-                response.body()?.body?.items?.itemList ?: emptyList()
+                response.body()?.body?.items?.itemList?.also { items ->
+                    Log.d("NonPaymentAPI", "Fetched ${items.size} non-payment items")
+                } ?: emptyList()
             } else {
+                Log.e("NonPaymentAPI", "Failed to fetch non-payment items: ${response.code()}")
                 emptyList()
             }
         } catch (e: Exception) {
@@ -373,22 +379,9 @@ class HospitalViewModel(
         }
     }
 
-    suspend fun fetchNonPaymentDetails(viewId: String, ykiho: String): List<NonPaymentItem> {
-        val viewState = getViewState(viewId)
-        viewState.isLoading.value = true
 
-        return try {
-            Log.d("NonPaymentAPI", "ViewModel: Fetching details for ykiho: $ykiho")
-            val hospitalInfo = repository.getHospitalDetailWithNonPayment(ykiho)
-            Log.d("NonPaymentAPI", "ViewModel: Received hospital info with ${hospitalInfo?.nonPaymentItems?.size ?: 0} items")
-            hospitalInfo?.nonPaymentItems ?: emptyList()
-        } catch (e: Exception) {
-            Log.e("NonPaymentAPI", "ViewModel: Error fetching non-payment details", e)
-            viewState.error.value = "비급여 항목을 불러오는데 실패했습니다: ${e.message}"
-            emptyList()
-        } finally {
-            viewState.isLoading.value = false
-        }
+    suspend fun fetchNonPaymentDetails(viewId: String, ykiho: String): List<NonPaymentItem> {
+        return fetchNonPaymentItemsOnly(ykiho)  // 단순히 비급여 정보만 가져오도록 변경
     }
 
 

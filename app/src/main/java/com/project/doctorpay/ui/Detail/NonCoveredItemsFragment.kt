@@ -118,6 +118,8 @@ class NonCoveredItemsFragment : Fragment() {
             showError("병원 정보가 올바르지 않습니다.")
         }
     }
+
+
     private fun showSortOptions() {
         val options = arrayOf("금액 높은 순", "금액 낮은 순", "이름 순")
         AlertDialog.Builder(requireContext())
