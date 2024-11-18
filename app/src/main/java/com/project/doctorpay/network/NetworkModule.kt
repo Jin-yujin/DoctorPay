@@ -148,7 +148,7 @@ object NetworkModule {
         }
     }.build()
 
-    private val retrofit = Retrofit.Builder()
+    val retrofit = Retrofit.Builder()
         .baseUrl(BASE_URL)
         .addConverterFactory(SimpleXmlConverterFactory.createNonStrict())
         .client(okHttpClient)

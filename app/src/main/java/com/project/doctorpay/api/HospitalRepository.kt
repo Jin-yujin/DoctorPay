@@ -109,30 +109,26 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
 
     suspend fun getHospitalDetailWithNonPayment(ykiho: String): HospitalInfo? = coroutineScope {
         try {
-            Log.d("NonPaymentAPI", "Starting API call with ykiho: $ykiho")
-
-            // 비급여 상세 정보 조회
+            // 비급여 정보 조회
             val nonPaymentResponse = api.getNonPaymentItemHospDtlList(
                 serviceKey = NetworkModule.getServiceKey(),
                 ykiho = ykiho,
                 pageNo = 1,
-                numOfRows = 100  // 충분한 수의 항목을 가져오도록 수정
+                numOfRows = 150
             )
 
-            Log.d("NonPaymentAPI", "API Response: ${nonPaymentResponse.raw()}")  // 전체 응답 로깅
+            Log.d("NonPaymentAPI", "NonPayment API Response code: ${nonPaymentResponse.code()}")
 
-            if (!nonPaymentResponse.isSuccessful) {
-                Log.e("NonPaymentAPI", "API call failed with code: ${nonPaymentResponse.code()}")
-                return@coroutineScope null
+            val nonPaymentItems = if (nonPaymentResponse.isSuccessful) {
+                nonPaymentResponse.body()?.body?.items?.itemList ?: emptyList()
+            } else {
+                Log.e("NonPaymentAPI", "NonPayment API failed with code: ${nonPaymentResponse.code()}")
+                emptyList()
             }
 
-            val responseBody = nonPaymentResponse.body()
-            Log.d("NonPaymentAPI", "Response body: $responseBody")
+            Log.d("NonPaymentAPI", "Found ${nonPaymentItems.size} non-payment items")
 
-            val nonPaymentItems = responseBody?.body?.items ?: emptyList()
-            Log.d("NonPaymentAPI", "Parsed ${nonPaymentItems.size} items")
-
-            // 기본 병원 정보 조회
+            // 병원 기본 정보 조회 - hospInfoServicev2 API 사용
             val hospitalResponse = api.getHospitalInfo(
                 serviceKey = NetworkModule.getServiceKey(),
                 pageNo = 1,
@@ -140,8 +136,18 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
                 ykiho = ykiho,
                 xPos = "0",
                 yPos = "0",
-                radius = 0
+                radius = 0,
+                sidoCd = null,
+                sgguCd = null,
+                emdongNm = null,
+                yadmNm = null,
+                zipCd = null,
+                clCd = null,
+                dgsbjtCd = null
             )
+
+            Log.d("NonPaymentAPI", "Hospital API Response code: ${hospitalResponse.code()}")
+            Log.d("NonPaymentAPI", "Hospital Response: ${hospitalResponse.body()}")
 
             if (!hospitalResponse.isSuccessful) {
                 Log.e("NonPaymentAPI", "Hospital info API call failed with code: ${hospitalResponse.code()}")
@@ -149,7 +155,10 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
             }
 
             val hospitalItem = hospitalResponse.body()?.body?.items?.itemList?.firstOrNull()
-                ?: return@coroutineScope null
+            if (hospitalItem == null) {
+                Log.e("NonPaymentAPI", "No hospital info found for ykiho: $ykiho")
+                return@coroutineScope null
+            }
 
             // 시간 정보 조회
             val timeInfo = getHospitalTimeInfo(ykiho)
@@ -158,13 +167,12 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
             hospitalItem.toHospitalInfo(
                 nonPaymentItems = nonPaymentItems,
                 timeInfo = timeInfo
-            )
+            ).also {
+                Log.d("NonPaymentAPI", "Successfully created HospitalInfo with ${nonPaymentItems.size} items for ${hospitalItem.yadmNm}")
+            }
 
         } catch (e: Exception) {
-            Log.e("NonPaymentAPI", "Error in getHospitalDetailWithNonPayment", e)
-            if (e is retrofit2.HttpException) {
-                Log.e("NonPaymentAPI", "HTTP Error: ${e.code()} - ${e.message()}")
-            }
+            Log.e("NonPaymentAPI", "Error in getHospitalDetailWithNonPayment for ykiho: $ykiho", e)
             null
         }
     }
@@ -181,8 +189,9 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
             response.body?.items?.itemList
         } ?: return emptyList()
 
+        // 비급여 정보 매핑 수정
         val nonPaymentMap = nonPaymentResponse.body()?.let { response ->
-            response.body?.items?.groupBy { it.yadmNm }
+            response.body?.items?.itemList?.groupBy { it.yadmNm }
         } ?: emptyMap()
 
         return hospitalItems.mapNotNull { hospitalItem ->
@@ -201,9 +210,10 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
                         serviceKey = NetworkModule.getServiceKey(),
                         ykiho = ykiho
                     ).body()?.let { response ->
-                        response.body?.items
+                        response.body?.items?.itemList ?: emptyList()  // itemList 추가
                     } ?: emptyList()
                 } catch (e: Exception) {
+                    Log.e("NonPaymentAPI", "Error fetching detail items", e)
                     emptyList()
                 }
             } else {
@@ -215,13 +225,14 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
                 it.itemCd to it.itemNm
             }
 
+            Log.d("NonPaymentAPI", "Combined items for ${hospitalItem.yadmNm}: ${combinedNonPaymentItems.size}")
+
             hospitalItem.toHospitalInfo(
                 nonPaymentItems = combinedNonPaymentItems,
                 timeInfo = timeInfo
             )
         }
     }
-
 }
 
 // 병원 검색 파라미터를 위한 데이터 클래스

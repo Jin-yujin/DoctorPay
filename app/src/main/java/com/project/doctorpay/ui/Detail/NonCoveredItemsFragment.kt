@@ -1,5 +1,6 @@
 package com.project.doctorpay.ui.Detail
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,15 +16,22 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentNonCoveredItemsBinding
 import com.project.doctorpay.network.NetworkModule
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class NonCoveredItemsFragment : Fragment() {
     private var _binding: FragmentNonCoveredItemsBinding? = null
     private val binding get() = _binding!!
+    private val fragmentScope = CoroutineScope(Dispatchers.Main + Job())
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
+
+    private val adapter = NonCoveredItemsAdapter()
 
     private var hospitalId: String? = null
     private var hospitalName: String? = null
@@ -36,6 +44,7 @@ class NonCoveredItemsFragment : Fragment() {
         }
     }
 
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -44,6 +53,7 @@ class NonCoveredItemsFragment : Fragment() {
         _binding = FragmentNonCoveredItemsBinding.inflate(inflater, container, false)
         return binding.root
     }
+
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -59,8 +69,13 @@ class NonCoveredItemsFragment : Fragment() {
 
             recyclerView.apply {
                 layoutManager = LinearLayoutManager(context)
-                adapter = NonCoveredItemsAdapter()
+                this.adapter = this@NonCoveredItemsFragment.adapter
                 addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
+            }
+
+            // 정렬 옵션 추가 (선택사항)
+            btnSort.setOnClickListener {
+                showSortOptions()
             }
         }
     }
@@ -81,31 +96,42 @@ class NonCoveredItemsFragment : Fragment() {
         }
     }
 
+
     private fun loadNonCoveredItems() {
         hospitalId?.let { ykiho ->
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    binding.progressBar.isVisible = true
-                    val items = viewModel.fetchNonPaymentDetails(
-                        viewId = HospitalViewModel.DETAIL_VIEW,
-                        ykiho = ykiho
-                    )
+                    // 비급여 정보만 가져오기
+                    val items = viewModel.fetchNonPaymentItemsOnly(ykiho)
 
                     if (items.isEmpty()) {
                         showEmptyState()
                     } else {
                         hideEmptyState()
-                        (binding.recyclerView.adapter as? NonCoveredItemsAdapter)?.submitList(items)
+                        adapter.submitList(items)
                     }
                 } catch (e: Exception) {
                     showError("비급여 항목을 불러오는데 실패했습니다.")
-                } finally {
-                    binding.progressBar.isVisible = false
                 }
             }
         } ?: run {
             showError("병원 정보가 올바르지 않습니다.")
         }
+    }
+    private fun showSortOptions() {
+        val options = arrayOf("금액 높은 순", "금액 낮은 순", "이름 순")
+        AlertDialog.Builder(requireContext())
+            .setTitle("정렬 방식 선택")
+            .setItems(options) { _, which ->
+                val currentList = adapter.currentList.toMutableList()
+                when (which) {
+                    0 -> currentList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
+                    1 -> currentList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
+                    2 -> currentList.sortBy { it.npayKorNm }
+                }
+                adapter.submitList(currentList)
+            }
+            .show()
     }
 
     private fun showEmptyState() {
@@ -134,10 +160,10 @@ class NonCoveredItemsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        fragmentScope.cancel()
         super.onDestroyView()
         _binding = null
     }
-
     companion object {
         fun newInstance(hospitalId: String, hospitalName: String) = NonCoveredItemsFragment().apply {
             arguments = Bundle().apply {
