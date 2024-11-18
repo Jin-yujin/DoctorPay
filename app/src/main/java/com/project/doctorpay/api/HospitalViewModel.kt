@@ -397,6 +397,56 @@ class HospitalViewModel(
         }
     }
 
+    data class NonPaymentLoadResult(
+        val items: List<NonPaymentItem>,
+        val hasMore: Boolean
+    )
+
+
+    suspend fun fetchNonPaymentItemsOnly(
+        ykiho: String,
+        pageNo: Int = 1,
+        pageSize: Int = 100
+    ): NonPaymentLoadResult {
+        return try {
+            Log.d("NonPaymentAPI", "Fetching non-payment items for ykiho: $ykiho, page: $pageNo")
+
+            val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
+                serviceKey = NetworkModule.getServiceKey(),
+                ykiho = ykiho,
+                pageNo = pageNo,
+                numOfRows = pageSize
+            )
+
+            if (response.isSuccessful) {
+                val body = response.body()?.body
+                val items = body?.items?.itemList ?: emptyList()
+                // totalCount를 안전하게 처리
+                val totalCount = try {
+                    when (val total = body?.totalCount) {
+                        is Number -> total.toInt()
+                        else -> 0
+                    }
+                } catch (e: Exception) {
+                    Log.e("NonPaymentAPI", "Error parsing totalCount", e)
+                    0
+                }
+
+                val hasMore = (pageNo * pageSize) < totalCount
+
+                Log.d("NonPaymentAPI", "Fetched ${items.size} items, total: $totalCount")
+                NonPaymentLoadResult(items, hasMore)
+            } else {
+                Log.e("NonPaymentAPI", "Failed to fetch non-payment items: ${response.code()}")
+                NonPaymentLoadResult(emptyList(), false)
+            }
+        } catch (e: Exception) {
+            Log.e("NonPaymentAPI", "Error fetching non-payment items", e)
+            NonPaymentLoadResult(emptyList(), false)
+        }
+    }
+
+
 
     fun fetchNearbyHospitals(
         viewId: String,

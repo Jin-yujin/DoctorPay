@@ -1,5 +1,6 @@
 package com.project.doctorpay.ui.Detail
 
+import NonPaymentItem
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -12,6 +13,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentNonCoveredItemsBinding
@@ -26,6 +28,12 @@ class NonCoveredItemsFragment : Fragment() {
     private var _binding: FragmentNonCoveredItemsBinding? = null
     private val binding get() = _binding!!
     private val fragmentScope = CoroutineScope(Dispatchers.Main + Job())
+
+    private var currentPage = 1
+    private var isLoading = false
+    private var hasMoreItems = true
+    private val itemsList = mutableListOf<NonPaymentItem>()
+
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -63,6 +71,7 @@ class NonCoveredItemsFragment : Fragment() {
         observeViewState()
     }
 
+
     private fun setupUI() {
         binding.apply {
             toolbarTitle.text = "${hospitalName ?: "병원"} 비급여 항목"
@@ -71,13 +80,91 @@ class NonCoveredItemsFragment : Fragment() {
                 layoutManager = LinearLayoutManager(context)
                 this.adapter = this@NonCoveredItemsFragment.adapter
                 addItemDecoration(DividerItemDecoration(context, DividerItemDecoration.VERTICAL))
+
+                // 스크롤 리스너 추가
+                addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                    override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                        super.onScrolled(recyclerView, dx, dy)
+
+                        val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+                        val visibleItemCount = layoutManager.childCount
+                        val totalItemCount = layoutManager.itemCount
+                        val firstVisibleItemPosition = layoutManager.findFirstVisibleItemPosition()
+
+                        if (!isLoading && hasMoreItems) {
+                            if ((visibleItemCount + firstVisibleItemPosition) >= totalItemCount
+                                && firstVisibleItemPosition >= 0
+                            ) {
+                                loadMoreItems()
+                            }
+                        }
+                    }
+                })
             }
 
-            // 정렬 옵션 추가 (선택사항)
             btnSort.setOnClickListener {
                 showSortOptions()
             }
         }
+    }
+
+    private fun loadNonCoveredItems() {
+        hospitalId?.let { ykiho ->
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    isLoading = true
+                    showLoading()
+
+                    val result = viewModel.fetchNonPaymentItemsOnly(ykiho, currentPage)
+
+                    if (result.items.isEmpty() && currentPage == 1) {
+                        showEmptyState()
+                    } else {
+                        hideEmptyState()
+                        itemsList.addAll(result.items)
+                        adapter.submitList(itemsList.toList())
+                        hasMoreItems = result.hasMore
+                    }
+                } catch (e: Exception) {
+                    showError("비급여 항목을 불러오는데 실패했습니다.")
+                } finally {
+                    isLoading = false
+                    hideLoading()
+                }
+            }
+        } ?: run {
+            showError("병원 정보가 올바르지 않습니다.")
+        }
+    }
+
+    private fun loadMoreItems() {
+        if (isLoading || !hasMoreItems) return
+
+        currentPage++
+        loadNonCoveredItems()
+    }
+
+    private fun showLoading() {
+        binding.progressBar.isVisible = true
+    }
+
+    private fun hideLoading() {
+        binding.progressBar.isVisible = false
+    }
+
+    private fun showSortOptions() {
+        val options = arrayOf("금액 높은 순", "금액 낮은 순", "이름 순")
+        AlertDialog.Builder(requireContext())
+            .setTitle("정렬 방식 선택")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> itemsList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
+                    1 -> itemsList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
+                    2 -> itemsList.sortBy { it.npayKorNm }
+                }
+                adapter.submitList(itemsList.toList())
+            }
+            .show()
     }
 
     private fun observeViewState() {
@@ -96,45 +183,6 @@ class NonCoveredItemsFragment : Fragment() {
         }
     }
 
-
-    private fun loadNonCoveredItems() {
-        hospitalId?.let { ykiho ->
-            viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    // 비급여 정보만 가져오기
-                    val items = viewModel.fetchNonPaymentItemsOnly(ykiho)
-
-                    if (items.isEmpty()) {
-                        showEmptyState()
-                    } else {
-                        hideEmptyState()
-                        adapter.submitList(items)
-                    }
-                } catch (e: Exception) {
-                    showError("비급여 항목을 불러오는데 실패했습니다.")
-                }
-            }
-        } ?: run {
-            showError("병원 정보가 올바르지 않습니다.")
-        }
-    }
-
-
-    private fun showSortOptions() {
-        val options = arrayOf("금액 높은 순", "금액 낮은 순", "이름 순")
-        AlertDialog.Builder(requireContext())
-            .setTitle("정렬 방식 선택")
-            .setItems(options) { _, which ->
-                val currentList = adapter.currentList.toMutableList()
-                when (which) {
-                    0 -> currentList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
-                    1 -> currentList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
-                    2 -> currentList.sortBy { it.npayKorNm }
-                }
-                adapter.submitList(currentList)
-            }
-            .show()
-    }
 
     private fun showEmptyState() {
         binding.apply {
