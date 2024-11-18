@@ -61,7 +61,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
         currentFilter = filter
         val filteredList = originalList.filter { review ->
             val departmentMatch = filter.department == "전체" || review.department == filter.department
-            val ratingMatch = review.rating >= filter.minRating
+            val ratingMatch = review.rating.toInt() in filter.ratingRange
             departmentMatch && ratingMatch
         }
         submitList(filteredList)

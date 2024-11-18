@@ -162,8 +162,8 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
             }
         }
 
-        // 별점 스피너 설정
-        val ratings = listOf("전체 점수") + (1..5).map { rating -> "${rating}점 이상" }
+        // 별점 스피너 설정 - 변경된 부분
+        val ratings = listOf("전체 점수", "5점대", "4점대", "3점대", "2점대", "1점대")
         ratingSpinner = binding.spinnerRating.apply {
             adapter = ArrayAdapter(
                 requireContext(),
@@ -175,7 +175,16 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
 
             onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                 override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    reviewFilter.minRating = if (position == 0) 0f else position.toFloat()
+                    // 선택된 점수대 설정
+                    reviewFilter.ratingRange = when (position) {
+                        0 -> 0..5  // 전체
+                        1 -> 5..5  // 5점대
+                        2 -> 4..4  // 4점대
+                        3 -> 3..3  // 3점대
+                        4 -> 2..2  // 2점대
+                        5 -> 1..1  // 1점대
+                        else -> 0..5
+                    }
                     reviewAdapter.applyFilter(reviewFilter)
                 }
 
