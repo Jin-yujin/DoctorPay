@@ -4,11 +4,14 @@ import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
 class ReviewViewModel : ViewModel() {
@@ -25,7 +28,9 @@ class ReviewViewModel : ViewModel() {
     val reviewStatus: LiveData<ReviewStatus> = _reviewStatus
 
     sealed class ReviewStatus {
-        object Success : ReviewStatus()
+        object Success : ReviewStatus() {
+            var isDelete: Boolean = false
+        }
         data class Error(val message: String) : ReviewStatus()
         object Loading : ReviewStatus()
     }
@@ -83,32 +88,32 @@ class ReviewViewModel : ViewModel() {
             }
     }
 
-    fun addReview(hospitalId: String, rating: Float, content: String) {
-        _reviewStatus.value = ReviewStatus.Loading
-        val userId = auth.currentUser?.uid ?: return
+    fun addReview(hospitalId: String, rating: Float, content: String, department: String) {
+        viewModelScope.launch {
+            _reviewStatus.value = ReviewStatus.Loading
+            try {
+                val review = Review(
+                    id = UUID.randomUUID().toString(),
+                    userId = auth.currentUser?.uid ?: "",
+                    hospitalId = hospitalId,
+                    content = content,
+                    rating = rating,
+                    department = department,
+                    timestamp = System.currentTimeMillis()
+                )
 
-        val review = Review(
-            id = UUID.randomUUID().toString(),
-            hospitalId = hospitalId,
-            userId = userId,
-            rating = rating,
-            content = content,
-            timestamp = System.currentTimeMillis()
-        )
+                db.collection("reviews")
+                    .document(review.id)
+                    .set(review)
+                    .await()
 
-        db.collection("reviews")
-            .document(review.id)
-            .set(review)
-            .addOnSuccessListener {
-                // 리뷰가 추가되면 자동으로 SnapshotListener가 트리거되므로
-                // 여기서는 상태만 업데이트
+                ReviewStatus.Success.isDelete = false
                 _reviewStatus.value = ReviewStatus.Success
-                updateHospitalRating(hospitalId)
+                loadReviews(hospitalId)
+            } catch (e: Exception) {
+                _reviewStatus.value = ReviewStatus.Error(e.message ?: "리뷰 등록 실패")
             }
-            .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error adding review", e)
-                _reviewStatus.value = ReviewStatus.Error("리뷰 등록에 실패했습니다")
-            }
+        }
     }
 
     private fun updateHospitalRating(hospitalId: String) {
@@ -126,41 +131,38 @@ class ReviewViewModel : ViewModel() {
             }
     }
 
-    fun updateReview(review: Review, newRating: Float, newContent: String) {
+    fun updateReview(review: Review, newRating: Float, newContent: String, newDepartment: String) {
         _reviewStatus.value = ReviewStatus.Loading
-
         val updatedReview = review.copy(
             rating = newRating,
             content = newContent,
-            timestamp = System.currentTimeMillis()
+            department = newDepartment
         )
 
         db.collection("reviews")
             .document(review.id)
             .set(updatedReview)
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = false
                 _reviewStatus.value = ReviewStatus.Success
-                updateHospitalRating(review.hospitalId)
+                loadReviews(review.hospitalId)
             }
             .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error updating review", e)
-                _reviewStatus.value = ReviewStatus.Error("리뷰 수정에 실패했습니다")
+                _reviewStatus.value = ReviewStatus.Error(e.message ?: "리뷰 수정 실패")
             }
     }
 
     fun deleteReview(review: Review) {
         _reviewStatus.value = ReviewStatus.Loading
-
         db.collection("reviews")
             .document(review.id)
             .delete()
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = true
                 _reviewStatus.value = ReviewStatus.Success
-                updateHospitalRating(review.hospitalId)
             }
             .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error deleting review", e)
-                _reviewStatus.value = ReviewStatus.Error("리뷰 삭제에 실패했습니다")
+                _reviewStatus.value = ReviewStatus.Error(e.message ?: "리뷰 삭제 실패")
             }
     }
 }

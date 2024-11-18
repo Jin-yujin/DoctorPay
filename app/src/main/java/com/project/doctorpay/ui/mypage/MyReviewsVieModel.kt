@@ -9,6 +9,9 @@ import com.google.firebase.firestore.Query
 import com.project.doctorpay.ui.reviews.Review
 
 class MyReviewsViewModel : ViewModel() {
+    private val _hospitalDepartments = MutableLiveData<Map<String, List<String>>>()
+    val hospitalDepartments: LiveData<Map<String, List<String>>> = _hospitalDepartments
+
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
@@ -19,9 +22,28 @@ class MyReviewsViewModel : ViewModel() {
     val reviewStatus: LiveData<ReviewStatus> = _reviewStatus
 
     sealed class ReviewStatus {
-        object Success : ReviewStatus()
+        object Success : ReviewStatus() {
+            var isDelete: Boolean = false
+        }
         data class Error(val message: String) : ReviewStatus()
         object Loading : ReviewStatus()
+    }
+
+    fun loadHospitalDepartments(hospitalId: String, onComplete: (List<String>) -> Unit) {
+        db.collection("hospitals")
+            .document(hospitalId)
+            .get()
+            .addOnSuccessListener { document ->
+                @Suppress("UNCHECKED_CAST")
+                val departments = (document.get("departments") as? List<String>) ?: listOf()
+                val currentMap = _hospitalDepartments.value?.toMutableMap() ?: mutableMapOf()
+                currentMap[hospitalId] = departments
+                _hospitalDepartments.value = currentMap
+                onComplete(departments)
+            }
+            .addOnFailureListener {
+                onComplete(listOf())
+            }
     }
 
     fun loadMyReviews() {
@@ -52,7 +74,9 @@ class MyReviewsViewModel : ViewModel() {
             .document(review.id)
             .set(review)
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = false
                 _reviewStatus.value = ReviewStatus.Success
+                loadMyReviews()
             }
             .addOnFailureListener {
                 _reviewStatus.value = ReviewStatus.Error("리뷰 수정에 실패했습니다")
@@ -65,6 +89,7 @@ class MyReviewsViewModel : ViewModel() {
             .document(review.id)
             .delete()
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = true
                 _reviewStatus.value = ReviewStatus.Success
             }
             .addOnFailureListener {

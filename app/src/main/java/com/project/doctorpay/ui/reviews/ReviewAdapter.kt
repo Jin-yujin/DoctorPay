@@ -61,7 +61,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
         currentFilter = filter
         val filteredList = originalList.filter { review ->
             val departmentMatch = filter.department == "전체" || review.department == filter.department
-            val ratingMatch = review.rating >= filter.minRating
+            val ratingMatch = review.rating.toInt() in filter.ratingRange
             departmentMatch && ratingMatch
         }
         submitList(filteredList)
@@ -69,16 +69,38 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 
     class ReviewViewHolder(
         private val binding: ItemReviewBinding,
-        private val currentUserId: String?,  // 생성자에 currentUserId 추가
-        private val actionListener: ReviewActionListener?  // 생성자에 actionListener 추가
+        private val currentUserId: String?,
+        private val actionListener: ReviewActionListener?
     ) : RecyclerView.ViewHolder(binding.root) {
+
         fun bind(review: Review) {
             binding.apply {
                 tvReviewerName.text = review.userName
-                tvReviewContent.text = review.content
+                tvDepartment.text = review.department
                 ratingBar.rating = review.rating
+                tvReviewContent.text = review.content
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 tvReviewDate.text = dateFormat.format(Date(review.timestamp))
+
+                // 사용자 정보 가져오기 및 표시
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(review.userId)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        val gender = document.getString("gender") ?: ""
+                        val age = document.getString("age") ?: ""
+                        // 성별과 나이대 정보를 조합
+                        val userInfo = if (gender.isNotEmpty() && age.isNotEmpty()) {
+                            "($gender • $age)"
+                        } else {
+                            ""
+                        }
+                        tvUserInfo.text = userInfo
+                    }
+                    .addOnFailureListener {
+                        tvUserInfo.text = ""
+                    }
 
                 // 본인 리뷰일 때만 메뉴 표시
                 val isCurrentUserReview = review.userId == currentUserId
