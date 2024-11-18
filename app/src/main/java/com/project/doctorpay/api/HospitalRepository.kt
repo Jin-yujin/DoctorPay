@@ -4,6 +4,7 @@ import HospitalInfoItem
 import HospitalInfoResponse
 import NonPaymentItem
 import NonPaymentResponse
+import android.util.Log
 import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.db.HospitalTimeInfo
@@ -12,6 +13,7 @@ import com.project.doctorpay.db.toHospitalInfo
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import retrofit2.Response
 import java.time.DayOfWeek
@@ -68,22 +70,7 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
         processResponses(hospitalResponse, nonPaymentResponse)
     }
 
-    private suspend fun processResponses(
-        hospitalResponse: Response<HospitalInfoResponse>,
-        nonPaymentResponse: Response<NonPaymentResponse>
-    ): List<HospitalInfo> {
-        if (!hospitalResponse.isSuccessful || !nonPaymentResponse.isSuccessful) {
-            return emptyList()
-        }
 
-        val nonPaymentMap = nonPaymentResponse.body()?.body?.items?.groupBy { it.yadmNm } ?: emptyMap()
-
-        return hospitalResponse.body()?.body?.items?.itemList?.mapNotNull { hospitalItem ->
-            val nonPaymentItems = nonPaymentMap[hospitalItem.yadmNm] ?: emptyList()
-            val timeInfo = hospitalItem.ykiho?.let { getHospitalTimeInfo(it) }
-            hospitalItem.toHospitalInfo(nonPaymentItems, timeInfo)
-        } ?: emptyList()
-    }
 
     private suspend fun getHospitalTimeInfo(ykiho: String): HospitalTimeInfo? {
         return try {
@@ -117,6 +104,63 @@ class HospitalRepository(private val api: HealthInsuranceApi) {
             } else null
         } catch (e: Exception) {
             null
+        }
+    }
+
+    private suspend fun processResponses(
+        hospitalResponse: Response<HospitalInfoResponse>,
+        nonPaymentResponse: Response<NonPaymentResponse>
+    ): List<HospitalInfo> {
+        if (!hospitalResponse.isSuccessful || !nonPaymentResponse.isSuccessful) {
+            return emptyList()
+        }
+
+        val hospitalItems = hospitalResponse.body()?.let { response ->
+            response.body?.items?.itemList
+        } ?: return emptyList()
+
+        // 비급여 정보 매핑 수정
+        val nonPaymentMap = nonPaymentResponse.body()?.let { response ->
+            response.body?.items?.itemList?.groupBy { it.yadmNm }
+        } ?: emptyMap()
+
+        return hospitalItems.mapNotNull { hospitalItem ->
+            val ykiho = hospitalItem.ykiho
+            val hospitalNonPaymentItems = nonPaymentMap[hospitalItem.yadmNm] ?: emptyList()
+
+            // timeInfo 조회
+            val timeInfo = if (!ykiho.isNullOrBlank()) {
+                getHospitalTimeInfo(ykiho)
+            } else null
+
+            // ykiho가 있는 경우 상세 비급여 정보 추가 조회
+            val detailNonPaymentItems = if (!ykiho.isNullOrBlank()) {
+                try {
+                    api.getNonPaymentItemHospDtlList(
+                        serviceKey = NetworkModule.getServiceKey(),
+                        ykiho = ykiho
+                    ).body()?.let { response ->
+                        response.body?.items?.itemList ?: emptyList()  // itemList 추가
+                    } ?: emptyList()
+                } catch (e: Exception) {
+                    Log.e("NonPaymentAPI", "Error fetching detail items", e)
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
+
+            // 기본 비급여 정보와 상세 비급여 정보 통합
+            val combinedNonPaymentItems = (hospitalNonPaymentItems + detailNonPaymentItems).distinctBy {
+                it.itemCd to it.itemNm
+            }
+
+            Log.d("NonPaymentAPI", "Combined items for ${hospitalItem.yadmNm}: ${combinedNonPaymentItems.size}")
+
+            hospitalItem.toHospitalInfo(
+                nonPaymentItems = combinedNonPaymentItems,
+                timeInfo = timeInfo
+            )
         }
     }
 }

@@ -50,11 +50,10 @@ data class DgsbjtInfoHeader(
     var resultMsg: String? = null
 )
 
-
 @Root(strict = false)
 data class NonPaymentBody(
-    @field:ElementList(inline = true, entry = "item", required = false)
-    var items: List<NonPaymentItem>? = null,
+    @field:Element(name = "items", required = false)
+    var items: NonPaymentItems? = null,  // NonPaymentItems 클래스로 래핑
 
     @field:Element(name = "numOfRows", required = false)
     var numOfRows: Int = 0,
@@ -64,6 +63,12 @@ data class NonPaymentBody(
 
     @field:Element(name = "totalCount", required = false)
     var totalCount: Int = 0
+)
+
+@Root(strict = false)
+data class NonPaymentItems(
+    @field:ElementList(entry = "item", required = false, inline = true)
+    var itemList: List<NonPaymentItem>? = null  // itemList 필드명으로 변경
 )
 
 @Root(strict = false)
@@ -112,19 +117,37 @@ data class DgsbjtInfoItems(
 )
 
 @Parcelize
+@Root(strict = false, name = "item")
 data class NonPaymentItem(
-    val yadmNm: String?,
-    val clCd: String?,
-    val clCdNm: String?,
-    val adrSido: String?,
-    val adrSgg: String?,
-    val itemCd: String?,
-    val itemNm: String?,
-    val cntrImpAmtMin: String?,
-    val cntrImpAmtMax: String?,
-    val spcmfyCatn: String?,
-    val npayKorNm: String?,
-    val curAmt: String?
+    @field:Element(name = "yadmNm", required = false)
+    var yadmNm: String? = null,  // val -> var 로 변경
+
+    @field:Element(name = "clCd", required = false)
+    var clCd: String? = null,
+
+    @field:Element(name = "clCdNm", required = false)
+    var clCdNm: String? = null,
+
+    @field:Element(name = "itemCd", required = false)
+    var itemCd: String? = null,
+
+    @field:Element(name = "itemNm", required = false)
+    var itemNm: String? = null,
+
+    @field:Element(name = "npayKorNm", required = false)
+    var npayKorNm: String? = null,
+
+    @field:Element(name = "curAmt", required = false)
+    var curAmt: String? = null,
+
+    @field:Element(name = "adtFrDd", required = false)
+    var adtFrDd: String? = null,
+
+    @field:Element(name = "adtEndDd", required = false)
+    var adtEndDd: String? = null,
+
+    @field:Element(name = "spcmfyCatn", required = false)
+    var spcmfyCatn: String? = null
 ) : Parcelable
 
 @Root(strict = false)

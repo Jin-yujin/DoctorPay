@@ -17,6 +17,7 @@ import android.widget.RatingBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -41,7 +42,6 @@ import java.util.Date
 import java.util.Locale
 
 class HospitalDetailFragment : Fragment() {
-
     private var _binding: FragmentHospitalDetailBinding? = null
     private val binding get() = _binding!!
     private val db = FirebaseFirestore.getInstance()
@@ -50,7 +50,6 @@ class HospitalDetailFragment : Fragment() {
     private lateinit var hospital: HospitalInfo
     private var isFromMap: Boolean = false
     private var category: String = ""
-
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -73,6 +72,7 @@ class HospitalDetailFragment : Fragment() {
         this.listener = listener
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         arguments?.let {
@@ -81,8 +81,11 @@ class HospitalDetailFragment : Fragment() {
         }
     }
 
-
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
         _binding = FragmentHospitalDetailBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -90,9 +93,10 @@ class HospitalDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         isViewCreated = true
-        updateUI(hospital)
+        updateUI(hospital)  // 기존 hospital 정보로 UI 업데이트
         setupClickListeners()
         setupBackPressHandler()
+        loadNonCoveredItems() // 비급여 정보만 로드
     }
 
     private fun updateUI(hospital: HospitalInfo) {
@@ -137,7 +141,7 @@ class HospitalDetailFragment : Fragment() {
                     viewId = HospitalViewModel.DETAIL_VIEW,
                     ykiho = hospital.ykiho
                 )
-                loadNonCoveredItems(nonPaymentItems)
+                loadNonCoveredItems()
             } catch (e: Exception) {
                 Log.e("HospitalDetailFragment", "Error fetching non-payment details", e)
                 Toast.makeText(context, "비급여 항목 정보를 불러오는데 실패했습니다.", Toast.LENGTH_SHORT).show()
@@ -156,6 +160,7 @@ class HospitalDetailFragment : Fragment() {
             }
         }
     }
+
     // 사용자 정보 로드 및 중복 체크 처리
     private fun loadUserInfo(review: Review, binding: FragmentHospitalDetailBinding) {
         if (!isViewCreated || !isAdded || _binding == null) return
@@ -173,7 +178,13 @@ class HospitalDetailFragment : Fragment() {
                     handleFirebaseCallback { binding ->
                         val nickname = userDoc.getString("nickname") ?: "익명"
                         // 리뷰 ID를 태그로 사용하여 중복 방지
-                        addReviewPreview(binding, nickname, review.content, review.rating, review.id)
+                        addReviewPreview(
+                            binding,
+                            nickname,
+                            review.content,
+                            review.rating,
+                            review.id
+                        )
                     }
                 }
                 .addOnFailureListener { e ->
@@ -212,32 +223,29 @@ class HospitalDetailFragment : Fragment() {
             tvHospitalPhone.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
             btnAppointment.setOnClickListener { showAppointmentDialog() }
             btnMoreReviews.setOnClickListener { navigateToReviewsFragment() }
-            btnMoreNonCoveredItems.setOnClickListener { /* TODO: Implement non-covered items list functionality */ }
             btnBack.setOnClickListener { navigateBack() }
-            btnMoreNonCoveredItems.setOnClickListener { showAllNonCoveredItems() }
 
-        }
-    }
-
-
-    private fun showAllNonCoveredItems() {
-        val nonCoveredFragment = NonCoveredItemsFragment().apply {
-            arguments = Bundle().apply {
-                putString("hospitalId", hospital.ykiho)
-                putString("hospitalName", hospital.name)
+            // 비급여 항목 더보기 버튼 클릭 리스너 통합
+            btnMoreNonCoveredItems.setOnClickListener {
+                parentFragmentManager.beginTransaction()
+                    .replace(
+                        R.id.fragment_container, NonCoveredItemsFragment.newInstance(
+                            hospitalId = hospital.ykiho,
+                            hospitalName = hospital.name
+                        )
+                    )
+                    .addToBackStack(null)
+                    .commit()
             }
         }
-
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, nonCoveredFragment)
-            .addToBackStack(null)
-            .commit()
     }
+
 
     private fun showAppointmentDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_appointment, null)
         val hospitalNameTextView = dialogView.findViewById<TextView>(R.id.hospitalNameTextView)
-        val hospitalNameInputLayout = dialogView.findViewById<TextInputLayout>(R.id.hospitalNameInputLayout)
+        val hospitalNameInputLayout =
+            dialogView.findViewById<TextInputLayout>(R.id.hospitalNameInputLayout)
         val dateEditText = dialogView.findViewById<EditText>(R.id.dateEditText)
         val timeEditText = dialogView.findViewById<EditText>(R.id.timeEditText)
         val notesEditText = dialogView.findViewById<EditText>(R.id.notesEditText)
@@ -249,11 +257,17 @@ class HospitalDetailFragment : Fragment() {
         val calendar = Calendar.getInstance()
 
         dateEditText.setOnClickListener {
-            DatePickerDialog(requireContext(), { _, year, month, day ->
-                calendar.set(year, month, day)
-                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                dateEditText.setText(dateFormat.format(calendar.time))
-            }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)).show()
+            DatePickerDialog(
+                requireContext(),
+                { _, year, month, day ->
+                    calendar.set(year, month, day)
+                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    dateEditText.setText(dateFormat.format(calendar.time))
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            ).show()
         }
 
         timeEditText.setOnClickListener {
@@ -356,7 +370,10 @@ class HospitalDetailFragment : Fragment() {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, hospital.name)
-            putExtra(Intent.EXTRA_TEXT, "${hospital.name}\n${hospital.address}\n${hospital.phoneNumber}")
+            putExtra(
+                Intent.EXTRA_TEXT,
+                "${hospital.name}\n${hospital.address}\n${hospital.phoneNumber}"
+            )
         }
         startActivity(Intent.createChooser(shareIntent, "공유하기"))
     }
@@ -407,17 +424,137 @@ class HospitalDetailFragment : Fragment() {
         }
     }
 
-    private fun loadNonCoveredItems(items: List<NonPaymentItem>) {
-        binding.layoutNonCoveredItems.removeAllViews()
-        items.forEach { item ->
-            val itemView = LayoutInflater.from(requireContext())
-                .inflate(R.layout.item_non_covered, binding.layoutNonCoveredItems, false)
+    private fun loadNonCoveredItems() {
+        if (!isViewCreated || !isAdded || _binding == null) return
 
-            itemView.findViewById<TextView>(R.id.tvItemName).text = item.npayKorNm ?: "Unknown Item"
-            itemView.findViewById<TextView>(R.id.tvItemPrice).text = "${item.curAmt}원"  // Use curAmt for price
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val items = viewModel.fetchNonPaymentItemsOnly(hospital.ykiho)
 
-            binding.layoutNonCoveredItems.addView(itemView)
+                if (items.isEmpty()) {
+                    addEmptyNonCoveredView("비급여 항목이 없습니다")
+                    binding.btnMoreNonCoveredItems?.isVisible = false
+                } else {
+                    binding.layoutNonCoveredItems.removeAllViews()
+                    items.take(3).forEach { item ->
+                        addNonCoveredItemPreview(item)
+                    }
+                    binding.btnMoreNonCoveredItems?.isVisible = items.size > 3
+                }
+            } catch (e: Exception) {
+                Log.e("NonPaymentAPI", "Error loading non-covered items", e)
+                addEmptyNonCoveredView("데이터를 불러오는데 실패했습니다")
+                binding.btnMoreNonCoveredItems?.isVisible = false
+            }
         }
+    }
+
+
+    private fun addNonCoveredItemPreview(item: NonPaymentItem) {
+        try {
+            val itemView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_non_covered_preview, binding.layoutNonCoveredItems, false)
+
+            // null 체크를 포함한 안전한 findViewById 사용
+            itemView?.let { view ->
+                // 항목명
+                view.findViewById<TextView>(R.id.tvItemName)?.apply {
+                    text = item.npayKorNm ?: "항목명 없음"
+                    visibility = View.VISIBLE
+                }
+
+                // 가격
+                view.findViewById<TextView>(R.id.tvItemPrice)?.apply {
+                    text = item.curAmt?.let { amt ->
+                        try {
+                            String.format("%,d원", amt.toInt())
+                        } catch (e: NumberFormatException) {
+                            "금액 정보 없음"
+                        }
+                    } ?: "금액 정보 없음"
+                    visibility = View.VISIBLE
+                }
+
+                // 코드
+                view.findViewById<TextView>(R.id.tvItemCode)?.apply {
+                    text = "코드: ${item.itemCd ?: "없음"}"
+                    visibility = if (item.itemCd.isNullOrEmpty()) View.GONE else View.VISIBLE
+                }
+
+                // 특이사항
+                view.findViewById<TextView>(R.id.tvSpecialNote)?.apply {
+                    text = item.spcmfyCatn
+                    visibility = if (item.spcmfyCatn.isNullOrEmpty()) View.GONE else View.VISIBLE
+                }
+
+                // 날짜 정보
+                view.findViewById<TextView>(R.id.tvDate)?.apply {
+                    text = item.adtFrDd?.let { date ->
+                        try {
+                            "기준일자: ${date.substring(0, 4)}.${date.substring(4, 6)}.${date.substring(6, 8)}"
+                        } catch (e: Exception) {
+                            "기준일자: $date"
+                        }
+                    } ?: "날짜 정보 없음"
+                    visibility = View.VISIBLE
+                }
+
+                binding.layoutNonCoveredItems.addView(view)
+            }
+        } catch (e: Exception) {
+            Log.e("NonPaymentAPI", "Error adding non-covered item preview", e)
+        }
+    }
+
+    private fun addEmptyNonCoveredView(message: String) {
+        try {
+            val emptyView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.item_non_covered_preview, binding.layoutNonCoveredItems, false)
+
+            emptyView?.let { view ->
+                // 메시지 표시
+                view.findViewById<TextView>(R.id.tvItemName)?.apply {
+                    text = message
+                    visibility = View.VISIBLE
+                }
+
+                // 다른 뷰들은 숨김
+                view.findViewById<TextView>(R.id.tvItemPrice)?.visibility = View.GONE
+                view.findViewById<TextView>(R.id.tvItemCode)?.visibility = View.GONE
+                view.findViewById<TextView>(R.id.tvSpecialNote)?.visibility = View.GONE
+                view.findViewById<TextView>(R.id.tvDate)?.visibility = View.GONE
+
+                binding.layoutNonCoveredItems.addView(view)
+            }
+        } catch (e: Exception) {
+            Log.e("NonPaymentAPI", "Error adding empty view", e)
+        }
+    }
+    private fun addEmptyNonCoveredView() {
+        val emptyView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.item_non_covered_full, binding.layoutNonCoveredItems, false)
+
+        emptyView.apply {
+            findViewById<TextView>(R.id.tvItemName).text = "비급여 항목이 없습니다"
+            findViewById<TextView>(R.id.tvItemPrice).visibility = View.GONE
+            findViewById<TextView>(R.id.tvItemCode).visibility = View.GONE
+            findViewById<TextView>(R.id.tvSpecialNote).visibility = View.GONE
+        }
+
+        binding.layoutNonCoveredItems.addView(emptyView)
+    }
+
+    // 비급여 상세 목록으로 이동
+    private fun showAllNonCoveredItems() {
+        val nonCoveredFragment = NonCoveredItemsFragment.newInstance(
+            hospitalId = hospital.ykiho,
+            hospitalName = hospital.name
+        )
+
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, nonCoveredFragment)
+            .addToBackStack(null)
+            .commit()
     }
 
     // 뷰 미리보기 추가 메서드

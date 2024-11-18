@@ -10,49 +10,72 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.project.doctorpay.R
+import com.project.doctorpay.databinding.ItemNonCoveredFullBinding
+
 class NonCoveredItemsAdapter : ListAdapter<NonPaymentItem, NonCoveredItemsAdapter.ViewHolder>(DiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_non_covered_full, parent, false)
-        return ViewHolder(view)
+        val binding = ItemNonCoveredFullBinding.inflate(
+            LayoutInflater.from(parent.context), parent, false
+        )
+        return ViewHolder(binding)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val item = getItem(position)
+        holder.bind(item)
     }
 
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        private val tvItemName: TextView = view.findViewById(R.id.tvItemName)
-        private val tvItemPrice: TextView = view.findViewById(R.id.tvItemPrice)
-        private val tvItemCode: TextView = view.findViewById(R.id.tvItemCode)
-        private val tvSpecialNote: TextView = view.findViewById(R.id.tvSpecialNote)
+    class ViewHolder(
+        private val binding: ItemNonCoveredFullBinding
+    ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(item: NonPaymentItem) {
-            tvItemName.text = item.npayKorNm ?: "항목명 없음"
-            tvItemPrice.text = if (item.curAmt.isNullOrEmpty()) {
-                "가격 정보 없음"
-            } else {
-                "${item.curAmt}원"
-            }
+            binding.apply {
+                // 주요 항목명 표시
+                categoryTitleTextView.text = item.npayKorNm ?: "항목명 없음"
 
-            // 항목 코드 표시
-            tvItemCode.apply {
-                text = "코드: ${item.itemCd ?: "없음"}"
-                isVisible = !item.itemCd.isNullOrEmpty()
-            }
+                // 상세 설명 표시 (있는 경우)
+                itemNameTextView.text = item.itemNm?.takeIf { it != item.npayKorNm } ?: ""
 
-            // 특이사항 표시
-            tvSpecialNote.apply {
-                text = item.spcmfyCatn
-                isVisible = !item.spcmfyCatn.isNullOrEmpty()
+                // 금액 표시
+                amountTextView.text = item.curAmt?.let { amt ->
+                    if (amt.isNotEmpty()) {
+                        amt.toIntOrNull()?.let { value ->
+                            formatAmount(value)
+                        } ?: "금액 정보 없음"
+                    } else {
+                        "금액 정보 없음"
+                    }
+                } ?: "금액 정보 없음"
+
+                // 기준일자 표시
+                dateTextView.text = item.adtFrDd?.let { date ->
+                    try {
+                        if (date.length >= 8) {
+                            val year = date.substring(0, 4)
+                            val month = date.substring(4, 6)
+                            val day = date.substring(6, 8)
+                            "$year.$month.$day"
+                        } else {
+                            date
+                        }
+                    } catch (e: Exception) {
+                        date
+                    }
+                } ?: "날짜 정보 없음"
             }
+        }
+
+        private fun formatAmount(amount: Int): String {
+            return String.format("%,d원", amount)
         }
     }
 
     private class DiffCallback : DiffUtil.ItemCallback<NonPaymentItem>() {
         override fun areItemsTheSame(oldItem: NonPaymentItem, newItem: NonPaymentItem): Boolean {
-            return oldItem.itemCd == newItem.itemCd
+            return oldItem.itemCd == newItem.itemCd &&
+                    oldItem.npayKorNm == newItem.npayKorNm
         }
 
         override fun areContentsTheSame(oldItem: NonPaymentItem, newItem: NonPaymentItem): Boolean {
