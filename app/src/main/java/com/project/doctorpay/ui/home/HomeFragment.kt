@@ -6,24 +6,18 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
-import com.project.doctorpay.api.HospitalViewModelFactory
-import com.project.doctorpay.network.NetworkModule.healthInsuranceApi
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
-import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
-import com.project.doctorpay.ui.hospitalList.HospitalDetailFragment
+import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -33,11 +27,23 @@ class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: HospitalViewModel by viewModels {
-        HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
+    private lateinit var viewModel: HospitalViewModel
+
+    companion object {
+        fun newInstance(viewModel: HospitalViewModel) = HomeFragment().apply {
+            this.viewModel = viewModel
+        }
     }
 
     private lateinit var adapter: HospitalAdapter
+
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        if (!::viewModel.isInitialized) {
+            viewModel = (requireActivity() as MainActivity).hospitalViewModel
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -141,13 +147,6 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun navigateToHospitalList(category: DepartmentCategory) {
-        val hospitalListFragment = HospitalListFragment.newInstance(category.name)
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, hospitalListFragment)
-            .addToBackStack(null)
-            .commit()
-    }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -161,6 +160,14 @@ class HomeFragment : Fragment() {
                 error?.let { showError(it) }
             }
         }
+    }
+
+    private fun navigateToHospitalList(category: DepartmentCategory) {
+        val hospitalListFragment = HospitalListFragment.newInstance(category.name)
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, hospitalListFragment)
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun showError(error: String) {

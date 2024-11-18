@@ -13,12 +13,19 @@ class FavoriteRepository {
         private const val TAG = "FavoriteRepository"
     }
 
-    // 인증 상태 확인 및 사용자 ID 반환
+    // Data class for favorite hospital
+    data class FavoriteHospital(
+        val hospitalID: String = "",
+        val userId: String = "",
+        val timestamp: Long = 0
+    )
+
+    // Check auth and get user ID
     private fun checkAuthAndGetUserId(): String {
-        return auth.currentUser?.uid ?: throw IllegalStateException("로그인이 필요합니다")
+        return auth.currentUser?.uid ?: throw IllegalStateException("User must be logged in")
     }
 
-    // users/{userId}/favorites 컬렉션 참조 가져오기
+    // Get user favorites collection reference
     private fun getUserFavoritesCollection(userId: String) =
         firestore.collection("users").document(userId).collection("favorites")
 
@@ -34,7 +41,7 @@ class FavoriteRepository {
             )
 
             getUserFavoritesCollection(userId)
-                .document(hospital.ykiho)  // ykiho를 문서 ID로 사용
+                .document(hospital.ykiho)
                 .set(favorite)
                 .await()
 
@@ -42,8 +49,8 @@ class FavoriteRepository {
         } catch (e: Exception) {
             Log.e(TAG, "Error adding favorite for ${hospital.name}", e)
             when (e) {
-                is IllegalStateException -> throw e  // 로그인 관련 에러
-                else -> throw Exception("즐겨찾기 추가 중 오류가 발생했습니다: ${e.message}")
+                is IllegalStateException -> throw e
+                else -> throw Exception("Failed to add favorite: ${e.message}")
             }
         }
     }
@@ -59,7 +66,7 @@ class FavoriteRepository {
             Log.e(TAG, "Error removing favorite", e)
             when (e) {
                 is IllegalStateException -> throw e
-                else -> throw Exception("즐겨찾기 제거 중 오류가 발생했습니다: ${e.message}")
+                else -> throw Exception("Failed to remove favorite: ${e.message}")
             }
         }
     }
@@ -71,7 +78,7 @@ class FavoriteRepository {
             docRef.get().await().exists()
         } catch (e: Exception) {
             Log.e(TAG, "Error checking favorite status", e)
-            false  // 에러 발생 시 기본적으로 false 반환
+            false
         }
     }
 
@@ -85,7 +92,7 @@ class FavoriteRepository {
                 .mapNotNull { it.toObject(FavoriteHospital::class.java)?.hospitalID }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting favorites", e)
-            emptyList()  // 에러 발생 시 빈 리스트 반환
+            emptyList()
         }
     }
 }

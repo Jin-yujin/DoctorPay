@@ -65,4 +65,5 @@ interface HealthInsuranceApi {
         @Query("pageNo") pageNo: Int = 1,
         @Query("numOfRows") numOfRows: Int = 50
     ): Response<HospitalDetailResponse>
+
 }
