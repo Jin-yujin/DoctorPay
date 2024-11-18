@@ -25,8 +25,7 @@
             android:background="@drawable/border_round_"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            />
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <android.widget.Button
             android:id="@+id/returnToLocationButton"
@@ -38,7 +37,6 @@
             android:background="@drawable/ic_current_location" />
 
     </FrameLayout>
-
 
     <LinearLayout
         android:id="@+id/bottomSheet"
@@ -60,7 +58,8 @@
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
+                android:layout_weight="1"
                 android:layout_height="20dp"
                 android:background="@color/signature_color1"
                 android:gravity="center"
@@ -74,15 +73,36 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:padding="5dp"
                 android:contentDescription="Expand" />
-
-
         </LinearLayout>
-
-
 
         <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ProgressBar
+                android:id="@+id/loadingProgress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"/>
+
+            <TextView
+                android:id="@+id/errorView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone"/>
+
+            <TextView
+                android:id="@+id/emptyView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone"/>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/hospitalRecyclerView"
@@ -95,9 +115,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:visibility="gone" />
-
         </FrameLayout>
-
     </LinearLayout>
-
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

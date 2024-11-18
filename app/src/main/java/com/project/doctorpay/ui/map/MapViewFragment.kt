@@ -126,19 +126,35 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun setupViews(savedInstanceState: Bundle?) {
+        binding.apply {
+            // 로딩 프로그레스 바 추가
+            loadingProgress.visibility = View.GONE
+
+            // 에러 메시지 뷰 추가
+            errorView.apply {
+                visibility = View.GONE
+                setOnClickListener {
+                    // 에러 뷰 클릭 시 재시도
+                    visibility = View.GONE
+                    loadHospitalsForVisibleRegion()
+                }
+            }
+
+            // 빈 데이터 메시지 뷰 추가
+            emptyView.visibility = View.GONE
+        }
+
+        // 기존 setupViews 로직
         try {
             binding.mapView.onCreate(savedInstanceState)
             binding.mapView.getMapAsync(this)
-
-            // 마커 풀 초기화
-            repeat(50) { markerPool.add(createMarkerStyle()) }
-
             setupBottomSheet()
             setupRecyclerView()
             setupReturnToLocationButton()
             setupResearchButton()
         } catch (e: IllegalStateException) {
             Log.e("MapViewFragment", "Failed to initialize MapView", e)
+            handleError(e)
         }
     }
 
@@ -196,21 +212,71 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                // 현재 위치 업데이트
-                adapter.updateUserLocation(center)
+                withTimeout(30000) { // 30초 타임아웃 추가
+                    binding.loadingProgress.visibility = View.VISIBLE // 로딩 인디케이터 표시
 
-                // 데이터 초기화 및 새로운 데이터 로드
-                viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
+                    // 현재 위치 업데이트
+                    adapter.updateUserLocation(center)
 
-                val radius = calculateRadius(visibleBounds).toInt()
-                viewModel.fetchNearbyHospitals(
-                    viewId = HospitalViewModel.MAP_VIEW,
-                    latitude = center.latitude,
-                    longitude = center.longitude,
-                    radius = radius.coerceAtMost(5000) // 최대 5km로 제한
-                )
+                    // 데이터 초기화 및 새로운 데이터 로드 시도
+                    viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
+
+                    val radius = calculateRadius(visibleBounds).toInt()
+                        .coerceAtMost(5000) // 최대 5km로 제한
+
+                    // 재시도 로직 추가
+                    var retryCount = 0
+                    var success = false
+
+                    while (retryCount < 3 && !success) {
+                        try {
+                            viewModel.fetchNearbyHospitals(
+                                viewId = HospitalViewModel.MAP_VIEW,
+                                latitude = center.latitude,
+                                longitude = center.longitude,
+                                radius = radius
+                            )
+                            success = true
+                        } catch (e: Exception) {
+                            retryCount++
+                            if (retryCount < 3) delay(2000) // 재시도 전 2초 대기
+                        }
+                    }
+
+                    if (!success) {
+                        throw Exception("Failed to fetch hospitals after 3 attempts")
+                    }
+                }
             } catch (e: Exception) {
-                Log.e("MapViewFragment", "Error loading hospitals", e)
+                withContext(Dispatchers.Main) {
+                    handleError(e)
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    binding.loadingProgress.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private fun handleError(error: Exception) {
+        val errorMessage = when {
+            error.message?.contains("failed to connect") == true ->
+                "서버 연결에 실패했습니다. 네트워크 상태를 확인해주세요."
+            error.message?.contains("timeout") == true ->
+                "서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요."
+            else -> "데이터를 불러오는 중 오류가 발생했습니다."
+        }
+
+        binding.errorView.apply {
+            visibility = View.VISIBLE
+            text = errorMessage
+        }
+
+        // 오류 발생 시 캐시된 데이터 사용
+        viewModel.getFilteredHospitals(HospitalViewModel.MAP_VIEW).value?.let { cachedHospitals ->
+            if (cachedHospitals.isNotEmpty()) {
+                updateHospitalsList(cachedHospitals)
             }
         }
     }
@@ -734,12 +800,24 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                     } ?: hospitals
 
                     withContext(Dispatchers.Main) {
+                        binding.errorView.visibility = View.GONE // 성공 시 에러 뷰 숨김
                         adapter.submitList(sortedHospitals)
                         updateBottomSheetState(sortedHospitals)
+
+                        // 데이터가 없는 경우 처리
+                        if (sortedHospitals.isEmpty()) {
+                            binding.emptyView.apply {
+                                visibility = View.VISIBLE
+                                text = "주변에 병원 정보가 없습니다."
+                            }
+                        } else {
+                            binding.emptyView.visibility = View.GONE
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e("MapViewFragment", "Error updating hospitals list", e)
+                handleError(e)
             }
         }
     }
