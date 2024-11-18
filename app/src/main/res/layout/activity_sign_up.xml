@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="회원가입"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:padding="16dp"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:background="@drawable/border_round_" />
+
+        <TextView
+            android:id="@+id/idLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ID"
+            android:textColor="#000000"
+            app:layout_constraintTop_toBottomOf="@id/titleTextView"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="24dp"
+            android:layout_marginStart="16dp"/>
+
+        <EditText
+            android:id="@+id/idEditText"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/edit_text_background"
+            android:hint="email ID"
+            android:inputType="textEmailAddress"
+            android:paddingHorizontal="12dp"/>
+
+        <TextView
+            android:id="@+id/passwordLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Password"
+            android:textColor="#000000"
+            app:layout_constraintTop_toBottomOf="@id/idEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="16dp"/>
+
+        <EditText
+            android:id="@+id/passwordEditText"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/edit_text_background"
+            android:hint="8-15자의 영문/숫자 조합"
+            android:inputType="textPassword"
+            android:paddingHorizontal="12dp"/>
+
+        <TextView
+            android:id="@+id/nicknameLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="닉네임"
+            android:textColor="#000000"
+            app:layout_constraintTop_toBottomOf="@id/passwordEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="16dp"/>
+
+        <EditText
+            android:id="@+id/nicknameEditText"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/edit_text_background"
+            android:hint="10자 이내"
+            android:inputType="text"
+            android:paddingHorizontal="12dp"/>
+
+        <TextView
+            android:id="@+id/ageLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="나이"
+            android:textColor="#000000"
+            app:layout_constraintTop_toBottomOf="@id/passwordEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="16dp"/>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="16dp"
+            android:scrollbars="none">
+
+            <RadioGroup
+                android:id="@+id/ageRadioGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/age20Radio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="20세 미만"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:background="@drawable/radio_button_selector"
+                    android:textColor="@drawable/radio_text_selector"
+                    android:layout_marginEnd="8dp"/>
+
+                <RadioButton
+                    android:id="@+id/age20_29Radio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="20-29세"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:background="@drawable/radio_button_selector"
+                    android:textColor="@drawable/radio_text_selector"
+                    android:layout_marginEnd="8dp"/>
+
+                <RadioButton
+                    android:id="@+id/age30_39Radio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="30-39세"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:background="@drawable/radio_button_selector"
+                    android:textColor="@drawable/radio_text_selector"
+                    android:layout_marginEnd="8dp"/>
+
+                <RadioButton
+                    android:id="@+id/age40_49Radio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="40-49세"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:background="@drawable/radio_button_selector"
+                    android:textColor="@drawable/radio_text_selector"
+                    android:layout_marginEnd="8dp"/>
+
+                <RadioButton
+                    android:id="@+id/age50PlusRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:text="50세 이상"
+                    android:textSize="14sp"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:background="@drawable/radio_button_selector"
+                    android:textColor="@drawable/radio_text_selector"/>
+            </RadioGroup>
+        </HorizontalScrollView>
+
+        <TextView
+            android:id="@+id/genderLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="성별"
+            android:textColor="#000000"
+            app:layout_constraintTop_toBottomOf="@id/passwordEditText"
+            app:layout_constraintStart_toStartOf="parent"
+            android:layout_marginTop="16dp"
+            android:layout_marginStart="16dp"/>
+
+        <RadioGroup
+            android:id="@+id/genderRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="16dp">
+
+            <RadioButton
+                android:id="@+id/maleRadio"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="남자"
+                android:textSize="14sp"
+                android:button="@null"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/radio_button_selector"
+                android:textColor="@drawable/radio_text_selector"/>
+
+            <RadioButton
+                android:id="@+id/femaleRadio"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="여자"
+                android:textSize="14sp"
+                android:button="@null"
+                android:gravity="center"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/radio_button_selector"
+                android:textColor="@drawable/radio_text_selector"/>
+
+            <RadioButton
+                android:id="@+id/otherGenderRadio"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:text="기타"
+                android:textSize="14sp"
+                android:button="@null"
+                android:gravity="center"
+                android:background="@drawable/radio_button_selector"
+                android:textColor="@drawable/radio_text_selector"/>
+        </RadioGroup>
+
+    <TextView
+        android:id="@+id/regionLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="거주지역"
+        android:textColor="#000000"
+        app:layout_constraintTop_toBottomOf="@id/genderRadioGroup"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"/>
+
+        <Spinner
+            android:id="@+id/regionSpinner"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginHorizontal="16dp"
+            android:background="@drawable/spinner_background"
+            android:spinnerMode="dropdown"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/signUpButton"
+            android:layout_width="190dp"
+            android:layout_height="56dp"
+            android:layout_margin="16dp"
+            android:layout_gravity="center"
+            android:text="가입하기"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="8dp"
+            android:backgroundTint="@color/signature_color4"/>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
