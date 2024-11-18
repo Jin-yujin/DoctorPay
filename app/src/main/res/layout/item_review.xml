@@ -17,14 +17,24 @@
         <!-- 상단 영역: 사용자 정보 및 메뉴 -->
         <TextView
             android:id="@+id/tvReviewerName"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textStyle="bold"
             android:textSize="16sp"
             android:textColor="@color/black"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/reviewMenu"/>
+            app:layout_constraintTop_toTopOf="parent"/>
+
+        <TextView
+            android:id="@+id/tvDepartment"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textSize="14sp"
+            android:textColor="@color/signature_color4"
+            app:layout_constraintStart_toEndOf="@id/tvReviewerName"
+            app:layout_constraintTop_toTopOf="@id/tvReviewerName"
+            app:layout_constraintBottom_toBottomOf="@id/tvReviewerName"/>
 
         <ImageButton
             android:id="@+id/reviewMenu"

@@ -63,25 +63,58 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
 
         dialog.show()
 
-        dialog.findViewById<RatingBar>(R.id.ratingBar)?.rating = review.rating
-        dialog.findViewById<EditText>(R.id.reviewContent)?.setText(review.content)
+        val departments = arguments?.getStringArrayList("departments")?.toList() ?: listOf()
+        val allDepartments = listOf("진료과 선택") + departments
+
+        val departmentSpinner = dialog.findViewById<Spinner>(R.id.departmentSpinner)!!
+        val ratingBar = dialog.findViewById<RatingBar>(R.id.ratingBar)!!
+        val contentEdit = dialog.findViewById<EditText>(R.id.reviewContent)!!
+
+        // 진료과 스피너 설정
+        departmentSpinner.adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_spinner_item,
+            allDepartments
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
+        // 기존 데이터 설정
+        val departmentPosition = allDepartments.indexOf(review.department)
+        if (departmentPosition != -1) {
+            departmentSpinner.setSelection(departmentPosition)
+        }
+        ratingBar.rating = review.rating
+        contentEdit.setText(review.content)
 
         dialog.findViewById<Button>(R.id.submitButton)?.setOnClickListener {
-            val newRating = dialog.findViewById<RatingBar>(R.id.ratingBar)?.rating ?: 0f
-            val newContent = dialog.findViewById<EditText>(R.id.reviewContent)?.text.toString()
+            val selectedDepartment = departmentSpinner.selectedItem.toString()
+            val newRating = ratingBar.rating
+            val newContent = contentEdit.text.toString()
 
-            if (newRating == 0f) {
-                Toast.makeText(context, "별점을 선택해주세요", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            when {
+                selectedDepartment == "진료과 선택" -> {
+                    Toast.makeText(context, "진료과를 선택해주세요", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                newRating == 0f -> {
+                    Toast.makeText(context, "별점을 선택해주세요", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                newContent.isBlank() -> {
+                    Toast.makeText(context, "리뷰 내용을 입력해주세요", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                else -> {
+                    viewModel.updateReview(
+                        review = review,
+                        newRating = newRating,
+                        newContent = newContent,
+                        newDepartment = selectedDepartment
+                    )
+                    dialog.dismiss()
+                }
             }
-
-            if (newContent.isBlank()) {
-                Toast.makeText(context, "리뷰 내용을 입력해주세요", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            viewModel.updateReview(review, newRating, newContent)
-            dialog.dismiss()
         }
 
         dialog.findViewById<Button>(R.id.cancelButton)?.setOnClickListener {
@@ -231,27 +264,52 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
 
         dialog.show()
 
+        val departments = arguments?.getStringArrayList("departments")?.toList() ?: listOf()
+        val allDepartments = listOf("진료과 선택") + departments
+
+        val departmentSpinner = dialog.findViewById<Spinner>(R.id.departmentSpinner)!!
         val ratingBar = dialog.findViewById<RatingBar>(R.id.ratingBar)!!
         val contentEdit = dialog.findViewById<EditText>(R.id.reviewContent)!!
         val submitButton = dialog.findViewById<Button>(R.id.submitButton)!!
         val cancelButton = dialog.findViewById<Button>(R.id.cancelButton)!!
 
+        // 진료과 스피너 설정
+        departmentSpinner.adapter = ArrayAdapter(
+            requireContext(),
+            android.R.layout.simple_spinner_item,
+            allDepartments
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
         submitButton.setOnClickListener {
+            val selectedDepartment = departmentSpinner.selectedItem.toString()
             val rating = ratingBar.rating
             val content = contentEdit.text.toString()
 
-            if (rating == 0f) {
-                Toast.makeText(context, "별점을 선택해주세요", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            when {
+                selectedDepartment == "진료과 선택" -> {
+                    Toast.makeText(context, "진료과를 선택해주세요", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                rating == 0f -> {
+                    Toast.makeText(context, "별점을 선택해주세요", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                content.isBlank() -> {
+                    Toast.makeText(context, "리뷰 내용을 입력해주세요", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                else -> {
+                    viewModel.addReview(
+                        hospitalId = hospitalId,
+                        rating = rating,
+                        content = content,
+                        department = selectedDepartment
+                    )
+                    dialog.dismiss()
+                }
             }
-
-            if (content.isBlank()) {
-                Toast.makeText(context, "리뷰 내용을 입력해주세요", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            viewModel.addReview(hospitalId, rating, content)
-            dialog.dismiss()
         }
 
         cancelButton.setOnClickListener {

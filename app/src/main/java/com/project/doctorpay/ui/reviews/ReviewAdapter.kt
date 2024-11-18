@@ -75,6 +75,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
         fun bind(review: Review) {
             binding.apply {
                 tvReviewerName.text = review.userName
+                tvDepartment.text = review.department
                 tvReviewContent.text = review.content
                 ratingBar.rating = review.rating
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
