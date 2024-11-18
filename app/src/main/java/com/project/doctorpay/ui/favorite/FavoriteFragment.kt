@@ -194,10 +194,10 @@ class FavoriteFragment : Fragment() {
 
             val filteredHospitals = when (currentFilter) {
                 OperationState.OPEN -> favoriteHospitals.filter {
-                    it.operationState == OperationState.OPEN
+                    it.operationState == OperationState.OPEN || it.operationState == OperationState.EMERGENCY
                 }
                 OperationState.CLOSED -> favoriteHospitals.filter {
-                    it.operationState != OperationState.OPEN
+                    it.operationState == OperationState.CLOSED || it.operationState == OperationState.LUNCH_BREAK
                 }
                 else -> favoriteHospitals
             }
