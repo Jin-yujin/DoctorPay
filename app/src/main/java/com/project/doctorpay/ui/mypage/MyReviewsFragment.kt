@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.project.doctorpay.databinding.FragmentMyReviewsBinding
 import com.project.doctorpay.ui.reviews.Review
 import com.project.doctorpay.ui.reviews.ReviewAdapter
@@ -68,6 +69,9 @@ class MyReviewsFragment : Fragment(), ReviewAdapter.ReviewActionListener {
             when (status) {
                 is MyReviewsViewModel.ReviewStatus.Success -> {
                     binding.progressBar.visibility = View.GONE
+                    if (status.isDelete) {
+                        Toast.makeText(context, "리뷰가 삭제되었습니다", Toast.LENGTH_SHORT).show()
+                    }
                 }
                 is MyReviewsViewModel.ReviewStatus.Error -> {
                     binding.progressBar.visibility = View.GONE
@@ -85,7 +89,14 @@ class MyReviewsFragment : Fragment(), ReviewAdapter.ReviewActionListener {
     }
 
     override fun onDeleteReview(review: Review) {
-        viewModel.deleteReview(review)
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("리뷰 삭제")
+            .setMessage("정말로 이 리뷰를 삭제하시겠습니까?")
+            .setPositiveButton("삭제") { _, _ ->
+                viewModel.deleteReview(review)
+            }
+            .setNegativeButton("취소", null)
+            .show()
     }
 
     override fun onDestroyView() {

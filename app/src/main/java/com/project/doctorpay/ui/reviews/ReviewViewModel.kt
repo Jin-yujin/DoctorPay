@@ -28,7 +28,9 @@ class ReviewViewModel : ViewModel() {
     val reviewStatus: LiveData<ReviewStatus> = _reviewStatus
 
     sealed class ReviewStatus {
-        object Success : ReviewStatus()
+        object Success : ReviewStatus() {
+            var isDelete: Boolean = false
+        }
         data class Error(val message: String) : ReviewStatus()
         object Loading : ReviewStatus()
     }
@@ -105,6 +107,7 @@ class ReviewViewModel : ViewModel() {
                     .set(review)
                     .await()
 
+                ReviewStatus.Success.isDelete = false
                 _reviewStatus.value = ReviewStatus.Success
                 loadReviews(hospitalId)
             } catch (e: Exception) {
@@ -140,6 +143,7 @@ class ReviewViewModel : ViewModel() {
             .document(review.id)
             .set(updatedReview)
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = false
                 _reviewStatus.value = ReviewStatus.Success
                 loadReviews(review.hospitalId)
             }
@@ -150,17 +154,15 @@ class ReviewViewModel : ViewModel() {
 
     fun deleteReview(review: Review) {
         _reviewStatus.value = ReviewStatus.Loading
-
         db.collection("reviews")
             .document(review.id)
             .delete()
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = true
                 _reviewStatus.value = ReviewStatus.Success
-                updateHospitalRating(review.hospitalId)
             }
             .addOnFailureListener { e ->
-                Log.e("ReviewViewModel", "Error deleting review", e)
-                _reviewStatus.value = ReviewStatus.Error("리뷰 삭제에 실패했습니다")
+                _reviewStatus.value = ReviewStatus.Error(e.message ?: "리뷰 삭제 실패")
             }
     }
 }

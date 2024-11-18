@@ -250,10 +250,10 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
         viewModel.reviewStatus.observe(viewLifecycleOwner) { status ->
             when (status) {
                 is ReviewViewModel.ReviewStatus.Success -> {
-                    Toast.makeText(context, "리뷰가 등록되었습니다", Toast.LENGTH_SHORT).show()
-                    // 성공 시에도 맨 위로 스크롤
-                    binding.recyclerViewReviews.post {
-                        binding.recyclerViewReviews.smoothScrollToPosition(0)
+                    if (status.isDelete) {
+                        Toast.makeText(context, "리뷰가 삭제되었습니다", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "리뷰가 등록되었습니다", Toast.LENGTH_SHORT).show()
                     }
                 }
                 is ReviewViewModel.ReviewStatus.Error -> {

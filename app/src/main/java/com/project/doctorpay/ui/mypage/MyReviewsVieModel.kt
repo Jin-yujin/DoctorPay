@@ -19,7 +19,9 @@ class MyReviewsViewModel : ViewModel() {
     val reviewStatus: LiveData<ReviewStatus> = _reviewStatus
 
     sealed class ReviewStatus {
-        object Success : ReviewStatus()
+        object Success : ReviewStatus() {
+            var isDelete: Boolean = false
+        }
         data class Error(val message: String) : ReviewStatus()
         object Loading : ReviewStatus()
     }
@@ -52,6 +54,7 @@ class MyReviewsViewModel : ViewModel() {
             .document(review.id)
             .set(review)
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = false
                 _reviewStatus.value = ReviewStatus.Success
             }
             .addOnFailureListener {
@@ -65,6 +68,7 @@ class MyReviewsViewModel : ViewModel() {
             .document(review.id)
             .delete()
             .addOnSuccessListener {
+                ReviewStatus.Success.isDelete = true
                 _reviewStatus.value = ReviewStatus.Success
             }
             .addOnFailureListener {
