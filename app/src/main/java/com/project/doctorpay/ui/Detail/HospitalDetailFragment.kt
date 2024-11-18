@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.graphics.PorterDuff
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -17,6 +18,7 @@ import android.widget.RatingBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -30,6 +32,7 @@ import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
+import com.project.doctorpay.db.FavoriteRepository
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.calendar.Appointment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
@@ -47,6 +50,7 @@ class HospitalDetailFragment : Fragment() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    private val favoriteRepository = FavoriteRepository()
     private lateinit var hospital: HospitalInfo
     private var isFromMap: Boolean = false
     private var category: String = ""
@@ -56,7 +60,6 @@ class HospitalDetailFragment : Fragment() {
     }
 
     private var listener: HospitalDetailListener? = null
-
     private var shouldShowToolbar = true
     private var isViewCreated = false
 
@@ -97,6 +100,7 @@ class HospitalDetailFragment : Fragment() {
         setupClickListeners()
         setupBackPressHandler()
         loadNonCoveredItems() // 비급여 정보만 로드
+        setupFavoriteButton()
     }
 
     private fun updateUI(hospital: HospitalInfo) {
@@ -161,6 +165,37 @@ class HospitalDetailFragment : Fragment() {
         }
     }
 
+    private fun setupFavoriteButton() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val isFavorite = favoriteRepository.isFavorite(hospital.ykiho)
+                updateFavoriteButtonState(isFavorite)
+            } catch (e: Exception) {
+                Log.e("HospitalDetailFragment", "Error checking favorite status", e)
+            }
+        }
+    }
+
+    private fun updateFavoriteButtonState(isFavorite: Boolean) {
+        val drawable = if (isFavorite) {
+            android.R.drawable.btn_star_big_on
+        } else {
+            android.R.drawable.btn_star_big_off
+        }
+
+        binding.btnSave.setImageResource(drawable)
+
+        // Only apply color filter if favorite
+        if (isFavorite) {
+            binding.btnSave.setColorFilter(
+                ContextCompat.getColor(requireContext(), R.color.favoriteColor),
+                PorterDuff.Mode.SRC_IN
+            )
+        } else {
+            binding.btnSave.clearColorFilter()
+        }
+    }
+
     // 사용자 정보 로드 및 중복 체크 처리
     private fun loadUserInfo(review: Review, binding: FragmentHospitalDetailBinding) {
         if (!isViewCreated || !isAdded || _binding == null) return
@@ -217,7 +252,7 @@ class HospitalDetailFragment : Fragment() {
         binding.apply {
             btnStart.setOnClickListener { openMapWithDirections("출발") }
             btnDestination.setOnClickListener { openMapWithDirections("도착") }
-            btnSave.setOnClickListener { /* TODO: Implement save functionality */ }
+            btnSave.setOnClickListener { toggleFavorite() }
             btnCall.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
             btnShare.setOnClickListener { shareHospitalInfo() }
             tvHospitalPhone.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
@@ -240,6 +275,33 @@ class HospitalDetailFragment : Fragment() {
         }
     }
 
+    private fun toggleFavorite() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val currentState = favoriteRepository.isFavorite(hospital.ykiho)
+                if (currentState) {
+                    favoriteRepository.removeFavorite(hospital.ykiho)
+                    showToast("즐겨찾기가 해제되었습니다")
+                } else {
+                    favoriteRepository.addFavorite(hospital)
+                    showToast("즐겨찾기에 추가되었습니다")
+                }
+                updateFavoriteButtonState(!currentState)
+            } catch (e: Exception) {
+                when (e) {
+                    is IllegalStateException -> showToast("로그인이 필요합니다")
+                    else -> {
+                        Log.e("HospitalDetailFragment", "Error toggling favorite", e)
+                        showToast("오류가 발생했습니다")
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+    }
 
     private fun showAppointmentDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_appointment, null)
