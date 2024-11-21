@@ -35,6 +35,19 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"/>
 
+        <ImageButton
+            android:id="@+id/btnSearch"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="5dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_search"
+            android:contentDescription="Search"
+            android:padding="12dp"
+            app:layout_constraintTop_toTopOf="@id/tvCategoryTitle"
+            app:layout_constraintBottom_toBottomOf="@id/tvCategoryTitle"
+            app:layout_constraintEnd_toEndOf="parent"/>
+
         <CheckBox
             android:id="@+id/checkFilter"
             android:layout_width="wrap_content"
@@ -45,6 +58,7 @@
             android:textSize="13sp"
             app:layout_constraintTop_toBottomOf="@+id/view_header"
             app:layout_constraintStart_toStartOf="parent"/>
+
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/mListView"

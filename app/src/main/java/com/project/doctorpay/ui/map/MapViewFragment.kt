@@ -49,6 +49,7 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.withTimeout
 
 class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.HospitalDetailListener {
@@ -276,12 +277,32 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
-    private fun showNoDataMessage() {
-        Toast.makeText(context, "주변에 병원 정보가 없습니다.", Toast.LENGTH_SHORT).show()
+    private fun showMessage(message: String) {
+        if (!isAdded) return  // Fragment가 액티비티에 붙어있지 않으면 리턴
+
+        view?.let { view ->
+            Snackbar.make(view, message, Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun showToast(message: String) {
+        try {
+            activity?.runOnUiThread {
+                Toast.makeText(requireContext().applicationContext, message, Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e("MapViewFragment", "Failed to show toast", e)
+        }
     }
 
     private fun showError(error: String) {
-        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+        // Toast.makeText(context, error, Toast.LENGTH_LONG).show() 대신
+        Snackbar.make(binding.root, error, Snackbar.LENGTH_LONG).show()
+    }
+
+    private fun showNoDataMessage() {
+        // Toast.makeText(context, "주변에 병원 정보가 없습니다.", Toast.LENGTH_SHORT).show() 대신
+        Snackbar.make(binding.root, "주변에 병원 정보가 없습니다.", Snackbar.LENGTH_SHORT).show()
     }
 
     private fun updateMarkers(hospitals: List<HospitalInfo>) {

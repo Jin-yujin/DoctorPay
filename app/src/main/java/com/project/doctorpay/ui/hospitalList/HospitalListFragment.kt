@@ -150,6 +150,7 @@ class HospitalListFragment : Fragment() {
             setHasFixedSize(true)
         }
 
+
         binding.checkFilter.apply {
             text = "영업중인 병원만 보기"
             setOnCheckedChangeListener { _, isChecked ->
@@ -392,6 +393,13 @@ class HospitalListFragment : Fragment() {
                     forceRefresh = true
                 )
             }
+        }
+
+        binding.btnSearch.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .add(R.id.fragment_container, HospitalSearchFragment())
+                .addToBackStack(null)
+                .commit()
         }
     }
 
