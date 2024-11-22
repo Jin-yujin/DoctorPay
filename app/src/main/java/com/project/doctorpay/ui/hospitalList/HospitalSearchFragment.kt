@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.Manifest
+import android.location.Location
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -37,6 +38,15 @@ class HospitalSearchFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewModel = (requireActivity() as MainActivity).hospitalViewModel
+
+        // 전달받은 위치 정보로 userLocation 초기화
+        arguments?.let { args ->
+            if (args.containsKey("latitude") && args.containsKey("longitude")) {
+                val lat = args.getDouble("latitude")
+                val lng = args.getDouble("longitude")
+                userLocation = LatLng(lat, lng)
+            }
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -47,12 +57,27 @@ class HospitalSearchFragment : Fragment() {
         setupListeners()
         setupObservers()
 
+        updateLocationIfNeeded()
+
+        // adapter에 위치 정보 전달
+        userLocation?.let { location ->
+            adapter.updateUserLocation(location)
+        }
+
         // 포커스 요청 및 키보드 표시
         binding.etSearch.requestFocus()
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
     }
 
+    // 위치 정보 업데이트
+    private fun updateLocationIfNeeded() {
+        if (userLocation == null) {
+            loadLocation()
+        } else {
+            adapter.updateUserLocation(userLocation!!)
+        }
+    }
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
@@ -60,19 +85,42 @@ class HospitalSearchFragment : Fragment() {
                 if (hospitals.isNotEmpty()) {
                     val query = binding.etSearch.text.toString()
                     if (query.isEmpty()) {
-                        adapter.submitList(hospitals)
+                        val sortedHospitals = sortHospitalsByDistance(hospitals)  // 거리순 정렬 추가
+                        adapter.submitList(sortedHospitals)
                         binding.emptyView.visibility = View.GONE
                     } else {
                         val filteredHospitals = hospitals.filter {
                             it.name.contains(query, ignoreCase = true)
                         }
-                        adapter.submitList(filteredHospitals)
+                        val sortedFilteredHospitals = sortHospitalsByDistance(filteredHospitals)  // 거리순 정렬 추가
+                        adapter.submitList(sortedFilteredHospitals)
                         binding.emptyView.visibility = if (filteredHospitals.isEmpty()) View.VISIBLE else View.GONE
                         binding.emptyView.text = "검색 결과가 없습니다"
                     }
                     binding.loadingView.visibility = View.GONE
                 }
             }
+        }
+    }
+
+    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            hospitals.sortedBy { hospital ->
+                val results = FloatArray(1)
+                try {
+                    Location.distanceBetween(
+                        currentLocation.latitude, currentLocation.longitude,
+                        hospital.latitude, hospital.longitude,
+                        results
+                    )
+                    results[0]
+                } catch (e: Exception) {
+                    Float.MAX_VALUE
+                }
+            }
+        } else {
+            hospitals
         }
     }
 
@@ -150,8 +198,6 @@ class HospitalSearchFragment : Fragment() {
         }
     }
 
-
-
     private fun searchHospitals(query: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             binding.loadingView.visibility = View.VISIBLE
@@ -163,13 +209,17 @@ class HospitalSearchFragment : Fragment() {
                 loadLocation()
             } else {
                 if (query.isEmpty()) {
-                    adapter.submitList(hospitals)
+                    // 검색어가 없을 때도 거리순 정렬 적용
+                    val sortedHospitals = sortHospitalsByDistance(hospitals)
+                    adapter.submitList(sortedHospitals)
                     binding.emptyView.visibility = View.GONE
                 } else {
                     val filteredHospitals = hospitals.filter {
                         it.name.contains(query, ignoreCase = true)
                     }
-                    adapter.submitList(filteredHospitals)
+                    // 필터링된 결과를 거리순으로 정렬
+                    val sortedFilteredHospitals = sortHospitalsByDistance(filteredHospitals)
+                    adapter.submitList(sortedFilteredHospitals)
                     binding.emptyView.visibility = if (filteredHospitals.isEmpty()) View.VISIBLE else View.GONE
                     binding.emptyView.text = "검색 결과가 없습니다"
                 }

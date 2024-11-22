@@ -405,8 +405,18 @@ class HospitalListFragment : Fragment() {
         }
 
         binding.btnSearch.setOnClickListener {
+            // 현재 위치 정보를 번들에 담아서 전달
+            val searchFragment = HospitalSearchFragment().apply {
+                arguments = Bundle().apply {
+                    userLocation?.let { location ->
+                        putDouble("latitude", location.latitude)
+                        putDouble("longitude", location.longitude)
+                    }
+                }
+            }
+
             parentFragmentManager.beginTransaction()
-                .add(R.id.fragment_container, HospitalSearchFragment())
+                .add(R.id.fragment_container, searchFragment)
                 .addToBackStack(null)
                 .commit()
         }
