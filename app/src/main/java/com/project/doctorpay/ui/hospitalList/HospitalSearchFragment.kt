@@ -24,6 +24,7 @@ import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.databinding.FragmentHospitalSearchBinding
 import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.ui.Detail.HospitalDetailFragment
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class HospitalSearchFragment : Fragment() {
@@ -42,13 +43,37 @@ class HospitalSearchFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         viewModel = (requireActivity() as MainActivity).hospitalViewModel
         setupRecyclerView()
-        setupSearchView() // 이 부분 추가
+        setupSearchView()
         setupListeners()
+        setupObservers()
 
         // 포커스 요청 및 키보드 표시
         binding.etSearch.requestFocus()
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+
+    private fun setupObservers() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getHospitals(HospitalViewModel.LIST_VIEW).collectLatest { hospitals ->
+                if (hospitals.isNotEmpty()) {
+                    val query = binding.etSearch.text.toString()
+                    if (query.isEmpty()) {
+                        adapter.submitList(hospitals)
+                        binding.emptyView.visibility = View.GONE
+                    } else {
+                        val filteredHospitals = hospitals.filter {
+                            it.name.contains(query, ignoreCase = true)
+                        }
+                        adapter.submitList(filteredHospitals)
+                        binding.emptyView.visibility = if (filteredHospitals.isEmpty()) View.VISIBLE else View.GONE
+                        binding.emptyView.text = "검색 결과가 없습니다"
+                    }
+                    binding.loadingView.visibility = View.GONE
+                }
+            }
+        }
     }
 
     override fun onCreateView(
