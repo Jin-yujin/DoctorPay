@@ -1,6 +1,8 @@
 package com.project.doctorpay.ui.hospitalList
 
 
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -8,9 +10,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.Manifest
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.gms.location.LocationServices
+import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
@@ -24,6 +31,25 @@ class HospitalSearchFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var adapter: HospitalAdapter
     private lateinit var viewModel: HospitalViewModel
+    private var userLocation: LatLng? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        viewModel = (requireActivity() as MainActivity).hospitalViewModel
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        viewModel = (requireActivity() as MainActivity).hospitalViewModel
+        setupRecyclerView()
+        setupSearchView() // 이 부분 추가
+        setupListeners()
+
+        // 포커스 요청 및 키보드 표시
+        binding.etSearch.requestFocus()
+        val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(binding.etSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -34,13 +60,6 @@ class HospitalSearchFragment : Fragment() {
         return binding.root
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        viewModel = (requireActivity() as MainActivity).hospitalViewModel
-        setupRecyclerView()
-        setupSearchView()
-        setupListeners()
-    }
 
     private fun setupRecyclerView() {
         adapter = HospitalAdapter(
@@ -81,8 +100,14 @@ class HospitalSearchFragment : Fragment() {
         })
     }
 
+
     private fun setupListeners() {
         binding.btnBack.setOnClickListener {
+            // 키보드 숨기기
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+
+            // 뒤로가기
             parentFragmentManager.popBackStack()
         }
 
@@ -100,15 +125,75 @@ class HospitalSearchFragment : Fragment() {
         }
     }
 
+
+
     private fun searchHospitals(query: String) {
         viewLifecycleOwner.lifecycleScope.launch {
+            binding.loadingView.visibility = View.VISIBLE
+
             val hospitals = viewModel.getHospitals(HospitalViewModel.LIST_VIEW).value
-            val filteredHospitals = hospitals.filter {
-                it.name.contains(query, ignoreCase = true)
+            if (hospitals.isEmpty()) {
+                binding.emptyView.text = "데이터를 불러오는 중입니다..."
+                binding.emptyView.visibility = View.VISIBLE
+                loadLocation()
+            } else {
+                if (query.isEmpty()) {
+                    adapter.submitList(hospitals)
+                    binding.emptyView.visibility = View.GONE
+                } else {
+                    val filteredHospitals = hospitals.filter {
+                        it.name.contains(query, ignoreCase = true)
+                    }
+                    adapter.submitList(filteredHospitals)
+                    binding.emptyView.visibility = if (filteredHospitals.isEmpty()) View.VISIBLE else View.GONE
+                    binding.emptyView.text = "검색 결과가 없습니다"
+                }
             }
-            adapter.submitList(filteredHospitals)
+            binding.loadingView.visibility = View.GONE
         }
     }
+
+    private fun loadLocation() {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        try {
+            if (ContextCompat.checkSelfPermission(requireContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    location?.let {
+                        val newLocation = LatLng(it.latitude, it.longitude)
+                        userLocation = newLocation  // userLocation 업데이트
+                        adapter.updateUserLocation(newLocation)
+                        viewModel.fetchNearbyHospitals(
+                            viewId = HospitalViewModel.LIST_VIEW,
+                            latitude = it.latitude,
+                            longitude = it.longitude,
+                            radius = HospitalViewModel.DEFAULT_RADIUS
+                        )
+                    } ?: loadDefaultLocation()
+                }
+            } else {
+                loadDefaultLocation()
+            }
+        } catch (e: Exception) {
+            loadDefaultLocation()
+        }
+    }
+
+    private fun loadDefaultLocation() {
+        val defaultLat = 37.5666805  // 서울 중심부
+        val defaultLng = 127.0784147
+        val defaultLocation = LatLng(defaultLat, defaultLng)
+        userLocation = defaultLocation  // userLocation 업데이트
+        adapter.updateUserLocation(defaultLocation)
+        viewModel.fetchNearbyHospitals(
+            viewId = HospitalViewModel.LIST_VIEW,
+            latitude = defaultLat,
+            longitude = defaultLng,
+            radius = HospitalViewModel.DEFAULT_RADIUS
+        )
+    }
+
 
     override fun onDestroyView() {
         super.onDestroyView()

@@ -531,35 +531,34 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
         try {
             naverMap.locationTrackingMode = LocationTrackingMode.Follow
-            binding.returnToLocationButton.visibility = View.VISIBLE
+            binding?.returnToLocationButton?.visibility = View.VISIBLE
             locationOverlay?.isVisible = true
 
-            // 위치 요청 설정
             val locationRequest = LocationRequest.create().apply {
                 priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-                interval = 10000 // 10초
-                fastestInterval = 5000 // 5초
-                maxWaitTime = 15000 // 15초
+                interval = 10000
+                fastestInterval = 5000
+                maxWaitTime = 15000
             }
 
-            // 위치 콜백
             val locationCallback = object : LocationCallback() {
                 override fun onLocationResult(locationResult: LocationResult) {
-                    locationResult.lastLocation?.let { location ->
-                        val newUserLocation = LatLng(location.latitude, location.longitude)
-                        userLocation = newUserLocation
-                        adapter.updateUserLocation(newUserLocation)
+                    _binding?.let { binding ->
+                        locationResult.lastLocation?.let { location ->
+                            val newUserLocation = LatLng(location.latitude, location.longitude)
+                            userLocation = newUserLocation
+                            adapter.updateUserLocation(newUserLocation)
 
-                        if (!isInitialLocationSet) {
-                            isInitialLocationSet = true
-                            naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
-                            updateHospitalsBasedOnLocation(newUserLocation)
+                            if (!isInitialLocationSet) {
+                                isInitialLocationSet = true
+                                naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
+                                updateHospitalsBasedOnLocation(newUserLocation)
+                            }
                         }
                     }
                 }
             }
 
-            // 안전하게 위치 업데이트 요청
             if (hasLocationPermission()) {
                 fusedLocationClient.requestLocationUpdates(
                     locationRequest,

@@ -114,23 +114,32 @@ class HospitalListFragment : Fragment() {
         return binding.root
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupObservers()
         setupListeners()
 
-        if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
-            checkLocationPermission()
-        } else {
-            getCurrentLocation() { latitude, longitude ->
-                viewModel.getHospitalsByCategory(
-                    viewId = HospitalViewModel.LIST_VIEW,
-                    category = category,
-                    latitude = latitude,
-                    longitude = longitude
-                )
+        // 데이터가 비어있는 경우에만 로드
+        viewLifecycleOwner.lifecycleScope.launch {
+            val hospitals = viewModel.getHospitals(HospitalViewModel.LIST_VIEW).value
+            if (hospitals.isEmpty()) {
+                if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+                    checkLocationPermission()
+                } else {
+                    getCurrentLocation() { latitude, longitude ->
+                        viewModel.getHospitalsByCategory(
+                            viewId = HospitalViewModel.LIST_VIEW,
+                            category = category,
+                            latitude = latitude,
+                            longitude = longitude
+                        )
+                    }
+                }
+            } else {
+                // 기존 데이터가 있다면 카테고리 필터링만 수행
+                val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
+                updateUI(filteredHospitals)
             }
         }
 
