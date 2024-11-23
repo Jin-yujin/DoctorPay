@@ -180,8 +180,18 @@ class HomeFragment : Fragment() {
 
     private fun setupSearchButton() {
         binding.searchCard.setOnClickListener {
+            // 현재 위치 정보를 HospitalSearchFragment에 전달
+            val searchFragment = HospitalSearchFragment().apply {
+                arguments = Bundle().apply {
+                    userLocation?.let { location ->
+                        putDouble("latitude", location.latitude)
+                        putDouble("longitude", location.longitude)
+                    }
+                }
+            }
+
             parentFragmentManager.beginTransaction()
-                .add(R.id.fragment_container, HospitalSearchFragment())
+                .add(R.id.fragment_container, searchFragment)
                 .addToBackStack(null)
                 .commit()
         }
