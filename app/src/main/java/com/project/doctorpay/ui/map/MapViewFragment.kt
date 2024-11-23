@@ -578,11 +578,41 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private fun setupReturnToLocationButton() {
         binding.returnToLocationButton.setOnClickListener {
             userLocation?.let { position ->
-                adapter.updateUserLocation(position)  // 현재 위치로 돌아갈 때도 어댑터에 위치 전달
-                naverMap.moveCamera(CameraUpdate.scrollTo(position))
-                isMapMoved = false
-                hideResearchButton()
-                updateHospitalsBasedOnLocation(position)
+                try {
+                    Log.d("MapViewFragment", "Return to location clicked. Position: ${position.latitude}, ${position.longitude}")
+
+                    // 현재 위치로 지도 이동 및 어댑터 업데이트
+                    adapter.updateUserLocation(position)
+                    naverMap.moveCamera(CameraUpdate.scrollTo(position))
+
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        try {
+                            // 페이지네이션 초기화
+                            viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
+
+                            // 현재 위치 기준으로 데이터 다시 로드
+                            withContext(Dispatchers.IO) {
+                                viewModel.fetchNearbyHospitals(
+                                    viewId = HospitalViewModel.MAP_VIEW,
+                                    latitude = position.latitude,
+                                    longitude = position.longitude,
+                                    radius = HospitalViewModel.DEFAULT_RADIUS,
+                                    forceRefresh = true // 강제 새로고침으로 현재 위치 데이터 확실히 가져오기
+                                )
+                            }
+
+                            // UI 상태 업데이트
+                            isMapMoved = false
+                            hideResearchButton()
+
+                        } catch (e: Exception) {
+                            Log.e("MapViewFragment", "Error loading hospitals at current location", e)
+                            showError("현재 위치의 병원 정보를 불러오는 중 오류가 발생했습니다")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MapViewFragment", "Error in return to location button click", e)
+                }
             }
         }
     }
@@ -625,7 +655,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.hospitalRecyclerView.visibility = View.GONE
         binding.hospitalDetailContainer.visibility = View.VISIBLE
 
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_HALF_EXPANDED
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
     override fun onBackFromHospitalDetail() {
@@ -635,7 +665,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private fun showHospitalList() {
         binding.hospitalRecyclerView.visibility = View.VISIBLE
         binding.hospitalDetailContainer.visibility = View.GONE
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
     private fun setupResearchButton() {
