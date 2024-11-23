@@ -23,6 +23,9 @@ android {
         multiDexEnabled = true
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"56d42cbadaff4473519f8adf8e6317e8\"")
     }
+    dexOptions {
+        javaMaxHeapSize = "4g"
+    }
 
     buildTypes {
         release {

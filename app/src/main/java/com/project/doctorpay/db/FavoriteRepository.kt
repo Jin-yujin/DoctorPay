@@ -75,6 +75,7 @@ class FavoriteRepository {
                 .document(hospital.ykiho)
                 .set(favorite)
                 .await()
+            refreshCache(userId)
 
             Log.d(TAG, "Successfully added favorite for ${hospital.name}")
         } catch (e: Exception) {
@@ -95,6 +96,7 @@ class FavoriteRepository {
                 .document(ykiho)
                 .delete()
                 .await()
+            refreshCache(userId)
 
             Log.d(TAG, "Successfully removed favorite: $ykiho")
         } catch (e: Exception) {
@@ -111,10 +113,13 @@ class FavoriteRepository {
             val userId = checkAuthAndGetUserId()
             val docRef = getUserFavoritesCollection(userId).document(ykiho)
 
-            docRef.get(Source.CACHE).await().exists().also { exists ->
-                if (handleOfflineOperation("check favorite")) {
-                    Log.d(TAG, "Using cached favorite status: $exists for $ykiho")
-                }
+            try {
+                // 먼저 캐시에서 시도
+                docRef.get(Source.CACHE).await().exists()
+            } catch (e: Exception) {
+                Log.d(TAG, "Cache miss, fetching from server for $ykiho")
+                // 캐시 실패 시 서버에서 조회
+                docRef.get(Source.SERVER).await().exists()
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking favorite status", e)
@@ -125,12 +130,16 @@ class FavoriteRepository {
     suspend fun getFavoriteYkihos(): List<String> {
         return try {
             val userId = checkAuthAndGetUserId()
-            handleOfflineOperation("get favorites")
+            val collection = getUserFavoritesCollection(userId)
 
-            getUserFavoritesCollection(userId)
-                .get(Source.CACHE)
-                .await()
-                .documents
+            try {
+                // 먼저 캐시에서 시도
+                collection.get(Source.CACHE).await()
+            } catch (e: Exception) {
+                Log.d(TAG, "Cache miss, fetching favorites from server")
+                // 캐시 실패 시 서버에서 조회
+                collection.get(Source.SERVER).await()
+            }.documents
                 .mapNotNull { it.toObject(FavoriteHospital::class.java)?.hospitalID }
                 .also { list ->
                     Log.d(TAG, "Retrieved ${list.size} favorites for user $userId")
@@ -138,6 +147,17 @@ class FavoriteRepository {
         } catch (e: Exception) {
             Log.e(TAG, "Error getting favorites", e)
             emptyList()
+        }
+    }
+
+    // 캐시 강제 갱신을 위한 메소드 추가
+    private suspend fun refreshCache(userId: String) {
+        try {
+            getUserFavoritesCollection(userId)
+                .get(Source.SERVER)
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing cache", e)
         }
     }
 }

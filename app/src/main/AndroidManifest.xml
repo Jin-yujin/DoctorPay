@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
+
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
@@ -48,14 +51,6 @@
         <activity
             android:name=".ui.member.ProfileCompletionActivity"
             android:exported="false"/>
-
-        <activity
-            android:name=".ui.Detail.HospitalDetailFragment"
-            android:exported="false" />
-
-        <activity
-            android:name=".ui.reviews.ReviewFragment"
-            android:exported="false" />
 
         <!-- 카카오 로그인 -->
         <activity
