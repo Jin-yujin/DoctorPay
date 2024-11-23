@@ -640,16 +640,47 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private fun setupResearchButton() {
         binding.researchButton.setOnClickListener {
-            val mapCenter = naverMap.cameraPosition.target
-            adapter.updateUserLocation(mapCenter)
-            viewModel.resetPagination(HospitalViewModel.MAP_VIEW)  // viewId 추가
-            viewModel.fetchNearbyHospitals(
-                viewId = HospitalViewModel.MAP_VIEW,  // viewId 추가
-                latitude = mapCenter.latitude,
-                longitude = mapCenter.longitude
-            )
-            hideResearchButton()
-            isMapMoved = false
+            try {
+                val mapCenter = naverMap.cameraPosition.target
+                Log.d("MapViewFragment", "Research button clicked. Center: ${mapCenter.latitude}, ${mapCenter.longitude}")
+
+                // 현재 위치 업데이트
+                adapter.updateUserLocation(mapCenter)
+                userLocation = mapCenter // userLocation도 업데이트
+
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        // 페이지네이션 초기화
+                        viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
+
+                        // 현재 보이는 영역의 반경 계산
+                        val radius = calculateRadius(naverMap.contentBounds)
+                            .toInt()
+                            .coerceAtMost(5000) // 최대 5km로 제한
+
+                        // 데이터 로드는 IO 스레드에서 실행
+                        withContext(Dispatchers.IO) {
+                            viewModel.fetchNearbyHospitals(
+                                viewId = HospitalViewModel.MAP_VIEW,
+                                latitude = mapCenter.latitude,
+                                longitude = mapCenter.longitude,
+                                radius = radius,
+                                forceRefresh = true // 강제 새로고침
+                            )
+                        }
+
+                        // UI 상태 업데이트
+                        hideResearchButton()
+                        isMapMoved = false
+
+                    } catch (e: Exception) {
+                        Log.e("MapViewFragment", "Error refreshing hospitals", e)
+                        showError("데이터를 불러오는 중 오류가 발생했습니다")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MapViewFragment", "Error in research button click", e)
+            }
         }
     }
 
