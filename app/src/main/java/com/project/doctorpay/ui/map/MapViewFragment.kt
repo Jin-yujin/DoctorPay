@@ -165,7 +165,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             setupResearchButton()
         } catch (e: IllegalStateException) {
             Log.e("MapViewFragment", "Failed to initialize MapView", e)
-            handleError(e)
         }
     }
 
@@ -1033,7 +1032,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 }
             } catch (e: Exception) {
                 Log.e("MapViewFragment", "Error updating hospitals list", e)
-                handleError(e)
             }
         }
     }
