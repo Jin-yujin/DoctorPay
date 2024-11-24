@@ -2,10 +2,15 @@ package com.project.doctorpay.ui.Detail
 
 import NonPaymentItem
 import android.app.AlertDialog
+import android.content.Context
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -102,9 +107,67 @@ class NonCoveredItemsFragment : Fragment() {
                 })
             }
 
+            // 검색 관련 UI 설정
+            btnSearch.setOnClickListener {
+                searchLayout.isVisible = !searchLayout.isVisible
+                searchDivider.isVisible = searchLayout.isVisible
+                if (searchLayout.isVisible) {
+                    searchEditText.requestFocus()
+                    val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(searchEditText, InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
+
+            btnClearSearch.setOnClickListener {
+                searchEditText.text.clear()
+                adapter.submitList(itemsList.toList())
+                btnClearSearch.visibility = View.GONE
+            }
+
+            searchEditText.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    btnClearSearch.isVisible = !s.isNullOrEmpty()
+                    filterItems(s?.toString() ?: "")
+                }
+            })
+
+            searchEditText.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                    val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+                    true
+                } else {
+                    false
+                }
+            }
+
             btnSort.setOnClickListener {
                 showSortOptions()
             }
+        }
+    }
+
+    private fun filterItems(query: String) {
+        if (query.isBlank()) {
+            adapter.submitList(itemsList.toList())
+            return
+        }
+
+        val filteredList = itemsList.filter { item ->
+            item.npayKorNm?.contains(query, ignoreCase = true) == true ||
+                    item.itemNm?.contains(query, ignoreCase = true) == true
+        }
+
+        if (filteredList.isEmpty()) {
+            binding.emptyStateLayout.isVisible = true
+            binding.emptyStateText.text = "검색 결과가 없습니다."
+            binding.recyclerView.isVisible = false
+        } else {
+            binding.emptyStateLayout.isVisible = false
+            binding.recyclerView.isVisible = true
+            adapter.submitList(filteredList)
         }
     }
 
