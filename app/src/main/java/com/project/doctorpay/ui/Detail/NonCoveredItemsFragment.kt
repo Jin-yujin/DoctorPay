@@ -254,7 +254,13 @@ class NonCoveredItemsFragment : Fragment() {
                     1 -> itemsList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
                     2 -> itemsList.sortBy { it.npayKorNm }
                 }
-                adapter.submitList(itemsList.toList())
+
+                adapter.submitList(itemsList.toList()) {
+                    // submitList의 콜백에서 스크롤 실행
+                    binding.recyclerView.post {
+                        binding.recyclerView.smoothScrollToPosition(0)
+                    }
+                }
             }
             .show()
     }
