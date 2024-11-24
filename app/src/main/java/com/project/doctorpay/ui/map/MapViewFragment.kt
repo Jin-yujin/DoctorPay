@@ -171,23 +171,41 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private fun setupFilter() {
         binding.hospitalFilter.setOnFilterChangedListener { criteria ->
-            viewModel.getFilteredHospitals(HospitalViewModel.MAP_VIEW).value?.let { hospitals ->
-                val filtered = hospitals.filter { hospital ->
-                    val matchesQuery = criteria.searchQuery.isEmpty() ||
-                            hospital.name.contains(criteria.searchQuery, ignoreCase = true) ||
-                            hospital.departments.any { it.contains(criteria.searchQuery, ignoreCase = true) }
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val hospitals = viewModel.getHospitals(HospitalViewModel.MAP_VIEW).value
+                    Log.d("Filter", "Starting filtering process with ${hospitals.size} hospitals")
+                    Log.d("Filter", "Current filter criteria: category=${criteria.category?.categoryName}, emergency=${criteria.emergencyOnly}")
 
-                    val matchesCategory = criteria.category == null ||
-                            hospital.departmentCategories.contains(criteria.category.name)
-
-                    val matchesEmergency = !criteria.emergencyOnly ||
+                    val filtered = hospitals.filter { hospital ->
+                        if (criteria.emergencyOnly) {
+                            // 응급실 필터가 켜져있으면 응급실 운영 여부만 체크
                             hospital.operationState == OperationState.EMERGENCY
+                        } else if (criteria.category != null) {
+                            // 카테고리가 선택되었으면 해당 카테고리만 체크
+                            hospital.departments.any { dept ->
+                                dept == criteria.category.categoryName
+                            }.also {
+                                Log.d("Filter", "Hospital: ${hospital.name}, Departments: ${hospital.departments}, Matches ${criteria.category.categoryName}: $it")
+                            }
+                        } else {
+                            // 아무 필터도 없으면 모든 병원 표시
+                            true
+                        }
+                    }
 
-                    matchesQuery && (matchesCategory || matchesEmergency)
+                    Log.d("Filter", "Filtered down to ${filtered.size} hospitals")
+
+                    withContext(Dispatchers.Main) {
+                        updateMarkers(filtered)
+                        updateHospitalsList(filtered)
+                        binding.hospitalFilter.updateResultCount(filtered.size)
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("Filter", "Error during filtering", e)
+                    showError("필터링 중 오류가 발생했습니다")
                 }
-
-                updateHospitalsList(filtered)
-                binding.hospitalFilter.updateResultCount(filtered.size)
             }
         }
     }

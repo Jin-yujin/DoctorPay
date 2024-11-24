@@ -28,6 +28,19 @@ class HospitalAdapter(
     private val favoriteRepository = FavoriteRepository.getInstance()
     private val favoriteStates = mutableMapOf<String, Boolean>()
 
+    init {
+        registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onChanged() {
+                super.onChanged()
+                Log.d("HospitalAdapter", "Data set changed, new size: ${currentList.size}")
+            }
+
+            override fun onItemRangeChanged(positionStart: Int, itemCount: Int) {
+                super.onItemRangeChanged(positionStart, itemCount)
+                Log.d("HospitalAdapter", "Items changed from $positionStart, count: $itemCount")
+            }
+        })
+    }
     fun updateUserLocation(location: LatLng) {
         Log.d("HospitalAdapter", "Updating user location to: ${location.latitude}, ${location.longitude}")
         userLocation = location
