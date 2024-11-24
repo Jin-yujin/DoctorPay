@@ -109,18 +109,18 @@ class NonCoveredItemsFragment : Fragment() {
 
             // 검색 관련 UI 설정
             btnSearch.setOnClickListener {
-                searchLayout.isVisible = !searchLayout.isVisible
-                searchDivider.isVisible = searchLayout.isVisible
                 if (searchLayout.isVisible) {
-                    searchEditText.requestFocus()
-                    val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.showSoftInput(searchEditText, InputMethodManager.SHOW_IMPLICIT)
+                    // 검색창이 보이는 상태에서 검색 버튼을 누르면 검색 종료
+                    closeSearch()
+                } else {
+                    // 검색창이 숨겨진 상태에서 검색 버튼을 누르면 검색 시작
+                    openSearch()
                 }
             }
 
             btnClearSearch.setOnClickListener {
                 searchEditText.text.clear()
-                adapter.submitList(itemsList.toList())
+                resetSearch()
                 btnClearSearch.visibility = View.GONE
             }
 
@@ -149,9 +149,38 @@ class NonCoveredItemsFragment : Fragment() {
         }
     }
 
+    private fun openSearch() {
+        binding.apply {
+            searchLayout.isVisible = true
+            searchDivider.isVisible = true
+            searchEditText.requestFocus()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(searchEditText, InputMethodManager.SHOW_IMPLICIT)
+        }
+    }
+
+    private fun closeSearch() {
+        binding.apply {
+            searchLayout.isVisible = false
+            searchDivider.isVisible = false
+            searchEditText.text.clear()
+            resetSearch()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+        }
+    }
+
+    private fun resetSearch() {
+        binding.apply {
+            emptyStateLayout.isVisible = false
+            recyclerView.isVisible = true
+            adapter.submitList(itemsList.toList())
+        }
+    }
+
     private fun filterItems(query: String) {
         if (query.isBlank()) {
-            adapter.submitList(itemsList.toList())
+            resetSearch()
             return
         }
 
