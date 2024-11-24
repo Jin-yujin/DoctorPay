@@ -114,23 +114,32 @@ class HospitalListFragment : Fragment() {
         return binding.root
     }
 
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setupObservers()
         setupListeners()
 
-        if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
-            checkLocationPermission()
-        } else {
-            getCurrentLocation() { latitude, longitude ->
-                viewModel.getHospitalsByCategory(
-                    viewId = HospitalViewModel.LIST_VIEW,
-                    category = category,
-                    latitude = latitude,
-                    longitude = longitude
-                )
+        // 데이터가 비어있는 경우에만 로드
+        viewLifecycleOwner.lifecycleScope.launch {
+            val hospitals = viewModel.getHospitals(HospitalViewModel.LIST_VIEW).value
+            if (hospitals.isEmpty()) {
+                if (!viewModel.getViewState(HospitalViewModel.LIST_VIEW).isDataLoaded) {
+                    checkLocationPermission()
+                } else {
+                    getCurrentLocation() { latitude, longitude ->
+                        viewModel.getHospitalsByCategory(
+                            viewId = HospitalViewModel.LIST_VIEW,
+                            category = category,
+                            latitude = latitude,
+                            longitude = longitude
+                        )
+                    }
+                }
+            } else {
+                // 기존 데이터가 있다면 카테고리 필터링만 수행
+                val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
+                updateUI(filteredHospitals)
             }
         }
 
@@ -149,6 +158,7 @@ class HospitalListFragment : Fragment() {
             adapter = this@HospitalListFragment.adapter
             setHasFixedSize(true)
         }
+
 
         binding.checkFilter.apply {
             text = "영업중인 병원만 보기"
@@ -392,6 +402,23 @@ class HospitalListFragment : Fragment() {
                     forceRefresh = true
                 )
             }
+        }
+
+        binding.btnSearch.setOnClickListener {
+            // 현재 위치 정보를 번들에 담아서 전달
+            val searchFragment = HospitalSearchFragment().apply {
+                arguments = Bundle().apply {
+                    userLocation?.let { location ->
+                        putDouble("latitude", location.latitude)
+                        putDouble("longitude", location.longitude)
+                    }
+                }
+            }
+
+            parentFragmentManager.beginTransaction()
+                .add(R.id.fragment_container, searchFragment)
+                .addToBackStack(null)
+                .commit()
         }
     }
 

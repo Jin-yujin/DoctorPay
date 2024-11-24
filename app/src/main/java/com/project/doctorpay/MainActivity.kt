@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.text.TextUtils.replace
+import android.util.Log
 import androidx.activity.viewModels
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.commit
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -147,6 +151,19 @@ class MainActivity : AppCompatActivity() {
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
             finish()
+        }
+    }
+
+    // MainActivity.kt
+    private fun n  (fragment: Fragment) {
+        try {
+            supportFragmentManager.commit {
+                setReorderingAllowed(true)
+                replace(R.id.fragment_container, fragment)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error loading fragment", e)
+            MyApplication.showToast("화면 전환 중 오류가 발생했습니다.")
         }
     }
 

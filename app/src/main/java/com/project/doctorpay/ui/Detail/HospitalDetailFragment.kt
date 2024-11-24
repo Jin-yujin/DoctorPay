@@ -33,6 +33,7 @@ import com.project.doctorpay.ui.favorite.FavoriteFragment
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.db.FavoriteRepository
+import com.project.doctorpay.db.OperationState
 import com.project.doctorpay.network.NetworkModule
 import com.project.doctorpay.ui.calendar.Appointment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
@@ -113,10 +114,69 @@ class HospitalDetailFragment : Fragment() {
 
             // 운영 시간 정보 표시
             hospital.timeInfo?.let { timeInfo ->
-                tvHospitalHoliday.text = when {
-                    timeInfo.isClosed -> "휴진"
-                    else -> "영업중"
+                val currentState = timeInfo.getCurrentState()
+                val currentDayOfWeek = java.time.LocalDate.now().dayOfWeek
+
+                val operationHoursText = buildString {
+                    append(when (currentState) {
+                        OperationState.OPEN -> "영업중\n"
+                        OperationState.LUNCH_BREAK -> {
+                            timeInfo.lunchTime?.let { lunch ->
+                                "점심시간 (${formatTime(lunch.start)} - ${formatTime(lunch.end)})\n"
+                            } ?: "점심시간\n"
+                        }
+                        OperationState.CLOSED -> "영업종료\n"
+                        OperationState.EMERGENCY -> {
+                            when {
+                                timeInfo.isEmergencyDay && timeInfo.isEmergencyNight -> "24시간 응급실 운영\n"
+                                timeInfo.isEmergencyDay -> "주간 응급실 운영\n"
+                                timeInfo.isEmergencyNight -> "야간 응급실 운영\n"
+                                else -> ""
+                            }
+                        }
+                        OperationState.UNKNOWN -> "운영시간 정보 없음"
+                    })
+
+                    if (currentState != OperationState.UNKNOWN) {
+                        append("■ 평일: ")
+                        timeInfo.weekdayTime?.let { time ->
+                            append("${formatTime(time.start)} - ${formatTime(time.end)}")
+                            timeInfo.lunchTime?.let { lunch ->
+                                append(" (점심시간 ${formatTime(lunch.start)} - ${formatTime(lunch.end)})")
+                            }
+                        } ?: append("시간정보 없음")
+                        append("\n")
+
+                        append("■ 토요일: ")
+                        timeInfo.saturdayTime?.let { time ->
+                            append("${formatTime(time.start)} - ${formatTime(time.end)}")
+                            timeInfo.saturdayLunchTime?.let { lunch ->
+                                append(" (점심시간 ${formatTime(lunch.start)} - ${formatTime(lunch.end)})")
+                            }
+                        } ?: append("휴진")
+                        append("\n")
+
+                        append("■ 일요일: ")
+                        timeInfo.sundayTime?.let { time ->
+                            append("${formatTime(time.start)} - ${formatTime(time.end)}")
+                        } ?: append("휴진")
+                        append("\n")
+
+                        if (timeInfo.isEmergencyDay || timeInfo.isEmergencyNight) {
+                            append("■ 응급실: ")
+                            when {
+                                timeInfo.isEmergencyDay && timeInfo.isEmergencyNight -> append("24시간 운영")
+                                timeInfo.isEmergencyDay -> append("주간 운영")
+                                timeInfo.isEmergencyNight -> append("야간 운영")
+                            }
+                            timeInfo.emergencyDayContact?.let { contact ->
+                                append(" (연락처: $contact)")
+                            }
+                        }
+                    }
                 }
+
+                tvHospitalHoliday.text = operationHoursText
 
                 tvNightCare.text = when {
                     timeInfo.isEmergencyNight -> "야간진료: 가능"
@@ -126,6 +186,7 @@ class HospitalDetailFragment : Fragment() {
                 tvHospitalHoliday.text = "운영시간 정보 없음"
                 tvNightCare.text = "야간진료 정보 없음"
             }
+
 
             // 진료과목 표시
             val departmentsText = hospital.departments.joinToString(", ")
@@ -153,6 +214,13 @@ class HospitalDetailFragment : Fragment() {
         }
 
         setupObservers()
+    }
+
+    // 시간 포맷팅을 위한 도우미 함수
+    private fun formatTime(time: java.time.LocalTime?): String {
+        return time?.let {
+            String.format("%02d:%02d", it.hour, it.minute)
+        } ?: "-"
     }
 
     private fun setupObservers() {

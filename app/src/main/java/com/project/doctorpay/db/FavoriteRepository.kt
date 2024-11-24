@@ -1,33 +1,62 @@
 package com.project.doctorpay.db
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreSettings
+import com.google.firebase.firestore.Source
+import com.project.doctorpay.MyApplication
 import kotlinx.coroutines.tasks.await
 
 class FavoriteRepository {
-    private val firestore = FirebaseFirestore.getInstance()
+    private val firestore = FirebaseFirestore.getInstance().apply {
+        firestoreSettings = FirebaseFirestoreSettings.Builder()
+            .setPersistenceEnabled(true)
+            .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+            .build()
+    }
     private val auth = FirebaseAuth.getInstance()
 
     companion object {
         private const val TAG = "FavoriteRepository"
+        private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_FAVORITES = "favorites"
     }
 
-    // Data class for favorite hospital
     data class FavoriteHospital(
         val hospitalID: String = "",
         val userId: String = "",
         val timestamp: Long = 0
     )
 
-    // Check auth and get user ID
     private fun checkAuthAndGetUserId(): String {
         return auth.currentUser?.uid ?: throw IllegalStateException("User must be logged in")
     }
 
-    // Get user favorites collection reference
     private fun getUserFavoritesCollection(userId: String) =
-        firestore.collection("users").document(userId).collection("favorites")
+        firestore.collection(COLLECTION_USERS).document(userId).collection(COLLECTION_FAVORITES)
+
+    private fun handleOfflineOperation(operation: String): Boolean {
+        return !isNetworkAvailable().also { offline ->
+            if (offline) {
+                Log.w(TAG, "Device is offline, $operation operation will be queued")
+            }
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = MyApplication.getInstance()
+            .getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivityManager.activeNetwork
+        val capabilities = connectivityManager.getNetworkCapabilities(network)
+        return capabilities != null && (
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                )
+    }
 
     suspend fun addFavorite(hospital: HospitalInfo) {
         try {
@@ -40,10 +69,13 @@ class FavoriteRepository {
                 timestamp = System.currentTimeMillis()
             )
 
+            handleOfflineOperation("add favorite")
+
             getUserFavoritesCollection(userId)
                 .document(hospital.ykiho)
                 .set(favorite)
                 .await()
+            refreshCache(userId)
 
             Log.d(TAG, "Successfully added favorite for ${hospital.name}")
         } catch (e: Exception) {
@@ -58,10 +90,15 @@ class FavoriteRepository {
     suspend fun removeFavorite(ykiho: String) {
         try {
             val userId = checkAuthAndGetUserId()
+            handleOfflineOperation("remove favorite")
+
             getUserFavoritesCollection(userId)
                 .document(ykiho)
                 .delete()
                 .await()
+            refreshCache(userId)
+
+            Log.d(TAG, "Successfully removed favorite: $ykiho")
         } catch (e: Exception) {
             Log.e(TAG, "Error removing favorite", e)
             when (e) {
@@ -75,7 +112,15 @@ class FavoriteRepository {
         return try {
             val userId = checkAuthAndGetUserId()
             val docRef = getUserFavoritesCollection(userId).document(ykiho)
-            docRef.get().await().exists()
+
+            try {
+                // 먼저 캐시에서 시도
+                docRef.get(Source.CACHE).await().exists()
+            } catch (e: Exception) {
+                Log.d(TAG, "Cache miss, fetching from server for $ykiho")
+                // 캐시 실패 시 서버에서 조회
+                docRef.get(Source.SERVER).await().exists()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error checking favorite status", e)
             false
@@ -85,14 +130,34 @@ class FavoriteRepository {
     suspend fun getFavoriteYkihos(): List<String> {
         return try {
             val userId = checkAuthAndGetUserId()
-            getUserFavoritesCollection(userId)
-                .get()
-                .await()
-                .documents
+            val collection = getUserFavoritesCollection(userId)
+
+            try {
+                // 먼저 캐시에서 시도
+                collection.get(Source.CACHE).await()
+            } catch (e: Exception) {
+                Log.d(TAG, "Cache miss, fetching favorites from server")
+                // 캐시 실패 시 서버에서 조회
+                collection.get(Source.SERVER).await()
+            }.documents
                 .mapNotNull { it.toObject(FavoriteHospital::class.java)?.hospitalID }
+                .also { list ->
+                    Log.d(TAG, "Retrieved ${list.size} favorites for user $userId")
+                }
         } catch (e: Exception) {
             Log.e(TAG, "Error getting favorites", e)
             emptyList()
+        }
+    }
+
+    // 캐시 강제 갱신을 위한 메소드 추가
+    private suspend fun refreshCache(userId: String) {
+        try {
+            getUserFavoritesCollection(userId)
+                .get(Source.SERVER)
+                .await()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error refreshing cache", e)
         }
     }
 }

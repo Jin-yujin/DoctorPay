@@ -480,6 +480,15 @@ class HospitalViewModel(
 
                 if (response.isSuccessful) {
                     val hospitals = processHospitalResponse(response, latitude, longitude)
+
+                    // HOME_VIEW와 LIST_VIEW 모두에 데이터 저장
+                    viewStates[HOME_VIEW]?.hospitals?.value = hospitals
+                    viewStates[LIST_VIEW]?.hospitals?.value = hospitals
+
+                    // isDataLoaded 플래그도 둘 다 true로 설정
+                    viewStates[HOME_VIEW]?.isDataLoaded = true
+                    viewStates[LIST_VIEW]?.isDataLoaded = true
+
                     if (updateGlobalCache) {
                         globalCache = hospitals
                         globalCacheTime = System.currentTimeMillis()

@@ -1,5 +1,8 @@
 package com.project.doctorpay.ui.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Location
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -7,9 +10,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.gms.location.LocationServices
+import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
@@ -19,6 +26,7 @@ import com.project.doctorpay.db.HospitalInfo
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
+import com.project.doctorpay.ui.hospitalList.HospitalSearchFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -28,6 +36,7 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
 
     private lateinit var viewModel: HospitalViewModel
+    private var userLocation: LatLng? = null
 
     companion object {
         fun newInstance(viewModel: HospitalViewModel) = HomeFragment().apply {
@@ -38,11 +47,27 @@ class HomeFragment : Fragment() {
     private lateinit var adapter: HospitalAdapter
 
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        when {
+            permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                    permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true -> {
+                loadHospitals()
+            }
+            else -> {
+                loadDefaultLocation()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (!::viewModel.isInitialized) {
             viewModel = (requireActivity() as MainActivity).hospitalViewModel
         }
+
+
     }
 
     override fun onCreateView(
@@ -63,14 +88,66 @@ class HomeFragment : Fragment() {
         loadHospitals()
     }
 
+
     private fun loadHospitals() {
-        // 서울 중랑구의 기본 좌표값 사용
-        val latitude = 37.6065
-        val longitude = 127.0927
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED) {
+            // 위치 권한이 있는 경우
+            getCurrentLocation()
+        } else {
+            // 위치 권한 요청
+            requestPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    private fun getCurrentLocation() {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        try {
+            if (ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED) {
+
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    location?.let {
+                        val newLocation = LatLng(it.latitude, it.longitude)
+                        userLocation = newLocation  // userLocation 업데이트
+                        adapter.updateUserLocation(newLocation)
+                        viewModel.fetchNearbyHospitals(
+                            viewId = HospitalViewModel.HOME_VIEW,
+                            latitude = it.latitude,
+                            longitude = it.longitude,
+                            radius = HospitalViewModel.DEFAULT_RADIUS
+                        )
+                    } ?: loadDefaultLocation()
+                }
+            } else {
+                loadDefaultLocation()
+            }
+        } catch (e: SecurityException) {
+            loadDefaultLocation()
+        } catch (e: Exception) {
+            loadDefaultLocation()
+        }
+    }
+
+    private fun loadDefaultLocation() {
+        val defaultLat = 37.5666805
+        val defaultLng = 127.0784147
+        val defaultLocation = LatLng(defaultLat, defaultLng)
+        userLocation = defaultLocation
+        adapter.updateUserLocation(defaultLocation)
         viewModel.fetchNearbyHospitals(
             viewId = HospitalViewModel.HOME_VIEW,
-            latitude = latitude,
-            longitude = longitude,
+            latitude = defaultLat,
+            longitude = defaultLng,
             radius = HospitalViewModel.DEFAULT_RADIUS
         )
     }
@@ -100,28 +177,24 @@ class HomeFragment : Fragment() {
         binding.recyclerView.adapter = adapter
     }
 
-    private fun setupSearchButton() {
-        binding.searchButton.setOnClickListener {
-            val searchQuery = binding.searchEditText.text.toString().trim()
-            if (searchQuery.isEmpty()) {
-                viewModel.resetSearch(HospitalViewModel.HOME_VIEW)
-            } else {
-                viewModel.searchHospitals(HospitalViewModel.HOME_VIEW, searchQuery)
-            }
-        }
 
-        binding.searchEditText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val query = s.toString().trim()
-                if (query.isEmpty()) {
-                    viewModel.resetSearch(HospitalViewModel.HOME_VIEW)
-                } else if (query.length >= 2) {
-                    viewModel.searchHospitals(HospitalViewModel.HOME_VIEW, query)
+    private fun setupSearchButton() {
+        binding.searchCard.setOnClickListener {
+            // 현재 위치 정보를 HospitalSearchFragment에 전달
+            val searchFragment = HospitalSearchFragment().apply {
+                arguments = Bundle().apply {
+                    userLocation?.let { location ->
+                        putDouble("latitude", location.latitude)
+                        putDouble("longitude", location.longitude)
+                    }
                 }
             }
-        })
+
+            parentFragmentManager.beginTransaction()
+                .add(R.id.fragment_container, searchFragment)
+                .addToBackStack(null)
+                .commit()
+        }
     }
 
     private fun setupCategoryButtons() {
@@ -150,8 +223,19 @@ class HomeFragment : Fragment() {
 
     private fun setupObservers() {
         viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.getHospitals(HospitalViewModel.LIST_VIEW).collectLatest { hospitals ->
+                if (hospitals.isEmpty()) {
+                    loadHospitals()
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getHospitals(HospitalViewModel.HOME_VIEW).collectLatest { hospitals ->
-                adapter.submitList(hospitals)
+                if (hospitals.isNotEmpty()) {
+                    val sortedHospitals = sortHospitalsByDistance(hospitals)
+                    adapter.submitList(sortedHospitals)
+                }
             }
         }
 
@@ -159,6 +243,27 @@ class HomeFragment : Fragment() {
             viewModel.getError(HospitalViewModel.HOME_VIEW).collectLatest { error ->
                 error?.let { showError(it) }
             }
+        }
+    }
+
+    private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
+        val currentLocation = userLocation
+        return if (currentLocation != null) {
+            hospitals.sortedBy { hospital ->
+                val results = FloatArray(1)
+                try {
+                    Location.distanceBetween(
+                        currentLocation.latitude, currentLocation.longitude,
+                        hospital.latitude, hospital.longitude,
+                        results
+                    )
+                    results[0]
+                } catch (e: Exception) {
+                    Float.MAX_VALUE
+                }
+            }
+        } else {
+            hospitals
         }
     }
 
