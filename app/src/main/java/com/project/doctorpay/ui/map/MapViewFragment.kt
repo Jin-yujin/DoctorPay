@@ -2,6 +2,7 @@ package com.project.doctorpay.ui.map
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -50,6 +51,7 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.snackbar.Snackbar
+import com.project.doctorpay.db.OperationState
 import kotlinx.coroutines.withTimeout
 
 class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.HospitalDetailListener {
@@ -67,6 +69,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
     private lateinit var adapter: HospitalAdapter
+
+    private var locationCallback: LocationCallback? = null
+    private var isFragmentActive = false
 
     // locationSource를 lazy로 초기화
     private val locationSource: FusedLocationSource by lazy {
@@ -89,7 +94,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private val markerPool = mutableListOf<Marker>()
     private var lastUpdateTime = 0L
 
-    private val favoriteRepository = FavoriteRepository()
+    private val favoriteRepository = FavoriteRepository.getInstance()
     private var selectedMarkerBottomSheet: BottomSheetDialog? = null
     private val UPDATE_INTERVAL = 100L
 
@@ -128,12 +133,23 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupViews(savedInstanceState)
+        setupFilter()
         setupObservers()
 
         // 초기 데이터 로드 추가
         if (!isInitialDataLoaded) {
             loadInitialData()
         }
+    }
+
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        isFragmentActive = true
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        isFragmentActive = false
     }
 
     private fun setupViews(savedInstanceState: Bundle?) {
@@ -153,6 +169,28 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+    private fun setupFilter() {
+        binding.hospitalFilter.setOnFilterChangedListener { criteria ->
+            viewModel.getFilteredHospitals(HospitalViewModel.MAP_VIEW).value?.let { hospitals ->
+                val filtered = hospitals.filter { hospital ->
+                    val matchesQuery = criteria.searchQuery.isEmpty() ||
+                            hospital.name.contains(criteria.searchQuery, ignoreCase = true) ||
+                            hospital.departments.any { it.contains(criteria.searchQuery, ignoreCase = true) }
+
+                    val matchesCategory = criteria.category == null ||
+                            hospital.departmentCategories.contains(criteria.category.name)
+
+                    val matchesEmergency = !criteria.emergencyOnly ||
+                            hospital.operationState == OperationState.EMERGENCY
+
+                    matchesQuery && (matchesCategory || matchesEmergency)
+                }
+
+                updateHospitalsList(filtered)
+                binding.hospitalFilter.updateResultCount(filtered.size)
+            }
+        }
+    }
 
     override fun onMapReady(map: NaverMap) {
         if (!isAdded) return
@@ -212,14 +250,21 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
 
     private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            requireContext(),
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
+        return try {
+            if (!isAdded) return false
+
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(
+                        requireContext(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+        } catch (e: Exception) {
+            Log.e("MapViewFragment", "Error checking location permission", e)
+            false
+        }
     }
 
     private fun loadInitialData() {
@@ -416,6 +461,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getIsLoading(HospitalViewModel.MAP_VIEW).collect { isLoading ->
                 isDataLoading = isLoading
+                updateLoadingState(isLoading)  // 로딩 상태 UI 업데이트
             }
         }
 
@@ -427,6 +473,35 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+    private fun updateLoadingState(isLoading: Boolean) {
+        binding.apply {
+            // 로딩 중일 때
+            if (isLoading) {
+                // 로딩 표시
+                progressBar.visibility = View.VISIBLE
+                loadingText.visibility = View.VISIBLE
+                loadingText.text = "주변 병원을 검색하고 있습니다..."
+
+                // 기존 목록은 반투명하게 처리
+                hospitalRecyclerView.alpha = 0.5f
+
+                // 마커도 반투명하게
+                markers.forEach { marker ->
+                    marker.alpha = 0.5f
+                }
+            } else {
+                // 로딩 완료 시
+                progressBar.visibility = View.GONE
+                loadingText.visibility = View.GONE
+
+                // 목록과 마커 원상 복구
+                hospitalRecyclerView.alpha = 1.0f
+                markers.forEach { marker ->
+                    marker.alpha = 1.0f
+                }
+            }
+        }
+    }
 
 
     private fun showMessage(message: String) {
@@ -587,6 +662,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
                     viewLifecycleOwner.lifecycleScope.launch {
                         try {
+
+                            // 필터 초기화 추가
+                            binding.hospitalFilter.resetFilters()
                             // 페이지네이션 초기화
                             viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
 
@@ -643,17 +721,18 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             category = hospital.departmentCategories.firstOrNull() ?: ""
         )
 
-        // Bundle 대신 직접 HospitalInfo 설정
         hospitalDetailFragment.setHospitalInfo(hospital)
         hospitalDetailFragment.setHospitalDetailListener(this)
+
+        // 필터링 바 숨기기 추가
+        binding.hospitalFilter.visibility = View.GONE
+        binding.hospitalRecyclerView.visibility = View.GONE
+        binding.hospitalDetailContainer.visibility = View.VISIBLE
 
         childFragmentManager.beginTransaction()
             .replace(R.id.hospitalDetailContainer, hospitalDetailFragment)
             .addToBackStack(null)
             .commit()
-
-        binding.hospitalRecyclerView.visibility = View.GONE
-        binding.hospitalDetailContainer.visibility = View.VISIBLE
 
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
@@ -662,9 +741,13 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         showHospitalList()
     }
 
+
     private fun showHospitalList() {
+        // 필터링 바 다시 보이게 하기 추가
+        binding.hospitalFilter.visibility = View.VISIBLE
         binding.hospitalRecyclerView.visibility = View.VISIBLE
         binding.hospitalDetailContainer.visibility = View.GONE
+
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
@@ -673,6 +756,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             try {
                 val mapCenter = naverMap.cameraPosition.target
                 Log.d("MapViewFragment", "Research button clicked. Center: ${mapCenter.latitude}, ${mapCenter.longitude}")
+
+                // 필터 초기화
+                binding.hospitalFilter.resetFilters()
 
                 // 현재 위치 업데이트
                 adapter.updateUserLocation(mapCenter)
@@ -782,25 +868,34 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 maxWaitTime = 15000
             }
 
-            val locationCallback = object : LocationCallback() {
+            // Create the location callback
+            locationCallback = object : LocationCallback() {
                 override fun onLocationResult(locationResult: LocationResult) {
-                    if (!hasLocationPermission()) {
-                        Log.d("MapViewFragment", "Location permission lost during tracking")
+                    // Check if fragment is still active before processing location updates
+                    if (!isFragmentActive) {
+                        removeLocationUpdates()
                         return
                     }
 
                     try {
+                        if (!isAdded || !hasLocationPermission()) {
+                            Log.d("MapViewFragment", "Location permission lost during tracking")
+                            return
+                        }
+
                         locationResult.lastLocation?.let { location ->
                             val newUserLocation = LatLng(location.latitude, location.longitude)
                             userLocation = newUserLocation
 
                             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
                                 try {
-                                    adapter.updateUserLocation(newUserLocation)
-                                    if (!isInitialLocationSet) {
-                                        isInitialLocationSet = true
-                                        naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
-                                        loadDataWithLocation(newUserLocation)
+                                    if (isAdded) {  // Double-check we're still attached
+                                        adapter.updateUserLocation(newUserLocation)
+                                        if (!isInitialLocationSet) {
+                                            isInitialLocationSet = true
+                                            naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
+                                            loadDataWithLocation(newUserLocation)
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     Log.e("MapViewFragment", "Error updating UI with new location", e)
@@ -814,13 +909,15 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
 
             try {
-                fusedLocationClient.requestLocationUpdates(
-                    locationRequest,
-                    locationCallback,
-                    Looper.getMainLooper()
-                ).addOnFailureListener { e ->
-                    Log.e("MapViewFragment", "Failed to request location updates", e)
-                    loadDefaultLocation()
+                locationCallback?.let { callback ->
+                    fusedLocationClient.requestLocationUpdates(
+                        locationRequest,
+                        callback,
+                        Looper.getMainLooper()
+                    ).addOnFailureListener { e ->
+                        Log.e("MapViewFragment", "Failed to request location updates", e)
+                        loadDefaultLocation()
+                    }
                 }
             } catch (e: SecurityException) {
                 Log.e("MapViewFragment", "Security exception requesting location updates", e)
@@ -836,6 +933,17 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
+    private fun removeLocationUpdates() {
+        try {
+            locationCallback?.let { callback ->
+                fusedLocationClient.removeLocationUpdates(callback)
+            }
+            locationCallback = null
+        } catch (e: Exception) {
+            Log.e("MapViewFragment", "Error removing location updates", e)
+        }
+    }
 
     private fun loadDefaultLocation() {
         val defaultLocation = LatLng(37.5666805, 127.0784147) // 서울 중심부
@@ -1013,6 +1121,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     override fun onDestroyView() {
         super.onDestroyView()
+        removeLocationUpdates()
         _naverMap = null
         isMapReady = false
         pendingLocationUpdate = null
@@ -1021,6 +1130,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         markers.clear()
         markerPool.clear()
         _binding = null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        removeLocationUpdates()
     }
 
     private fun toggleBottomSheetState() {

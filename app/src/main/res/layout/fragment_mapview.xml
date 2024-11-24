@@ -13,7 +13,37 @@
             android:id="@+id/map_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
+        <FrameLayout
+            android:id="@+id/loadingContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:background="#80000000"
+            android:padding="8dp">
 
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:orientation="horizontal"
+                android:gravity="center">
+
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/loadingText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textColor="@android:color/white"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+        </FrameLayout>
         <android.widget.Button
             android:id="@+id/researchButton"
             android:layout_width="wrap_content"
@@ -58,7 +88,6 @@
             android:background="@color/signature_color1"
             android:orientation="horizontal"
             android:gravity="center_vertical">
-
             <ImageView
                 android:layout_width="match_parent"
                 android:layout_height="20dp"
@@ -75,8 +104,13 @@
                 android:padding="5dp"
                 android:contentDescription="Expand" />
 
-
         </LinearLayout>
+
+
+        <com.project.doctorpay.ui.map.HospitalFilterComponent
+            android:id="@+id/hospitalFilter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
 
 
 

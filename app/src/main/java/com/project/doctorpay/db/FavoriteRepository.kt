@@ -11,20 +11,37 @@ import com.google.firebase.firestore.Source
 import com.project.doctorpay.MyApplication
 import kotlinx.coroutines.tasks.await
 
-class FavoriteRepository {
-    private val firestore = FirebaseFirestore.getInstance().apply {
-        firestoreSettings = FirebaseFirestoreSettings.Builder()
-            .setPersistenceEnabled(true)
-            .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
-            .build()
-    }
-    private val auth = FirebaseAuth.getInstance()
-
+class FavoriteRepository private constructor() {
     companion object {
         private const val TAG = "FavoriteRepository"
         private const val COLLECTION_USERS = "users"
         private const val COLLECTION_FAVORITES = "favorites"
+
+        @Volatile
+        private var instance: FavoriteRepository? = null
+        private var initialized = false
+
+        fun getInstance(): FavoriteRepository {
+            return instance ?: synchronized(this) {
+                instance ?: FavoriteRepository().also { instance = it }
+            }
+        }
+
+        fun initialize() {
+            synchronized(this) {
+                if (!initialized) {
+                    FirebaseFirestore.getInstance().firestoreSettings = FirebaseFirestoreSettings.Builder()
+                        .setPersistenceEnabled(true)
+                        .setCacheSizeBytes(FirebaseFirestoreSettings.CACHE_SIZE_UNLIMITED)
+                        .build()
+                    initialized = true
+                }
+            }
+        }
     }
+
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
 
     data class FavoriteHospital(
         val hospitalID: String = "",
@@ -114,11 +131,9 @@ class FavoriteRepository {
             val docRef = getUserFavoritesCollection(userId).document(ykiho)
 
             try {
-                // 먼저 캐시에서 시도
                 docRef.get(Source.CACHE).await().exists()
             } catch (e: Exception) {
                 Log.d(TAG, "Cache miss, fetching from server for $ykiho")
-                // 캐시 실패 시 서버에서 조회
                 docRef.get(Source.SERVER).await().exists()
             }
         } catch (e: Exception) {
@@ -133,11 +148,9 @@ class FavoriteRepository {
             val collection = getUserFavoritesCollection(userId)
 
             try {
-                // 먼저 캐시에서 시도
                 collection.get(Source.CACHE).await()
             } catch (e: Exception) {
                 Log.d(TAG, "Cache miss, fetching favorites from server")
-                // 캐시 실패 시 서버에서 조회
                 collection.get(Source.SERVER).await()
             }.documents
                 .mapNotNull { it.toObject(FavoriteHospital::class.java)?.hospitalID }
@@ -150,7 +163,6 @@ class FavoriteRepository {
         }
     }
 
-    // 캐시 강제 갱신을 위한 메소드 추가
     private suspend fun refreshCache(userId: String) {
         try {
             getUserFavoritesCollection(userId)

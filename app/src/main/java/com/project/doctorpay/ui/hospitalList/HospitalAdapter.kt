@@ -25,7 +25,7 @@ class HospitalAdapter(
 ) : ListAdapter<HospitalInfo, HospitalAdapter.HospitalViewHolder>(HospitalDiffCallback()) {
 
     private var userLocation: LatLng? = null
-    private val favoriteRepository = FavoriteRepository()
+    private val favoriteRepository = FavoriteRepository.getInstance()
     private val favoriteStates = mutableMapOf<String, Boolean>()
 
     fun updateUserLocation(location: LatLng) {

@@ -51,7 +51,7 @@ class HospitalDetailFragment : Fragment() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val favoriteRepository = FavoriteRepository()
+    private val favoriteRepository = FavoriteRepository.getInstance()
     private lateinit var hospital: HospitalInfo
     private var isFromMap: Boolean = false
     private var category: String = ""

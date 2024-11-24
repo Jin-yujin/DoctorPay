@@ -47,15 +47,9 @@ data class HospitalTimeInfo(
     val isEmergencyNight: Boolean,
     val emergencyDayContact: String?,
     val emergencyNightContact: String?,
-    val isClosed: Boolean = false,
-    val timeInfo: HospitalTimeInfo? = null
+    val isClosed: Boolean = false
+    // timeInfo 필드 제거
 ) {
-    val operationState: OperationState
-        get() = timeInfo?.getCurrentState() ?: OperationState.UNKNOWN
-
-    val stateText: String
-        get() = operationState.toDisplayText()
-
     fun getCurrentState(): OperationState {
         if (isClosed) return OperationState.CLOSED
         if (isEmergencyDay || isEmergencyNight) return OperationState.EMERGENCY
@@ -70,7 +64,13 @@ data class HospitalTimeInfo(
         }
 
         return when {
-            timeRange?.start == null || timeRange.end == null -> OperationState.UNKNOWN
+            timeRange?.start == null || timeRange.end == null -> {
+                if (currentDay == DayOfWeek.SUNDAY) {
+                    OperationState.CLOSED  // 일요일이고 시간 정보가 없으면 휴무로 처리
+                } else {
+                    OperationState.UNKNOWN
+                }
+            }
             currentTime.isAfter(timeRange.start) && currentTime.isBefore(timeRange.end) -> {
                 val lunchTimeRange = if (currentDay == DayOfWeek.SATURDAY) {
                     saturdayLunchTime
