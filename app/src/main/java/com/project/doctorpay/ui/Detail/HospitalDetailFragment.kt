@@ -1,6 +1,7 @@
 package com.project.doctorpay.ui.Detail
 
 import NonPaymentItem
+import RecentHospitalRepository
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
@@ -96,6 +97,10 @@ class HospitalDetailFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // 최근 본 병원에 추가
+        val recentHospitalRepository = RecentHospitalRepository(requireContext())
+        recentHospitalRepository.addRecentHospital(hospital)
+
         isViewCreated = true
         updateUI(hospital)  // 기존 hospital 정보로 UI 업데이트
         setupClickListeners()

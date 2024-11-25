@@ -1,5 +1,7 @@
 package com.project.doctorpay.ui.home
 
+import RecentHospitalAdapter
+import RecentHospitalRepository
 import android.Manifest
 import android.content.pm.PackageManager
 import android.location.Location
@@ -37,6 +39,9 @@ class HomeFragment : Fragment() {
 
     private lateinit var viewModel: HospitalViewModel
     private var userLocation: LatLng? = null
+
+    private lateinit var recentHospitalAdapter: RecentHospitalAdapter
+    private lateinit var recentHospitalRepository: RecentHospitalRepository
 
     companion object {
         fun newInstance(viewModel: HospitalViewModel) = HomeFragment().apply {
@@ -86,8 +91,28 @@ class HomeFragment : Fragment() {
         setupCategoryButtons()
         setupObservers()
         loadHospitals()
+        setupRecentHospitals()
     }
 
+    private fun setupRecentHospitals() {
+        recentHospitalRepository = RecentHospitalRepository(requireContext())
+        recentHospitalAdapter = RecentHospitalAdapter(
+            onItemClick = { hospital -> navigateToHospitalDetail(hospital) }
+        )
+
+        binding.rvRecentHospitals.apply {
+            layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+            adapter = recentHospitalAdapter
+        }
+
+        // 최근 본 병원 목록 업데이트
+        updateRecentHospitals()
+    }
+
+    private fun updateRecentHospitals() {
+        val recentHospitals = recentHospitalRepository.getRecentHospitals()
+        recentHospitalAdapter.submitList(recentHospitals)
+    }
 
     private fun loadHospitals() {
         if (ContextCompat.checkSelfPermission(
