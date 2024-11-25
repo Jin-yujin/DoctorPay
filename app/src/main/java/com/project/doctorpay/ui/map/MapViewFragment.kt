@@ -163,13 +163,28 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun setupViews(savedInstanceState: Bundle?) {
+        binding.apply {
+            // 로딩 프로그레스 바 추가
+            loadingProgress.visibility = View.GONE
+
+            // 에러 메시지 뷰 추가
+            errorView.apply {
+                visibility = View.GONE
+                setOnClickListener {
+                    // 에러 뷰 클릭 시 재시도
+                    visibility = View.GONE
+                    loadHospitalsForVisibleRegion()
+                }
+            }
+
+            // 빈 데이터 메시지 뷰 추가
+            emptyView.visibility = View.GONE
+        }
+
+        // 기존 setupViews 로직
         try {
             binding.mapView.onCreate(savedInstanceState)
             binding.mapView.getMapAsync(this)
-
-            // 마커 풀 초기화
-            repeat(50) { markerPool.add(createMarkerStyle()) }
-
             setupBottomSheet()
             setupRecyclerView()
             setupReturnToLocationButton()
@@ -1176,8 +1191,19 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                     } ?: hospitals
 
                     withContext(Dispatchers.Main) {
+                        binding.errorView.visibility = View.GONE // 성공 시 에러 뷰 숨김
                         adapter.submitList(sortedHospitals)
                         updateBottomSheetState(sortedHospitals)
+
+                        // 데이터가 없는 경우 처리
+                        if (sortedHospitals.isEmpty()) {
+                            binding.emptyView.apply {
+                                visibility = View.VISIBLE
+                                text = "주변에 병원 정보가 없습니다."
+                            }
+                        } else {
+                            binding.emptyView.visibility = View.GONE
+                        }
                     }
                 }
             } catch (e: Exception) {

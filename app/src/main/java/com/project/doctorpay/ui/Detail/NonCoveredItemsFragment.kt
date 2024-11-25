@@ -2,11 +2,19 @@ package com.project.doctorpay.ui.Detail
 
 import NonPaymentItem
 import android.app.AlertDialog
+import android.content.Context
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.RadioGroup
+import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -14,6 +22,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
+import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentNonCoveredItemsBinding
@@ -28,6 +41,10 @@ class NonCoveredItemsFragment : Fragment() {
     private var _binding: FragmentNonCoveredItemsBinding? = null
     private val binding get() = _binding!!
     private val fragmentScope = CoroutineScope(Dispatchers.Main + Job())
+
+    private val selectedCategories = mutableSetOf<String>()
+    private var filterBottomSheet: BottomSheetDialog? = null
+    private var currentFilter: (() -> Unit)? = null
 
     private var currentPage = 1
     private var isLoading = false
@@ -102,9 +119,204 @@ class NonCoveredItemsFragment : Fragment() {
                 })
             }
 
-            btnSort.setOnClickListener {
-                showSortOptions()
+            // 검색 관련 UI 설정
+            btnSearch.setOnClickListener {
+                if (searchLayout.isVisible) {
+                    // 검색창이 보이는 상태에서 검색 버튼을 누르면 검색 종료
+                    closeSearch()
+                } else {
+                    // 검색창이 숨겨진 상태에서 검색 버튼을 누르면 검색 시작
+                    openSearch()
+                }
             }
+
+            btnClearSearch.setOnClickListener {
+                searchEditText.text.clear()
+                resetSearch()
+                btnClearSearch.visibility = View.GONE
+            }
+
+            searchEditText.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    btnClearSearch.isVisible = !s.isNullOrEmpty()
+                    filterItems(s?.toString() ?: "")
+                }
+            })
+
+            searchEditText.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                    val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+                    true
+                } else {
+                    false
+                }
+            }
+
+            btnFilter.setOnClickListener {
+                showFilterBottomSheet()
+            }
+        }
+    }
+
+    private fun showFilterBottomSheet() {
+        val bottomSheetView = LayoutInflater.from(requireContext())
+            .inflate(R.layout.bottom_sheet_category_filter, null)
+
+        filterBottomSheet = BottomSheetDialog(requireContext()).apply {
+            setContentView(bottomSheetView)
+        }
+
+        val categoryGroup = bottomSheetView.findViewById<ChipGroup>(R.id.categoryFilterGroup)
+        val sortGroup = bottomSheetView.findViewById<RadioGroup>(R.id.sortGroup)
+        val btnReset = bottomSheetView.findViewById<TextView>(R.id.btnReset)
+        val btnApply = bottomSheetView.findViewById<MaterialButton>(R.id.btnApplyFilter)
+
+        // 이전 선택 상태 복원
+        categoryGroup.children.filterIsInstance<Chip>().forEach { chip ->
+            chip.isChecked = selectedCategories.contains(chip.text.toString())
+        }
+
+        // 초기화 버튼
+        btnReset.setOnClickListener {
+            categoryGroup.clearCheck()
+            sortGroup.clearCheck()
+            selectedCategories.clear()
+        }
+
+        // 필터 적용 버튼
+        btnApply.setOnClickListener {
+            // 카테고리 필터 적용
+            selectedCategories.clear()
+            categoryGroup.checkedChipIds.forEach { chipId ->
+                categoryGroup.findViewById<Chip>(chipId)?.text?.toString()?.let {
+                    selectedCategories.add(it)
+                }
+            }
+
+            // 정렬 적용
+            when (sortGroup.checkedRadioButtonId) {
+                R.id.rbPriceHigh -> itemsList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
+                R.id.rbPriceLow -> itemsList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
+                R.id.rbName -> itemsList.sortBy { it.npayKorNm }
+            }
+
+            // 필터와 정렬이 적용된 리스트 표시
+            applyFilterAndSort()
+            filterBottomSheet?.dismiss()
+
+            // 스크롤을 맨 위로 이동
+            binding.recyclerView.post {
+                binding.recyclerView.smoothScrollToPosition(0)
+            }
+        }
+
+        filterBottomSheet?.show()
+    }
+
+    private fun applyFilterAndSort() {
+        if (selectedCategories.isEmpty()) {
+            // 선택된 카테고리가 없으면 전체 목록 표시 (정렬만 적용)
+            currentFilter = null
+            adapter.submitList(itemsList.toList())
+            return
+        }
+
+        // 필터 함수 저장
+        currentFilter = {
+            val filteredList = itemsList.filter { item ->
+                val category = getCategoryFromItem(item)
+                selectedCategories.contains(category)
+            }
+
+            if (filteredList.isEmpty()) {
+                binding.emptyStateLayout.isVisible = true
+                binding.emptyStateText.text = "선택한 카테고리의 항목이 없습니다."
+                binding.recyclerView.isVisible = false
+            } else {
+                binding.emptyStateLayout.isVisible = false
+                binding.recyclerView.isVisible = true
+                adapter.submitList(filteredList)
+            }
+        }
+
+        // 필터 적용
+        currentFilter?.invoke()
+    }
+
+    private fun getCategoryFromItem(item: NonPaymentItem): String {
+        // 항목명이나 코드를 기반으로 카테고리 분류
+        return when {
+            item.npayKorNm?.contains("검사") == true ||
+                    item.npayKorNm?.contains("검진") == true -> "검사/검진"
+
+            item.npayKorNm?.contains("수술") == true -> "수술"
+
+            item.npayKorNm?.contains("재료") == true ||
+                    item.npayKorNm?.contains("치료재료") == true -> "치료재료"
+
+            item.npayKorNm?.contains("주사") == true -> "주사"
+
+            item.npayKorNm?.contains("약") == true ||
+                    item.npayKorNm?.contains("약제") == true -> "약제"
+
+            item.npayKorNm?.contains("증명") == true ||
+                    item.npayKorNm?.contains("확인") == true -> "제증명"
+
+            else -> "기타"
+        }
+    }
+
+    private fun openSearch() {
+        binding.apply {
+            searchLayout.isVisible = true
+            searchDivider.isVisible = true
+            searchEditText.requestFocus()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(searchEditText, InputMethodManager.SHOW_IMPLICIT)
+        }
+    }
+
+    private fun closeSearch() {
+        binding.apply {
+            searchLayout.isVisible = false
+            searchDivider.isVisible = false
+            searchEditText.text.clear()
+            resetSearch()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+        }
+    }
+
+    private fun resetSearch() {
+        binding.apply {
+            emptyStateLayout.isVisible = false
+            recyclerView.isVisible = true
+            adapter.submitList(itemsList.toList())
+        }
+    }
+
+    private fun filterItems(query: String) {
+        if (query.isBlank()) {
+            resetSearch()
+            return
+        }
+
+        val filteredList = itemsList.filter { item ->
+            item.npayKorNm?.contains(query, ignoreCase = true) == true ||
+                    item.itemNm?.contains(query, ignoreCase = true) == true
+        }
+
+        if (filteredList.isEmpty()) {
+            binding.emptyStateLayout.isVisible = true
+            binding.emptyStateText.text = "검색 결과가 없습니다."
+            binding.recyclerView.isVisible = false
+        } else {
+            binding.emptyStateLayout.isVisible = false
+            binding.recyclerView.isVisible = true
+            adapter.submitList(filteredList)
         }
     }
 
@@ -122,7 +334,14 @@ class NonCoveredItemsFragment : Fragment() {
                     } else {
                         hideEmptyState()
                         itemsList.addAll(result.items)
-                        adapter.submitList(itemsList.toList())
+
+                        // 필터가 적용된 상태라면 필터 적용, 아니면 전체 리스트 표시
+                        if (currentFilter != null) {
+                            currentFilter?.invoke()
+                        } else {
+                            adapter.submitList(itemsList.toList())
+                        }
+
                         hasMoreItems = result.hasMore
                     }
                 } catch (e: Exception) {
@@ -152,21 +371,6 @@ class NonCoveredItemsFragment : Fragment() {
         binding.progressBar.isVisible = false
     }
 
-    private fun showSortOptions() {
-        val options = arrayOf("금액 높은 순", "금액 낮은 순", "이름 순")
-        AlertDialog.Builder(requireContext())
-            .setTitle("정렬 방식 선택")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> itemsList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
-                    1 -> itemsList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
-                    2 -> itemsList.sortBy { it.npayKorNm }
-                }
-                adapter.submitList(itemsList.toList())
-            }
-            .show()
-    }
-
     private fun observeViewState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getIsLoading(HospitalViewModel.DETAIL_VIEW).collect { isLoading ->
@@ -182,7 +386,6 @@ class NonCoveredItemsFragment : Fragment() {
             }
         }
     }
-
 
     private fun showEmptyState() {
         binding.apply {
@@ -210,6 +413,7 @@ class NonCoveredItemsFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        filterBottomSheet = null
         fragmentScope.cancel()
         super.onDestroyView()
         _binding = null
