@@ -119,8 +119,11 @@ data class DgsbjtInfoItems(
 @Parcelize
 @Root(strict = false, name = "item")
 data class NonPaymentItem(
+    @field:Element(name = "ykiho", required = false)
+    var ykiho: String? = null,
+
     @field:Element(name = "yadmNm", required = false)
-    var yadmNm: String? = null,  // val -> var 로 변경
+    var yadmNm: String? = null,
 
     @field:Element(name = "clCd", required = false)
     var clCd: String? = null,

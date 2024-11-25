@@ -202,24 +202,39 @@ class HomeFragment : Fragment() {
         binding.recyclerView.adapter = adapter
     }
 
-
     private fun setupSearchButton() {
-        binding.searchCard.setOnClickListener {
-            // 현재 위치 정보를 HospitalSearchFragment에 전달
-            val searchFragment = HospitalSearchFragment().apply {
-                arguments = Bundle().apply {
-                    userLocation?.let { location ->
-                        putDouble("latitude", location.latitude)
-                        putDouble("longitude", location.longitude)
-                    }
-                }
+        binding.apply {
+            hospitalSearchLayout.setOnClickListener {
+                navigateToHospitalSearch()
             }
 
-            parentFragmentManager.beginTransaction()
-                .add(R.id.fragment_container, searchFragment)
-                .addToBackStack(null)
-                .commit()
+            nonPaymentSearchLayout.setOnClickListener {
+                navigateToNonPaymentSearch()
+            }
         }
+    }
+
+    private fun navigateToHospitalSearch() {
+        val searchFragment = HospitalSearchFragment().apply {
+            arguments = Bundle().apply {
+                userLocation?.let { location ->
+                    putDouble("latitude", location.latitude)
+                    putDouble("longitude", location.longitude)
+                }
+            }
+        }
+
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, searchFragment)
+            .addToBackStack(null)
+            .commit()
+    }
+
+    private fun navigateToNonPaymentSearch() {
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, NonPaymentSearchFragment.newInstance())
+            .addToBackStack(null)
+            .commit()
     }
 
     private fun setupCategoryButtons() {

@@ -379,11 +379,9 @@ class HospitalViewModel(
         }
     }
 
-
     suspend fun fetchNonPaymentDetails(viewId: String, ykiho: String): List<NonPaymentItem> {
         return fetchNonPaymentItemsOnly(ykiho)  // 단순히 비급여 정보만 가져오도록 변경
     }
-
 
     private suspend fun processHospitalResponse(
         response: Response<HospitalInfoResponse>,
@@ -401,7 +399,6 @@ class HospitalViewModel(
         val items: List<NonPaymentItem>,
         val hasMore: Boolean
     )
-
 
     suspend fun fetchNonPaymentItemsOnly(
         ykiho: String,
@@ -445,8 +442,6 @@ class HospitalViewModel(
             NonPaymentLoadResult(emptyList(), false)
         }
     }
-
-
 
     fun fetchNearbyHospitals(
         viewId: String,
@@ -581,7 +576,6 @@ class HospitalViewModel(
         }
     }
 
-
     private suspend fun fetchDgsbjtInfo(ykiho: String): List<String> {
         // 캐시된 데이터 확인
         val cachedData = dgsbjtInfoCache[ykiho]
@@ -651,7 +645,6 @@ class HospitalViewModel(
 
         return filteredHospitals
     }
-
 
     // createHospitalInfo 함수 수정
     private fun createHospitalInfo(
@@ -747,7 +740,6 @@ class HospitalViewModel(
         } ?: false
     }
 
-
     private fun getDefaultTimeInfo(): HospitalTimeInfo {
         return HospitalTimeInfo(
             weekdayTime = TimeRange(
@@ -771,6 +763,7 @@ class HospitalViewModel(
             isClosed = false
         )
     }
+
     // 검색 기능 업데이트
     fun searchHospitals(viewId: String, query: String) {
         viewModelScope.launch {
@@ -808,7 +801,6 @@ class HospitalViewModel(
             DepartmentCategory.values().find { it.categoryName == dept }?.name ?: DepartmentCategory.OTHER_SPECIALTIES.name
         }.distinct()
     }
-
 
     private fun handleError(viewId: String, e: Exception) {
         val viewState = getViewState(viewId)
@@ -1016,6 +1008,25 @@ class HospitalViewModel(
         }
     }
 
+    suspend fun searchNonPaymentItems(query: String): List<NonPaymentItem> {
+        return try {
+            val response = healthInsuranceApi.getNonPaymentInfo(
+                serviceKey = NetworkModule.getServiceKey(),
+                pageNo = 1,
+                numOfRows = 100,
+                itemNm = query
+            )
+
+            if (response.isSuccessful) {
+                response.body()?.body?.items?.itemList ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("HospitalViewModel", "Error searching non-payment items", e)
+            emptyList()
+        }
+    }
 
     override fun onCleared() {
         super.onCleared()

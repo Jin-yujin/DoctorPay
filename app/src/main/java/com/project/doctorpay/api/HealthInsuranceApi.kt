@@ -14,6 +14,7 @@ interface HealthInsuranceApi {
         @Query("serviceKey") serviceKey: String,
         @Query("pageNo") pageNo: Int,
         @Query("numOfRows") numOfRows: Int,
+        @Query("itemNm") itemNm: String? = null,
         @Query("itemCd") itemCd: String? = null,
         @Query("yadmNm") yadmNm: String? = null,
         @Query("clCd") clCd: String? = null,
