@@ -246,36 +246,6 @@ class NonCoveredItemsFragment : Fragment() {
         currentFilter?.invoke()
     }
 
-    private fun applyFilter() {
-        if (selectedCategories.isEmpty()) {
-            // 선택된 카테고리가 없으면 전체 목록 표시
-            currentFilter = null
-            adapter.submitList(itemsList.toList())
-            return
-        }
-
-        // 필터 함수 저장
-        currentFilter = {
-            val filteredList = itemsList.filter { item ->
-                val category = getCategoryFromItem(item)
-                selectedCategories.contains(category)
-            }
-
-            if (filteredList.isEmpty()) {
-                binding.emptyStateLayout.isVisible = true
-                binding.emptyStateText.text = "선택한 카테고리의 항목이 없습니다."
-                binding.recyclerView.isVisible = false
-            } else {
-                binding.emptyStateLayout.isVisible = false
-                binding.recyclerView.isVisible = true
-                adapter.submitList(filteredList)
-            }
-        }
-
-        // 필터 적용
-        currentFilter?.invoke()
-    }
-
     private fun getCategoryFromItem(item: NonPaymentItem): String {
         // 항목명이나 코드를 기반으로 카테고리 분류
         return when {
@@ -401,27 +371,6 @@ class NonCoveredItemsFragment : Fragment() {
         binding.progressBar.isVisible = false
     }
 
-    private fun showSortOptions() {
-        val options = arrayOf("금액 높은 순", "금액 낮은 순", "이름 순")
-        AlertDialog.Builder(requireContext())
-            .setTitle("정렬 방식 선택")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> itemsList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
-                    1 -> itemsList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
-                    2 -> itemsList.sortBy { it.npayKorNm }
-                }
-
-                adapter.submitList(itemsList.toList()) {
-                    // submitList의 콜백에서 스크롤 실행
-                    binding.recyclerView.post {
-                        binding.recyclerView.smoothScrollToPosition(0)
-                    }
-                }
-            }
-            .show()
-    }
-
     private fun observeViewState() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getIsLoading(HospitalViewModel.DETAIL_VIEW).collect { isLoading ->
@@ -437,7 +386,6 @@ class NonCoveredItemsFragment : Fragment() {
             }
         }
     }
-
 
     private fun showEmptyState() {
         binding.apply {
