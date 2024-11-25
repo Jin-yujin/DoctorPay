@@ -51,6 +51,8 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.snackbar.Snackbar
+import com.naver.maps.map.CameraAnimation
+import com.project.doctorpay.comp.LoadingManager
 import com.project.doctorpay.db.OperationState
 import kotlinx.coroutines.withTimeout
 
@@ -82,6 +84,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(requireActivity())
     }
+    private lateinit var loadingManager: LoadingManager
 
     // locationOverlay를 nullable로 변경
     private var locationOverlay: LocationOverlay? = null
@@ -130,13 +133,20 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // LoadingManager 초기화를 가장 먼저 수행
+        loadingManager = LoadingManager(binding)
+
+        // 나머지 setup 메서드들 호출
         setupViews(savedInstanceState)
         setupFilter()
+        setupSearchComponent()
         setupObservers()
 
-        // 초기 데이터 로드 추가
+        // 초기 데이터 로드
         if (!isInitialDataLoaded) {
             loadInitialData()
         }
@@ -209,6 +219,54 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
         }
     }
+
+    private fun setupSearchComponent() {
+        binding.mapSearch.setOnLocationSelectedListener { location ->
+            try {
+                loadingManager.showLoading()
+
+                val cameraUpdate = CameraUpdate.scrollTo(location)
+                    .animate(CameraAnimation.Easing, 500)
+                naverMap.moveCamera(cameraUpdate)
+
+                userLocation = location
+                adapter.updateUserLocation(location)
+
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        binding.hospitalFilter.resetFilters()
+                        viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
+
+                        val radius = 3000
+
+                        withContext(Dispatchers.IO) {
+                            viewModel.fetchNearbyHospitals(
+                                viewId = HospitalViewModel.MAP_VIEW,
+                                latitude = location.latitude,
+                                longitude = location.longitude,
+                                radius = radius,
+                                forceRefresh = true
+                            )
+                        }
+
+                        hideResearchButton()
+                        binding.mapSearch.clearSearch()
+                        isMapMoved = false
+
+                    } catch (e: Exception) {
+                        Log.e("MapViewFragment", "Error loading hospitals for searched location", e)
+                        showError("데이터를 불러오는 중 오류가 발생했습니다")
+                    } finally {
+                        loadingManager.hideLoading()
+                    }
+                }
+            } catch (e: Exception) {
+                loadingManager.hideLoading()
+                showError("위치로 이동하는 중 오류가 발생했습니다")
+            }
+        }
+    }
+
 
     override fun onMapReady(map: NaverMap) {
         if (!isAdded) return
@@ -492,34 +550,25 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
     private fun updateLoadingState(isLoading: Boolean) {
-        binding.apply {
-            // 로딩 중일 때
-            if (isLoading) {
-                // 로딩 표시
-                progressBar.visibility = View.VISIBLE
-                loadingText.visibility = View.VISIBLE
-                loadingText.text = "주변 병원을 검색하고 있습니다..."
-
-                // 기존 목록은 반투명하게 처리
-                hospitalRecyclerView.alpha = 0.5f
-
-                // 마커도 반투명하게
-                markers.forEach { marker ->
-                    marker.alpha = 0.5f
-                }
-            } else {
-                // 로딩 완료 시
-                progressBar.visibility = View.GONE
-                loadingText.visibility = View.GONE
-
-                // 목록과 마커 원상 복구
-                hospitalRecyclerView.alpha = 1.0f
-                markers.forEach { marker ->
-                    marker.alpha = 1.0f
-                }
+        if (isLoading) {
+            loadingManager.showLoading()
+            // 기존 목록은 반투명하게 처리
+            binding.hospitalRecyclerView.alpha = 0.5f
+            // 마커도 반투명하게
+            markers.forEach { marker ->
+                marker.alpha = 0.5f
+            }
+        } else {
+            loadingManager.hideLoading()
+            // 목록과 마커 원상 복구
+            binding.hospitalRecyclerView.alpha = 1.0f
+            markers.forEach { marker ->
+                marker.alpha = 1.0f
             }
         }
     }
+
+
 
 
     private fun showMessage(message: String) {
@@ -773,7 +822,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.researchButton.setOnClickListener {
             try {
                 val mapCenter = naverMap.cameraPosition.target
-                Log.d("MapViewFragment", "Research button clicked. Center: ${mapCenter.latitude}, ${mapCenter.longitude}")
+
+                loadingManager.showLoading()
 
                 // 필터 초기화
                 binding.hospitalFilter.resetFilters()

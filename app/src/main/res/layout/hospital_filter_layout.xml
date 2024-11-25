@@ -36,7 +36,7 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@null"
-                android:hint="병원 이름, 진료과목 검색"
+                android:hint="병원 이름 검색"
                 android:textSize="14sp"
                 android:inputType="text"
                 android:imeOptions="actionSearch"
