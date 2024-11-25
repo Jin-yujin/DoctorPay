@@ -11,6 +11,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.children
@@ -154,10 +155,6 @@ class NonCoveredItemsFragment : Fragment() {
                 }
             }
 
-            btnSort.setOnClickListener {
-                showSortOptions()
-            }
-
             btnFilter.setOnClickListener {
                 showFilterBottomSheet()
             }
@@ -173,6 +170,7 @@ class NonCoveredItemsFragment : Fragment() {
         }
 
         val categoryGroup = bottomSheetView.findViewById<ChipGroup>(R.id.categoryFilterGroup)
+        val sortGroup = bottomSheetView.findViewById<RadioGroup>(R.id.sortGroup)
         val btnReset = bottomSheetView.findViewById<TextView>(R.id.btnReset)
         val btnApply = bottomSheetView.findViewById<MaterialButton>(R.id.btnApplyFilter)
 
@@ -184,22 +182,68 @@ class NonCoveredItemsFragment : Fragment() {
         // 초기화 버튼
         btnReset.setOnClickListener {
             categoryGroup.clearCheck()
+            sortGroup.clearCheck()
             selectedCategories.clear()
         }
 
         // 필터 적용 버튼
         btnApply.setOnClickListener {
+            // 카테고리 필터 적용
             selectedCategories.clear()
             categoryGroup.checkedChipIds.forEach { chipId ->
                 categoryGroup.findViewById<Chip>(chipId)?.text?.toString()?.let {
                     selectedCategories.add(it)
                 }
             }
-            applyFilter()
+
+            // 정렬 적용
+            when (sortGroup.checkedRadioButtonId) {
+                R.id.rbPriceHigh -> itemsList.sortByDescending { it.curAmt?.toIntOrNull() ?: 0 }
+                R.id.rbPriceLow -> itemsList.sortBy { it.curAmt?.toIntOrNull() ?: 0 }
+                R.id.rbName -> itemsList.sortBy { it.npayKorNm }
+            }
+
+            // 필터와 정렬이 적용된 리스트 표시
+            applyFilterAndSort()
             filterBottomSheet?.dismiss()
+
+            // 스크롤을 맨 위로 이동
+            binding.recyclerView.post {
+                binding.recyclerView.smoothScrollToPosition(0)
+            }
         }
 
         filterBottomSheet?.show()
+    }
+
+    private fun applyFilterAndSort() {
+        if (selectedCategories.isEmpty()) {
+            // 선택된 카테고리가 없으면 전체 목록 표시 (정렬만 적용)
+            currentFilter = null
+            adapter.submitList(itemsList.toList())
+            return
+        }
+
+        // 필터 함수 저장
+        currentFilter = {
+            val filteredList = itemsList.filter { item ->
+                val category = getCategoryFromItem(item)
+                selectedCategories.contains(category)
+            }
+
+            if (filteredList.isEmpty()) {
+                binding.emptyStateLayout.isVisible = true
+                binding.emptyStateText.text = "선택한 카테고리의 항목이 없습니다."
+                binding.recyclerView.isVisible = false
+            } else {
+                binding.emptyStateLayout.isVisible = false
+                binding.recyclerView.isVisible = true
+                adapter.submitList(filteredList)
+            }
+        }
+
+        // 필터 적용
+        currentFilter?.invoke()
     }
 
     private fun applyFilter() {

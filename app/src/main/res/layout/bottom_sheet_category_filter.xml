@@ -19,7 +19,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="카테고리"
+            android:text="필터"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"/>
@@ -32,6 +32,14 @@
             android:textColor="#2196F3"
             android:padding="8dp"/>
     </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="카테고리"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"/>
 
     <com.google.android.material.chip.ChipGroup
         android:id="@+id/categoryFilterGroup"
@@ -89,12 +97,58 @@
             style="@style/Widget.MaterialComponents.Chip.Filter"/>
     </com.google.android.material.chip.ChipGroup>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE"
+        android:layout_marginVertical="16dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="정렬"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"/>
+
+    <RadioGroup
+        android:id="@+id/sortGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <RadioButton
+            android:id="@+id/rbPriceHigh"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="금액 높은 순"
+            android:textSize="14sp"
+            android:paddingVertical="8dp"/>
+
+        <RadioButton
+            android:id="@+id/rbPriceLow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="금액 낮은 순"
+            android:textSize="14sp"
+            android:paddingVertical="8dp"/>
+
+        <RadioButton
+            android:id="@+id/rbName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="이름 순"
+            android:textSize="14sp"
+            android:paddingVertical="8dp"/>
+    </RadioGroup>
+
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnApplyFilter"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="필터 적용"
+        android:text="적용"
         android:textColor="@android:color/white"
         android:padding="12dp"/>
 

@@ -38,19 +38,10 @@
             android:id="@+id/btnFilter"
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_filter"
             android:contentDescription="필터"/>
-
-        <ImageButton
-            android:id="@+id/btnSort"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginEnd="8dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_sort"
-            android:contentDescription="정렬"/>
 
         <ImageButton
             android:id="@+id/btnSearch"
