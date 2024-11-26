@@ -162,29 +162,15 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         isFragmentActive = false
     }
 
+
     private fun setupViews(savedInstanceState: Bundle?) {
-        binding.apply {
-            // 로딩 프로그레스 바 추가
-            loadingProgress.visibility = View.GONE
-
-            // 에러 메시지 뷰 추가
-            errorView.apply {
-                visibility = View.GONE
-                setOnClickListener {
-                    // 에러 뷰 클릭 시 재시도
-                    visibility = View.GONE
-                    loadHospitalsForVisibleRegion()
-                }
-            }
-
-            // 빈 데이터 메시지 뷰 추가
-            emptyView.visibility = View.GONE
-        }
-
-        // 기존 setupViews 로직
         try {
             binding.mapView.onCreate(savedInstanceState)
             binding.mapView.getMapAsync(this)
+
+            // 마커 풀 초기화
+            repeat(50) { markerPool.add(createMarkerStyle()) }
+
             setupBottomSheet()
             setupRecyclerView()
             setupReturnToLocationButton()
@@ -200,22 +186,34 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 try {
                     val hospitals = viewModel.getHospitals(HospitalViewModel.MAP_VIEW).value
                     Log.d("Filter", "Starting filtering process with ${hospitals.size} hospitals")
-                    Log.d("Filter", "Current filter criteria: category=${criteria.category?.categoryName}, emergency=${criteria.emergencyOnly}")
+                    Log.d("Filter", "Current filter criteria: category=${criteria.category?.categoryName}, emergency=${criteria.emergencyOnly}, search=${criteria.searchQuery}")
 
                     val filtered = hospitals.filter { hospital ->
-                        if (criteria.emergencyOnly) {
-                            // 응급실 필터가 켜져있으면 응급실 운영 여부만 체크
-                            hospital.operationState == OperationState.EMERGENCY
-                        } else if (criteria.category != null) {
-                            // 카테고리가 선택되었으면 해당 카테고리만 체크
-                            hospital.departments.any { dept ->
-                                dept == criteria.category.categoryName
-                            }.also {
-                                Log.d("Filter", "Hospital: ${hospital.name}, Departments: ${hospital.departments}, Matches ${criteria.category.categoryName}: $it")
-                            }
+                        // 먼저 검색어로 필터링
+                        val matchesSearch = if (criteria.searchQuery.isNotEmpty()) {
+                            hospital.name.contains(criteria.searchQuery, ignoreCase = true)
                         } else {
-                            // 아무 필터도 없으면 모든 병원 표시
-                            true
+                            true // 검색어가 없으면 모든 병원 포함
+                        }
+
+                        // 검색어 조건을 만족하고, 다른 필터 조건도 확인
+                        matchesSearch && when {
+                            criteria.emergencyOnly -> {
+                                // 응급실 필터가 켜져있으면 응급실 운영 여부만 체크
+                                hospital.operationState == OperationState.EMERGENCY
+                            }
+                            criteria.category != null -> {
+                                // 카테고리가 선택되었으면 해당 카테고리만 체크
+                                hospital.departments.any { dept ->
+                                    dept == criteria.category.categoryName
+                                }.also {
+                                    Log.d("Filter", "Hospital: ${hospital.name}, Departments: ${hospital.departments}, Matches ${criteria.category.categoryName}: $it")
+                                }
+                            }
+                            else -> {
+                                // 아무 필터도 없으면 모든 병원 표시
+                                true
+                            }
                         }
                     }
 
@@ -1177,6 +1175,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
+
     private fun updateHospitalsList(hospitals: List<HospitalInfo>) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -1191,19 +1190,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                     } ?: hospitals
 
                     withContext(Dispatchers.Main) {
-                        binding.errorView.visibility = View.GONE // 성공 시 에러 뷰 숨김
                         adapter.submitList(sortedHospitals)
                         updateBottomSheetState(sortedHospitals)
-
-                        // 데이터가 없는 경우 처리
-                        if (sortedHospitals.isEmpty()) {
-                            binding.emptyView.apply {
-                                visibility = View.VISIBLE
-                                text = "주변에 병원 정보가 없습니다."
-                            }
-                        } else {
-                            binding.emptyView.visibility = View.GONE
-                        }
                     }
                 }
             } catch (e: Exception) {
