@@ -796,11 +796,10 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     private fun showHospitalDetail(hospital: HospitalInfo) {
         val hospitalDetailFragment = HospitalDetailFragment.newInstance(
-            hospitalId = hospital.name,
+            hospitalId = hospital.ykiho,  // name 대신 ykiho 사용
             isFromMap = true,
             category = hospital.departmentCategories.firstOrNull() ?: ""
         )
-
         hospitalDetailFragment.setHospitalInfo(hospital)
         hospitalDetailFragment.setHospitalDetailListener(this)
 
