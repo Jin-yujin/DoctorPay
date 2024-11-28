@@ -1,5 +1,8 @@
 package com.project.doctorpay.ui.home
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Location
 import android.text.Editable
 import android.text.TextWatcher
 import androidx.core.view.isVisible
@@ -10,11 +13,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.RadioGroup
 import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat.getCurrentLocation
 import androidx.databinding.DataBindingUtil.setContentView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.naver.maps.geometry.LatLng
@@ -32,6 +39,8 @@ class NonPaymentSearchFragment : Fragment() {
     private var _binding: FragmentNonPaymentSearchBinding? = null
     private val binding get() = _binding!!
     private var searchJob: Job? = null
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private var currentLocation: LatLng? = null
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -66,6 +75,12 @@ class NonPaymentSearchFragment : Fragment() {
             .replace(R.id.fragment_container, detailFragment)
             .addToBackStack(null)
             .commit()
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        getCurrentLocation()
     }
 
     override fun onCreateView(
@@ -139,21 +154,58 @@ class NonPaymentSearchFragment : Fragment() {
         })
     }
 
+    private fun getCurrentLocation() {
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location: Location? ->
+                location?.let {
+                    currentLocation = LatLng(it.latitude, it.longitude)
+                } ?: run {
+                    // 기본 위치 (서울 중심부)
+                    currentLocation = LatLng(37.5666805, 127.0784147)
+                }
+            }
+        } else {
+            currentLocation = LatLng(37.5666805, 127.0784147)
+        }
+    }
+
     private fun performSearch(query: String) {
-        if (query.length < 2) return
+        if (query.length < 2) {
+            updateEmptyState(true)
+            return
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 binding.progressBar.isVisible = true
-                val results = viewModel.searchNonPaymentItems(query)
-                adapter.submitList(results)
-                updateEmptyState(results.isEmpty())
+                val results = currentLocation?.let { location ->
+                    viewModel.searchNonPaymentItems(query, location.latitude, location.longitude)
+                } ?: viewModel.searchNonPaymentItems(query, 37.5666805, 127.0784147)
+
+                // 필터링 로직 개선
+                val filteredResults = results.filter { item ->
+                    (item.npayKorNm?.contains(query, ignoreCase = true) == true ||
+                            item.itemNm?.contains(query, ignoreCase = true) == true) &&
+                            !item.yadmNm.isNullOrBlank()
+                }.sortedBy { it.yadmNm }
+
+                adapter.submitList(filteredResults)
+                updateEmptyState(filteredResults.isEmpty())
             } catch (e: Exception) {
                 Toast.makeText(context, "검색 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
             } finally {
                 binding.progressBar.isVisible = false
             }
         }
+    }
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val results = FloatArray(1)
+        Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0]
     }
 
     private fun updateEmptyState(isEmpty: Boolean) {

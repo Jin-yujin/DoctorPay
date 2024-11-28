@@ -19,7 +19,10 @@ interface HealthInsuranceApi {
         @Query("yadmNm") yadmNm: String? = null,
         @Query("clCd") clCd: String? = null,
         @Query("sidoCd") sidoCd: String? = null,
-        @Query("sgguCd") sgguCd: String? = null
+        @Query("sgguCd") sgguCd: String? = null,
+        @Query("xPos") xPos: String? = null,
+        @Query("yPos") yPos: String? = null,
+        @Query("radius") radius: Int? = null
     ): Response<NonPaymentResponse>
 
     @GET("nonPaymentDamtInfoService/getNonPaymentItemHospDtlList")

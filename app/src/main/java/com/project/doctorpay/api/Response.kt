@@ -150,7 +150,10 @@ data class NonPaymentItem(
     var adtEndDd: String? = null,
 
     @field:Element(name = "spcmfyCatn", required = false)
-    var spcmfyCatn: String? = null
+    var spcmfyCatn: String? = null,
+
+    var latitude: String? = null,
+    var longitude: String? = null
 ) : Parcelable
 
 @Root(strict = false)

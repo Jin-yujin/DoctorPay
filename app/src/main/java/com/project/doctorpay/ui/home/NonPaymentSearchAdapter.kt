@@ -36,25 +36,25 @@ class NonPaymentSearchAdapter(
         private val tvDate: TextView = view.findViewById(R.id.tvDate)
 
         fun bind(item: NonPaymentItem) {
-            tvItemName.text = item.npayKorNm ?: item.itemNm
-            tvHospitalName.text = item.yadmNm
+            tvItemName.text = item.npayKorNm ?: item.itemNm ?: "항목명 없음"
+            tvHospitalName.text = item.yadmNm ?: "병원명 없음"
 
-            // 가격 포맷팅
-            tvPrice.text = item.curAmt?.let { amt ->
+            // 가격 포맷팅 개선
+            tvPrice.text = item.curAmt?.takeIf { it.isNotBlank() }?.let { amt ->
                 try {
                     NumberFormat.getNumberInstance(Locale.KOREA)
-                        .format(amt.toLong()) + "원"
+                        .format(amt.replace(",", "").toLong()) + "원"
                 } catch (e: NumberFormatException) {
-                    amt + "원"
+                    "가격 정보 없음"
                 }
             } ?: "가격 정보 없음"
 
-            // 날짜 포맷팅
-            tvDate.text = item.adtFrDd?.let { date ->
+            // 날짜 포맷팅 개선
+            tvDate.text = item.adtFrDd?.takeIf { it.length >= 8 }?.let { date ->
                 try {
                     "기준일자: ${date.substring(0,4)}.${date.substring(4,6)}.${date.substring(6,8)}"
                 } catch (e: Exception) {
-                    "기준일자: $date"
+                    "날짜 정보 없음"
                 }
             } ?: "날짜 정보 없음"
 
