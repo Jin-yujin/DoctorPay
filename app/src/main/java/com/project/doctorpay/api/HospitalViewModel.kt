@@ -1014,73 +1014,96 @@ class HospitalViewModel(
         longitude: Double
     ): List<NonPaymentItem> {
         return try {
-            val nonPaymentItems = mutableListOf<NonPaymentItem>()
+            withContext(Dispatchers.IO) {
+                retryWithExponentialBackoff(
+                    times = 3,
+                    initialDelay = 1000,
+                    maxDelay = 5000,
+                    factor = 2.0
+                ) {
+                    val nonPaymentItems = mutableListOf<NonPaymentItem>()
 
-            // 1. 검색어로 직접 비급여 항목 검색
-            val directSearchResponse = healthInsuranceApi.getNonPaymentInfo(
-                serviceKey = NetworkModule.getServiceKey(),
-                pageNo = 1,
-                numOfRows = 100,
-                itemNm = query
-            )
+                    // 1. 검색어로 직접 비급여 항목 검색
+                    val directSearchResponse = healthInsuranceApi.getNonPaymentInfo(
+                        serviceKey = NetworkModule.getServiceKey(),
+                        pageNo = 1,
+                        numOfRows = 100,
+                        itemNm = query
+                    )
 
-            if (directSearchResponse.isSuccessful) {
-                directSearchResponse.body()?.body?.items?.itemList?.let {
-                    nonPaymentItems.addAll(it)
-                }
-            }
-
-            // 2. 주변 병원 검색
-            val hospitalResponse = healthInsuranceApi.getHospitalInfo(
-                serviceKey = NetworkModule.getServiceKey(),
-                pageNo = 1,
-                numOfRows = 100,
-                xPos = longitude.toString(),
-                yPos = latitude.toString(),
-                radius = 10000
-            )
-
-            // 3. 각 병원별 비급여 항목 조회
-            if (hospitalResponse.isSuccessful) {
-                hospitalResponse.body()?.body?.items?.itemList?.forEach { hospital ->
-                    hospital.ykiho?.let { ykiho ->
-                        val hospitalItemsResponse = healthInsuranceApi.getNonPaymentItemHospDtlList(
-                            serviceKey = NetworkModule.getServiceKey(),
-                            ykiho = ykiho,
-                            pageNo = 1,
-                            numOfRows = 100
-                        )
-
-                        if (hospitalItemsResponse.isSuccessful) {
-                            hospitalItemsResponse.body()?.body?.items?.itemList
-                                ?.filter { item ->
-                                    item.npayKorNm?.contains(query, ignoreCase = true) == true ||
-                                            item.itemNm?.contains(query, ignoreCase = true) == true
-                                }
-                                ?.map { item ->
-                                    item.copy(
-                                        ykiho = ykiho,
-                                        yadmNm = hospital.yadmNm,
-                                        latitude = hospital.YPos,
-                                        longitude = hospital.XPos
-                                    )
-                                }
-                                ?.let { items ->
-                                    nonPaymentItems.addAll(items)
-                                }
+                    if (directSearchResponse.isSuccessful) {
+                        directSearchResponse.body()?.body?.items?.itemList?.let {
+                            nonPaymentItems.addAll(it)
                         }
                     }
+
+                    // 2. 주변 병원 검색 (타임아웃 설정 추가)
+                    withTimeout(10000) {
+                        val hospitalResponse = healthInsuranceApi.getHospitalInfo(
+                            serviceKey = NetworkModule.getServiceKey(),
+                            pageNo = 1,
+                            numOfRows = 50, // 병원 수 제한하여 타임아웃 방지
+                            xPos = longitude.toString(),
+                            yPos = latitude.toString(),
+                            radius = 10000
+                        )
+
+                        // 3. 각 병원별 비급여 항목 조회
+                        if (hospitalResponse.isSuccessful) {
+                            supervisorScope {
+                                hospitalResponse.body()?.body?.items?.itemList
+                                    ?.take(10) // 동시 요청 수 제한
+                                    ?.map { hospital ->
+                                        async {
+                                            hospital.ykiho?.let { ykiho ->
+                                                try {
+                                                    val hospitalItemsResponse = withTimeout(5000) {
+                                                        healthInsuranceApi.getNonPaymentItemHospDtlList(
+                                                            serviceKey = NetworkModule.getServiceKey(),
+                                                            ykiho = ykiho,
+                                                            pageNo = 1,
+                                                            numOfRows = 100
+                                                        )
+                                                    }
+
+                                                    if (hospitalItemsResponse.isSuccessful) {
+                                                        hospitalItemsResponse.body()?.body?.items?.itemList
+                                                            ?.filter { item ->
+                                                                item.npayKorNm?.contains(query, ignoreCase = true) == true ||
+                                                                        item.itemNm?.contains(query, ignoreCase = true) == true
+                                                            }
+                                                            ?.map { item ->
+                                                                item.copy(
+                                                                    ykiho = ykiho,
+                                                                    yadmNm = hospital.yadmNm,
+                                                                    latitude = hospital.YPos,
+                                                                    longitude = hospital.XPos
+                                                                )
+                                                            }
+                                                    } else null
+                                                } catch (e: Exception) {
+                                                    null
+                                                }
+                                            }
+                                        }
+                                    }?.awaitAll()
+                                    ?.filterNotNull()
+                                    ?.flatten()
+                                    ?.let { items ->
+                                        nonPaymentItems.addAll(items)
+                                    }
+                            }
+                        }
+                    }
+
+                    nonPaymentItems
+                        .distinctBy { Triple(it.ykiho, it.itemCd, it.npayKorNm) }
+                        .filter { item ->
+                            !item.npayKorNm.isNullOrBlank() && !item.yadmNm.isNullOrBlank()
+                        }
+                        .sortedBy { it.yadmNm }
                 }
             }
-
-            // 중복 제거 및 결과 반환
-            nonPaymentItems
-                .distinctBy { Triple(it.ykiho, it.itemCd, it.npayKorNm) }
-                .filter { item ->
-                    !item.npayKorNm.isNullOrBlank() && !item.yadmNm.isNullOrBlank()
-                }
-                .sortedBy { it.yadmNm }
-
         } catch (e: Exception) {
             Log.e("HospitalViewModel", "Error searching non-payment items", e)
             emptyList()

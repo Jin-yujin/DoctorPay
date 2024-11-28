@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.project.doctorpay.R
 import NonPaymentItem
+import android.util.Log
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -58,7 +59,13 @@ class NonPaymentSearchAdapter(
                 }
             } ?: "날짜 정보 없음"
 
-            itemView.setOnClickListener { onItemClick(item) }
+            itemView.setOnClickListener {
+                try {
+                    onItemClick(item)
+                } catch (e: Exception) {
+                    Log.e("NonPaymentSearchAdapter", "Error handling item click", e)
+                }
+            }
         }
     }
 
