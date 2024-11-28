@@ -19,7 +19,7 @@ import com.google.android.material.chip.ChipGroup
 import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.db.HospitalInfo
-import com.project.doctorpay.db.OperationState  // OperationState를 db 패키지에서 import
+import com.project.doctorpay.db.OperationState
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModelFactory
 import com.project.doctorpay.databinding.FragmentFavoriteBinding
@@ -37,8 +37,7 @@ class FavoriteFragment : Fragment() {
 
     private lateinit var adapter: HospitalAdapter
     private var currentFilter: OperationState? = null
-    private val favoriteRepository = FavoriteRepository()
-
+    private val favoriteRepository = FavoriteRepository.getInstance()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var userLocation: LatLng? = null
 

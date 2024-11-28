@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit
 object NetworkModule {
 
     private const val BASE_URL = "http://apis.data.go.kr/B551182/"
-    private const val SERVICE_KEY = "rctk2eXwpdEoBK9zhzZpm%2BlyA9%2BAJByBI8T8SlgPgIWlhrwsQu%2B1Ayx7UBIvZd5oLNsccSTf5Hw2OY6dW3lo5A%3D%3D"
+    private const val SERVICE_KEY =
+        "rctk2eXwpdEoBK9zhzZpm%2BlyA9%2BAJByBI8T8SlgPgIWlhrwsQu%2B1Ayx7UBIvZd5oLNsccSTf5Hw2OY6dW3lo5A%3D%3D"
     private const val TIMEOUT_SECONDS = 60L
     private const val MAX_RETRIES = 3
     private const val INITIAL_RETRY_DELAY = 1000L

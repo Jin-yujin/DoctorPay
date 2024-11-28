@@ -2,6 +2,7 @@ package com.project.doctorpay.ui.map
 
 import android.Manifest
 import android.app.AlertDialog
+import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
@@ -50,6 +51,9 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.material.snackbar.Snackbar
+import com.naver.maps.map.CameraAnimation
+import com.project.doctorpay.comp.LoadingManager
+import com.project.doctorpay.db.OperationState
 import kotlinx.coroutines.withTimeout
 
 class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.HospitalDetailListener {
@@ -68,6 +72,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
     private lateinit var adapter: HospitalAdapter
 
+    private var locationCallback: LocationCallback? = null
+    private var isFragmentActive = false
+
     // locationSource를 lazy로 초기화
     private val locationSource: FusedLocationSource by lazy {
         FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE)
@@ -77,6 +84,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(requireActivity())
     }
+    private lateinit var loadingManager: LoadingManager
 
     // locationOverlay를 nullable로 변경
     private var locationOverlay: LocationOverlay? = null
@@ -89,7 +97,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private val markerPool = mutableListOf<Marker>()
     private var lastUpdateTime = 0L
 
-    private val favoriteRepository = FavoriteRepository()
+    private val favoriteRepository = FavoriteRepository.getInstance()
     private var selectedMarkerBottomSheet: BottomSheetDialog? = null
     private val UPDATE_INTERVAL = 100L
 
@@ -125,46 +133,150 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // LoadingManager 초기화를 가장 먼저 수행
+        loadingManager = LoadingManager(binding)
+
+        // 나머지 setup 메서드들 호출
         setupViews(savedInstanceState)
+        setupFilter()
+        setupSearchComponent()
         setupObservers()
 
-        // 초기 데이터 로드 추가
+        // 초기 데이터 로드
         if (!isInitialDataLoaded) {
             loadInitialData()
         }
     }
 
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        isFragmentActive = true
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        isFragmentActive = false
+    }
+
+
     private fun setupViews(savedInstanceState: Bundle?) {
-        binding.apply {
-            // 로딩 프로그레스 바 추가
-            loadingProgress.visibility = View.GONE
-
-            // 에러 메시지 뷰 추가
-            errorView.apply {
-                visibility = View.GONE
-                setOnClickListener {
-                    // 에러 뷰 클릭 시 재시도
-                    visibility = View.GONE
-                    loadHospitalsForVisibleRegion()
-                }
-            }
-
-            // 빈 데이터 메시지 뷰 추가
-            emptyView.visibility = View.GONE
-        }
-
-        // 기존 setupViews 로직
         try {
             binding.mapView.onCreate(savedInstanceState)
             binding.mapView.getMapAsync(this)
+
+            // 마커 풀 초기화
+            repeat(50) { markerPool.add(createMarkerStyle()) }
+
             setupBottomSheet()
             setupRecyclerView()
             setupReturnToLocationButton()
             setupResearchButton()
         } catch (e: IllegalStateException) {
             Log.e("MapViewFragment", "Failed to initialize MapView", e)
+        }
+    }
+
+    private fun setupFilter() {
+        binding.hospitalFilter.setOnFilterChangedListener { criteria ->
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val hospitals = viewModel.getHospitals(HospitalViewModel.MAP_VIEW).value
+                    Log.d("Filter", "Starting filtering process with ${hospitals.size} hospitals")
+                    Log.d("Filter", "Current filter criteria: category=${criteria.category?.categoryName}, emergency=${criteria.emergencyOnly}, search=${criteria.searchQuery}")
+
+                    val filtered = hospitals.filter { hospital ->
+                        // 먼저 검색어로 필터링
+                        val matchesSearch = if (criteria.searchQuery.isNotEmpty()) {
+                            hospital.name.contains(criteria.searchQuery, ignoreCase = true)
+                        } else {
+                            true // 검색어가 없으면 모든 병원 포함
+                        }
+
+                        // 검색어 조건을 만족하고, 다른 필터 조건도 확인
+                        matchesSearch && when {
+                            criteria.emergencyOnly -> {
+                                // 응급실 필터가 켜져있으면 응급실 운영 여부만 체크
+                                hospital.operationState == OperationState.EMERGENCY
+                            }
+                            criteria.category != null -> {
+                                // 카테고리가 선택되었으면 해당 카테고리만 체크
+                                hospital.departments.any { dept ->
+                                    dept == criteria.category.categoryName
+                                }.also {
+                                    Log.d("Filter", "Hospital: ${hospital.name}, Departments: ${hospital.departments}, Matches ${criteria.category.categoryName}: $it")
+                                }
+                            }
+                            else -> {
+                                // 아무 필터도 없으면 모든 병원 표시
+                                true
+                            }
+                        }
+                    }
+
+                    Log.d("Filter", "Filtered down to ${filtered.size} hospitals")
+
+                    withContext(Dispatchers.Main) {
+                        updateMarkers(filtered)
+                        updateHospitalsList(filtered)
+                        binding.hospitalFilter.updateResultCount(filtered.size)
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("Filter", "Error during filtering", e)
+                    showError("필터링 중 오류가 발생했습니다")
+                }
+            }
+        }
+    }
+
+    private fun setupSearchComponent() {
+        binding.mapSearch.setOnLocationSelectedListener { location ->
+            try {
+                loadingManager.showLoading()
+
+                val cameraUpdate = CameraUpdate.scrollTo(location)
+                    .animate(CameraAnimation.Easing, 500)
+                naverMap.moveCamera(cameraUpdate)
+
+                userLocation = location
+                adapter.updateUserLocation(location)
+
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        binding.hospitalFilter.resetFilters()
+                        viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
+
+                        val radius = 3000
+
+                        withContext(Dispatchers.IO) {
+                            viewModel.fetchNearbyHospitals(
+                                viewId = HospitalViewModel.MAP_VIEW,
+                                latitude = location.latitude,
+                                longitude = location.longitude,
+                                radius = radius,
+                                forceRefresh = true
+                            )
+                        }
+
+                        hideResearchButton()
+                        binding.mapSearch.clearSearch()
+                        isMapMoved = false
+
+                    } catch (e: Exception) {
+                        Log.e("MapViewFragment", "Error loading hospitals for searched location", e)
+                        showError("데이터를 불러오는 중 오류가 발생했습니다")
+                    } finally {
+                        loadingManager.hideLoading()
+                    }
+                }
+            } catch (e: Exception) {
+                loadingManager.hideLoading()
+                showError("위치로 이동하는 중 오류가 발생했습니다")
+            }
         }
     }
 
@@ -227,14 +339,21 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
 
     private fun hasLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            requireContext(),
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
+        return try {
+            if (!isAdded) return false
+
+            ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(
+                        requireContext(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+        } catch (e: Exception) {
+            Log.e("MapViewFragment", "Error checking location permission", e)
+            false
+        }
     }
 
     private fun loadInitialData() {
@@ -431,6 +550,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getIsLoading(HospitalViewModel.MAP_VIEW).collect { isLoading ->
                 isDataLoading = isLoading
+                updateLoadingState(isLoading)  // 로딩 상태 UI 업데이트
             }
         }
 
@@ -441,6 +561,26 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
         }
     }
+
+    private fun updateLoadingState(isLoading: Boolean) {
+        if (isLoading) {
+            loadingManager.showLoading()
+            // 기존 목록은 반투명하게 처리
+            binding.hospitalRecyclerView.alpha = 0.5f
+            // 마커도 반투명하게
+            markers.forEach { marker ->
+                marker.alpha = 0.5f
+            }
+        } else {
+            loadingManager.hideLoading()
+            // 목록과 마커 원상 복구
+            binding.hospitalRecyclerView.alpha = 1.0f
+            markers.forEach { marker ->
+                marker.alpha = 1.0f
+            }
+        }
+    }
+
 
 
 
@@ -602,6 +742,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
                     viewLifecycleOwner.lifecycleScope.launch {
                         try {
+
+                            // 필터 초기화 추가
+                            binding.hospitalFilter.resetFilters()
                             // 페이지네이션 초기화
                             viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
 
@@ -658,17 +801,18 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             category = hospital.departmentCategories.firstOrNull() ?: ""
         )
 
-        // Bundle 대신 직접 HospitalInfo 설정
         hospitalDetailFragment.setHospitalInfo(hospital)
         hospitalDetailFragment.setHospitalDetailListener(this)
+
+        // 필터링 바 숨기기 추가
+        binding.hospitalFilter.visibility = View.GONE
+        binding.hospitalRecyclerView.visibility = View.GONE
+        binding.hospitalDetailContainer.visibility = View.VISIBLE
 
         childFragmentManager.beginTransaction()
             .replace(R.id.hospitalDetailContainer, hospitalDetailFragment)
             .addToBackStack(null)
             .commit()
-
-        binding.hospitalRecyclerView.visibility = View.GONE
-        binding.hospitalDetailContainer.visibility = View.VISIBLE
 
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
@@ -677,9 +821,13 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         showHospitalList()
     }
 
+
     private fun showHospitalList() {
+        // 필터링 바 다시 보이게 하기 추가
+        binding.hospitalFilter.visibility = View.VISIBLE
         binding.hospitalRecyclerView.visibility = View.VISIBLE
         binding.hospitalDetailContainer.visibility = View.GONE
+
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
@@ -687,7 +835,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.researchButton.setOnClickListener {
             try {
                 val mapCenter = naverMap.cameraPosition.target
-                Log.d("MapViewFragment", "Research button clicked. Center: ${mapCenter.latitude}, ${mapCenter.longitude}")
+
+                loadingManager.showLoading()
+
+                // 필터 초기화
+                binding.hospitalFilter.resetFilters()
 
                 // 현재 위치 업데이트
                 adapter.updateUserLocation(mapCenter)
@@ -797,25 +949,34 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 maxWaitTime = 15000
             }
 
-            val locationCallback = object : LocationCallback() {
+            // Create the location callback
+            locationCallback = object : LocationCallback() {
                 override fun onLocationResult(locationResult: LocationResult) {
-                    if (!hasLocationPermission()) {
-                        Log.d("MapViewFragment", "Location permission lost during tracking")
+                    // Check if fragment is still active before processing location updates
+                    if (!isFragmentActive) {
+                        removeLocationUpdates()
                         return
                     }
 
                     try {
+                        if (!isAdded || !hasLocationPermission()) {
+                            Log.d("MapViewFragment", "Location permission lost during tracking")
+                            return
+                        }
+
                         locationResult.lastLocation?.let { location ->
                             val newUserLocation = LatLng(location.latitude, location.longitude)
                             userLocation = newUserLocation
 
                             viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Main) {
                                 try {
-                                    adapter.updateUserLocation(newUserLocation)
-                                    if (!isInitialLocationSet) {
-                                        isInitialLocationSet = true
-                                        naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
-                                        loadDataWithLocation(newUserLocation)
+                                    if (isAdded) {  // Double-check we're still attached
+                                        adapter.updateUserLocation(newUserLocation)
+                                        if (!isInitialLocationSet) {
+                                            isInitialLocationSet = true
+                                            naverMap.moveCamera(CameraUpdate.scrollTo(newUserLocation))
+                                            loadDataWithLocation(newUserLocation)
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     Log.e("MapViewFragment", "Error updating UI with new location", e)
@@ -829,13 +990,15 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
             }
 
             try {
-                fusedLocationClient.requestLocationUpdates(
-                    locationRequest,
-                    locationCallback,
-                    Looper.getMainLooper()
-                ).addOnFailureListener { e ->
-                    Log.e("MapViewFragment", "Failed to request location updates", e)
-                    loadDefaultLocation()
+                locationCallback?.let { callback ->
+                    fusedLocationClient.requestLocationUpdates(
+                        locationRequest,
+                        callback,
+                        Looper.getMainLooper()
+                    ).addOnFailureListener { e ->
+                        Log.e("MapViewFragment", "Failed to request location updates", e)
+                        loadDefaultLocation()
+                    }
                 }
             } catch (e: SecurityException) {
                 Log.e("MapViewFragment", "Security exception requesting location updates", e)
@@ -851,6 +1014,17 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         }
     }
 
+
+    private fun removeLocationUpdates() {
+        try {
+            locationCallback?.let { callback ->
+                fusedLocationClient.removeLocationUpdates(callback)
+            }
+            locationCallback = null
+        } catch (e: Exception) {
+            Log.e("MapViewFragment", "Error removing location updates", e)
+        }
+    }
 
     private fun loadDefaultLocation() {
         val defaultLocation = LatLng(37.5666805, 127.0784147) // 서울 중심부
@@ -1001,6 +1175,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     }
 
 
+
     private fun updateHospitalsList(hospitals: List<HospitalInfo>) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -1015,19 +1190,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                     } ?: hospitals
 
                     withContext(Dispatchers.Main) {
-                        binding.errorView.visibility = View.GONE // 성공 시 에러 뷰 숨김
                         adapter.submitList(sortedHospitals)
                         updateBottomSheetState(sortedHospitals)
-
-                        // 데이터가 없는 경우 처리
-                        if (sortedHospitals.isEmpty()) {
-                            binding.emptyView.apply {
-                                visibility = View.VISIBLE
-                                text = "주변에 병원 정보가 없습니다."
-                            }
-                        } else {
-                            binding.emptyView.visibility = View.GONE
-                        }
                     }
                 }
             } catch (e: Exception) {
@@ -1039,6 +1203,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     override fun onDestroyView() {
         super.onDestroyView()
+        removeLocationUpdates()
         _naverMap = null
         isMapReady = false
         pendingLocationUpdate = null
@@ -1047,6 +1212,11 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         markers.clear()
         markerPool.clear()
         _binding = null
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        removeLocationUpdates()
     }
 
     private fun toggleBottomSheetState() {

@@ -22,6 +22,8 @@ android {
         }
         multiDexEnabled = true
         buildConfigField("String", "KAKAO_NATIVE_APP_KEY", "\"56d42cbadaff4473519f8adf8e6317e8\"")
+        buildConfigField ("String", "NAVER_CLIENT_ID", "\"w9nz2kg3mc\"")
+        buildConfigField ("String", "NAVER_CLIENT_SECRET", "\"540KOKWe6UQRDdr30vjsm01CPOJU61UpBtg1N9uD\"")
     }
     dexOptions {
         javaMaxHeapSize = "4g"
@@ -112,6 +114,7 @@ dependencies {
     implementation ("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation ("androidx.cardview:cardview:1.0.0")
 
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
 
     implementation("com.naver.maps:map-sdk:3.18.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
