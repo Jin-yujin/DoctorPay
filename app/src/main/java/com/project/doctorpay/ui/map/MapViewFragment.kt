@@ -250,7 +250,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                         binding.hospitalFilter.resetFilters()
                         viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
 
-                        val radius = 3000
+                        val radius =1000
 
                         withContext(Dispatchers.IO) {
                             viewModel.fetchNearbyHospitals(
@@ -290,8 +290,8 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
             // 기본 지도 설정
             map.apply {
-                // 기본 줌 레벨을 약간 낮춰서 더 넓은 영역 표시
-                moveCamera(CameraUpdate.zoomTo(14.0))
+                //기본 줌 레벨
+                moveCamera(CameraUpdate.zoomTo(15.0))
 
                 // 최소/최대 줌 레벨 설정
                 minZoom = 10.0  // 너무 멀리 축소되지 않도록
@@ -418,7 +418,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                         viewId = HospitalViewModel.MAP_VIEW,
                         latitude = location.latitude,
                         longitude = location.longitude,
-                        radius = 3000,
+                        radius = 1000,
                         forceRefresh = true
                     )
                 }
@@ -506,18 +506,10 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private fun setupMapListeners() {
         if (!isMapReady) return
 
-        var lastLoadTime = 0L
-        val loadDebounceTime = 1000L // 1초 디바운스
-
         _naverMap?.apply {
             addOnCameraIdleListener {
                 if (isInitialLocationSet) {
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastLoadTime > loadDebounceTime) {
-                        lastLoadTime = currentTime
-                        showResearchButton()
-                        loadHospitalsForVisibleRegion()
-                    }
+                    showResearchButton()
                 }
             }
 
@@ -635,9 +627,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 val visibleHospitals = hospitals
                     .distinctBy { it.ykiho }
                     .filter { hospital ->
-                        val position = LatLng(hospital.latitude, hospital.longitude)
-                        isValidCoordinate(hospital.latitude, hospital.longitude) &&
-                                visibleBounds.contains(position)
+                        isValidCoordinate(hospital.latitude, hospital.longitude)
                     }
                     .take(100)
 
@@ -711,14 +701,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
     // 좌표 유효성 검사 함수 업데이트
     private fun isValidCoordinate(latitude: Double, longitude: Double): Boolean {
-        val isValid = latitude != 0.0 && longitude != 0.0 &&
-                latitude >= 33.0 && latitude <= 43.0 && // 한국 위도 범위
-                longitude >= 124.0 && longitude <= 132.0 // 한국 경도 범위
-
-        if (!isValid) {
-            Log.d("MapViewFragment", "Invalid coordinate: lat=$latitude, lng=$longitude")
-        }
-        return isValid
+        return latitude != 0.0 && longitude != 0.0
     }
 
 
@@ -834,41 +817,29 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.researchButton.setOnClickListener {
             try {
                 val mapCenter = naverMap.cameraPosition.target
-
                 loadingManager.showLoading()
-
-                // 필터 초기화
                 binding.hospitalFilter.resetFilters()
-
-                // 현재 위치 업데이트
                 adapter.updateUserLocation(mapCenter)
-                userLocation = mapCenter // userLocation도 업데이트
+                userLocation = mapCenter
 
                 viewLifecycleOwner.lifecycleScope.launch {
                     try {
-                        // 페이지네이션 초기화
                         viewModel.resetPagination(HospitalViewModel.MAP_VIEW)
-
-                        // 현재 보이는 영역의 반경 계산
                         val radius = calculateRadius(naverMap.contentBounds)
                             .toInt()
-                            .coerceAtMost(5000) // 최대 5km로 제한
+                            .coerceAtMost(5000)
 
-                        // 데이터 로드는 IO 스레드에서 실행
                         withContext(Dispatchers.IO) {
                             viewModel.fetchNearbyHospitals(
                                 viewId = HospitalViewModel.MAP_VIEW,
                                 latitude = mapCenter.latitude,
                                 longitude = mapCenter.longitude,
                                 radius = radius,
-                                forceRefresh = true // 강제 새로고침
+                                forceRefresh = true
                             )
                         }
-
-                        // UI 상태 업데이트
                         hideResearchButton()
                         isMapMoved = false
-
                     } catch (e: Exception) {
                         Log.e("MapViewFragment", "Error refreshing hospitals", e)
                         showError("데이터를 불러오는 중 오류가 발생했습니다")
@@ -1039,7 +1010,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                         viewId = HospitalViewModel.MAP_VIEW,
                         latitude = defaultLocation.latitude,
                         longitude = defaultLocation.longitude,
-                        radius = 3000,
+                        radius = 1000,
                         forceRefresh = true // 강제 새로고침 추가
                     )
                 }
@@ -1110,44 +1081,6 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
 
         userLocation?.let { location ->
             adapter.updateUserLocation(location)
-        }
-    }
-
-    private fun addHospitalMarkers(hospitals: List<HospitalInfo>) {
-        if (!shouldUpdateMarkers()) return
-
-        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.Default) {
-            val visibleBounds = withContext(Dispatchers.Main) {
-                naverMap.contentBounds
-            }
-
-            val visibleHospitals = hospitals.filter {
-                val position = LatLng(it.latitude, it.longitude)
-                visibleBounds.contains(position)
-            }
-
-            withContext(Dispatchers.Main) {
-                markers.forEach { recycleMarker(it) }
-                markers.clear()
-
-                visibleHospitals.forEachIndexed { index, hospital ->
-                    if (isValidCoordinate(hospital.latitude, hospital.longitude)) {
-                        getMarkerFromPool().apply {
-                            position = LatLng(hospital.latitude, hospital.longitude)
-                            captionText = hospital.name
-                            tag = hospital
-                            map = naverMap
-                            setOnClickListener {
-                                val selectedHospital = it.tag as HospitalInfo
-                                // 마커 클릭 시 해당 병원을 리스트의 맨 위로 스크롤하고 bottom sheet를 펼침
-                                scrollToHospital(selectedHospital)
-                                true
-                            }
-                            markers.add(this)
-                        }
-                    }
-                }
-            }
         }
     }
 

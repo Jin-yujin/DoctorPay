@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
+
 class MapSearchComponent @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -45,6 +46,7 @@ class MapSearchComponent @JvmOverloads constructor(
     init {
         setupViews()
         setupSearchInput()
+        setupTouchInteraction()
     }
 
     private fun setupViews() {
@@ -52,20 +54,24 @@ class MapSearchComponent @JvmOverloads constructor(
             layoutManager = LinearLayoutManager(context)
             adapter = searchAdapter
             visibility = View.GONE
+
+            // 결과 목록에 애니메이션 효과 추가
+            alpha = 0f
+            translationY = -50f
         }
 
-        // 검색 결과 외부 클릭시 결과 숨김과 키보드 내림
+        // 바깥 영역 터치 처리 개선
         binding.root.setOnClickListener {
-            clearSearchResults()
-            hideKeyboard()
-            binding.searchInput.clearFocus()
+            if (binding.searchResultsList.visibility == View.VISIBLE) {
+                animateSearchResultsHide()
+            }
         }
     }
 
     private fun setupSearchInput() {
         binding.searchInput.apply {
             doAfterTextChanged { text ->
-                if (text?.isNotEmpty() == true) {
+                if (text?.length ?: 0 >= 2) { // 최소 2글자 이상일 때만 검색
                     performSearch(text.toString())
                 } else {
                     clearSearchResults()
@@ -77,7 +83,6 @@ class MapSearchComponent @JvmOverloads constructor(
                     val searchText = text.toString()
                     if (searchText.isNotEmpty()) {
                         performSearch(searchText)
-                        hideKeyboard()
                     }
                     true
                 } else {
@@ -85,12 +90,28 @@ class MapSearchComponent @JvmOverloads constructor(
                 }
             }
 
-            // 포커스 변경 리스너 추가
+            // 포커스 변경 시 부드러운 전환
             setOnFocusChangeListener { _, hasFocus ->
-                if (!hasFocus) {
-                    hideKeyboard()
+                if (hasFocus) {
+                    if (text?.length ?: 0 >= 2) {
+                        animateSearchResultsShow()
+                    }
+                } else {
+                    postDelayed({
+                        if (!binding.searchResultsList.isHovered) {
+                            animateSearchResultsHide()
+                        }
+                    }, 150)
                 }
             }
+        }
+    }
+
+    private fun setupTouchInteraction() {
+        // 검색 결과 목록 영역의 터치 이벤트 처리
+        binding.searchResultsList.setOnTouchListener { _, _ ->
+            binding.searchInput.clearFocus()
+            false
         }
     }
 
@@ -98,7 +119,7 @@ class MapSearchComponent @JvmOverloads constructor(
         searchJob?.cancel()
         searchJob = CoroutineScope(Dispatchers.Main).launch {
             try {
-                delay(500) // Debounce search
+                delay(300) // 디바운스 시간 감소로 반응성 향상
                 val results = withContext(Dispatchers.IO) {
                     geocoder.getFromLocationName(query, 5)?.mapNotNull { address ->
                         val latLng = LatLng(address.latitude, address.longitude)
@@ -108,27 +129,62 @@ class MapSearchComponent @JvmOverloads constructor(
                         )
                     } ?: emptyList()
                 }
-                updateSearchResults(results)
+                if (results.isNotEmpty()) {
+                    animateSearchResultsShow()
+                    searchAdapter.submitList(results)
+                } else {
+                    showNoResults()
+                }
             } catch (e: IOException) {
-                // Handle geocoding error
+                showError()
             }
         }
     }
 
-    private fun updateSearchResults(results: List<SearchResult>) {
-        binding.searchResultsList.visibility = if (results.isNotEmpty()) View.VISIBLE else View.GONE
-        searchAdapter.submitList(results)
+    private fun animateSearchResultsShow() {
+        binding.searchResultsList.apply {
+            visibility = View.VISIBLE
+            animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setDuration(200)
+                .start()
+        }
+    }
+
+    private fun animateSearchResultsHide() {
+        binding.searchResultsList.animate()
+            .alpha(0f)
+            .translationY(-50f)
+            .setDuration(200)
+            .withEndAction {
+                binding.searchResultsList.visibility = View.GONE
+            }
+            .start()
+    }
+
+    private fun showNoResults() {
+        // 결과 없음 상태 표시
+        binding.searchResultsList.visibility = View.VISIBLE
+        searchAdapter.submitList(emptyList())
+        // 필요한 경우 "검색 결과가 없습니다" 메시지 표시
+    }
+
+    private fun showError() {
+        // 에러 상태 표시
+        binding.searchResultsList.visibility = View.GONE
+        // 필요한 경우 에러 메시지 표시
     }
 
     private fun clearSearchResults() {
-        binding.searchResultsList.visibility = View.GONE
-        searchAdapter.submitList(emptyList())
+        animateSearchResultsHide()
     }
 
     private fun hideKeyboard() {
         inputMethodManager.hideSoftInputFromWindow(binding.searchInput.windowToken, 0)
     }
 
+    // 외부에서 호출하는 메서드들은 그대로 유지
     fun clearSearch() {
         binding.searchInput.text?.clear()
         clearSearchResults()

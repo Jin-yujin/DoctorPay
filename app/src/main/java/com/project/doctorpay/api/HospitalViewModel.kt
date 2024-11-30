@@ -73,7 +73,7 @@ class HospitalViewModel(
         const val DETAIL_VIEW = "DETAIL_VIEW"
         const val FAVORITE_VIEW = "FAVORITE_VIEW"
         const val HOME_VIEW = "HOME_VIEW"
-        const val DEFAULT_RADIUS = 5000
+        const val DEFAULT_RADIUS = 3000
         private const val CACHE_DURATION = 30 * 60 * 1000 // 30분
         private const val RETRY_COUNT = 2
         private const val BASE_DELAY = 500L

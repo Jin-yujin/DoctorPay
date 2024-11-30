@@ -40,13 +40,6 @@ class LoadingManager(private val binding: FragmentMapviewBinding) {
     private fun startDotAnimation() {
         stopDotAnimation()
         updateLoadingText()
-
-        dotAnimator = ObjectAnimator.ofFloat(binding.loadingIndicator.dotProgress, "rotation", 0f, 360f).apply {
-            duration = 1000
-            repeatCount = ObjectAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-            start()
-        }
     }
 
     private fun stopDotAnimation() {

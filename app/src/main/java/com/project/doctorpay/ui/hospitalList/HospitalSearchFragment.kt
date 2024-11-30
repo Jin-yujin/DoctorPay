@@ -29,9 +29,9 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class HospitalSearchFragment : Fragment() {
+    private lateinit var adapter: HospitalAdapter
     private var _binding: FragmentHospitalSearchBinding? = null
     private val binding get() = _binding!!
-    private lateinit var adapter: HospitalAdapter
     private lateinit var viewModel: HospitalViewModel
     private var userLocation: LatLng? = null
 

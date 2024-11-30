@@ -35,15 +35,6 @@
             android:textColor="@android:color/black"
             android:textSize="14sp"/>
 
-        <com.google.android.material.progressindicator.CircularProgressIndicator
-            android:id="@+id/dotProgress"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginStart="4dp"
-            android:indeterminate="true"
-            app:indicatorSize="4dp"
-            app:trackThickness="1dp"/>
-
     </LinearLayout>
 
 </androidx.cardview.widget.CardView>
