@@ -6,8 +6,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,16 +13,19 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.location.LocationServices
 import com.naver.maps.geometry.LatLng
+import com.project.doctorpay.location.LocationSettingFragment
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
+import com.project.doctorpay.location.LocationPreference
 import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
@@ -42,6 +43,7 @@ class HomeFragment : Fragment() {
 
     private lateinit var recentHospitalAdapter: RecentHospitalAdapter
     private lateinit var recentHospitalRepository: RecentHospitalRepository
+    private lateinit var locationPreference: LocationPreference
 
     companion object {
         fun newInstance(viewModel: HospitalViewModel) = HomeFragment().apply {
@@ -68,12 +70,13 @@ class HomeFragment : Fragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        locationPreference = LocationPreference(requireContext())
+
         if (!::viewModel.isInitialized) {
             viewModel = (requireActivity() as MainActivity).hospitalViewModel
         }
-
-
     }
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -85,7 +88,26 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        if (locationPreference.isFirstLaunch()) {
+            loadHospitals()  // 현재 위치 가져오기
+        } else {
+            // 저장된 위치 정보 복원
+            locationPreference.getLocation()?.let { (latitude, longitude) ->
+                userLocation = LatLng(latitude, longitude)
+                binding.tvCurrentLocation.text = locationPreference.getAddress()
 
+                // 저장된 위치로 병원 정보 로드
+                adapter.updateUserLocation(userLocation!!)
+                viewModel.fetchNearbyHospitals(
+                    viewId = HospitalViewModel.HOME_VIEW,
+                    latitude = latitude,
+                    longitude = longitude,
+                    radius = HospitalViewModel.DEFAULT_RADIUS
+                )
+            }
+        }
+
+        setupLocationSelection()
         setupRecyclerView()
         setupSearchButton()
         setupCategoryButtons()
@@ -271,6 +293,46 @@ class HomeFragment : Fragment() {
         }
     }
 
+    private fun setupLocationSelection() {
+        binding.locationSelectLayout.setOnClickListener {
+            val locationSettingFragment = LocationSettingFragment().apply {
+                arguments = Bundle().apply {
+                    userLocation?.let { location ->
+                        putDouble("latitude", location.latitude)
+                        putDouble("longitude", location.longitude)
+                    }
+                }
+            }
+
+            parentFragmentManager.beginTransaction()
+                .add(R.id.fragment_container, locationSettingFragment)
+                .addToBackStack(null)
+                .commit()
+        }
+
+        setFragmentResultListener("location_selection") { _, bundle ->
+            val latitude = bundle.getDouble("latitude")
+            val longitude = bundle.getDouble("longitude")
+            val address = bundle.getString("address", "선택된 위치")
+
+            // 위치 정보 업데이트 및 저장
+            userLocation = LatLng(latitude, longitude)
+            binding.tvCurrentLocation.text = address
+            locationPreference.saveLocation(latitude, longitude, address)
+            adapter.updateUserLocation(userLocation!!)
+            viewModel.fetchNearbyHospitals(
+                viewId = HospitalViewModel.HOME_VIEW,
+                latitude = latitude,
+                longitude = longitude,
+                radius = HospitalViewModel.DEFAULT_RADIUS
+            )
+        }
+    }
+
+
+    private fun updateLocationDisplay(address: String) {
+        binding.tvCurrentLocation.text = address
+    }
     private fun sortHospitalsByDistance(hospitals: List<HospitalInfo>): List<HospitalInfo> {
         val currentLocation = userLocation
         return if (currentLocation != null) {
