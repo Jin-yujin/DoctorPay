@@ -291,14 +291,22 @@ class HospitalDetailFragment : Fragment() {
                             nickname,
                             review.content,
                             review.rating,
-                            review.id
+                            review.id,
+                            review.timestamp
                         )
                     }
                 }
                 .addOnFailureListener { e ->
                     Log.e("HospitalDetailFragment", "Error getting user info", e)
                     handleFirebaseCallback { binding ->
-                        addReviewPreview(binding, "익명", review.content, review.rating, review.id)
+                        addReviewPreview(
+                            binding,
+                            "익명",
+                            review.content,
+                            review.rating,
+                            review.id,
+                            review.timestamp
+                        )
                     }
                 }
         } catch (e: Exception) {
@@ -692,13 +700,14 @@ class HospitalDetailFragment : Fragment() {
             .commit()
     }
 
-    // 뷰 미리보기 추가 메서드
+    // 뷰 미리보기
     private fun addReviewPreview(
         binding: FragmentHospitalDetailBinding,
         name: String,
         content: String,
         rating: Float,
-        reviewId: String  // 리뷰 ID
+        reviewId: String,
+        timestamp: Long
     ) {
         if (!isViewCreated || !isAdded) return
 
@@ -716,7 +725,7 @@ class HospitalDetailFragment : Fragment() {
                 findViewById<TextView>(R.id.tvReviewDate).text = SimpleDateFormat(
                     "yyyy-MM-dd",
                     Locale.getDefault()
-                ).format(Date())
+                ).format(Date(timestamp))
             }
 
             binding.layoutReviews.addView(reviewView)
