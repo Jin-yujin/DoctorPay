@@ -14,11 +14,15 @@ interface HealthInsuranceApi {
         @Query("serviceKey") serviceKey: String,
         @Query("pageNo") pageNo: Int,
         @Query("numOfRows") numOfRows: Int,
+        @Query("itemNm") itemNm: String? = null,
         @Query("itemCd") itemCd: String? = null,
         @Query("yadmNm") yadmNm: String? = null,
         @Query("clCd") clCd: String? = null,
         @Query("sidoCd") sidoCd: String? = null,
-        @Query("sgguCd") sgguCd: String? = null
+        @Query("sgguCd") sgguCd: String? = null,
+        @Query("xPos") xPos: String? = null,
+        @Query("yPos") yPos: String? = null,
+        @Query("radius") radius: Int? = null
     ): Response<NonPaymentResponse>
 
     @GET("nonPaymentDamtInfoService/getNonPaymentItemHospDtlList")

@@ -119,8 +119,11 @@ data class DgsbjtInfoItems(
 @Parcelize
 @Root(strict = false, name = "item")
 data class NonPaymentItem(
+    @field:Element(name = "ykiho", required = false)
+    var ykiho: String? = null,
+
     @field:Element(name = "yadmNm", required = false)
-    var yadmNm: String? = null,  // val -> var 로 변경
+    var yadmNm: String? = null,
 
     @field:Element(name = "clCd", required = false)
     var clCd: String? = null,
@@ -147,7 +150,10 @@ data class NonPaymentItem(
     var adtEndDd: String? = null,
 
     @field:Element(name = "spcmfyCatn", required = false)
-    var spcmfyCatn: String? = null
+    var spcmfyCatn: String? = null,
+
+    var latitude: String? = null,
+    var longitude: String? = null
 ) : Parcelable
 
 @Root(strict = false)

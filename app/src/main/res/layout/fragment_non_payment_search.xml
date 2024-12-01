@@ -35,27 +35,36 @@
                     android:background="?attr/selectableItemBackgroundBorderless"/>
 
                 <EditText
-                    android:id="@+id/etSearch"
+                    android:id="@+id/searchEditText"
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:layout_marginStart="16dp"
                     android:background="@null"
-                    android:hint="병원 이름을 입력하세요"
+                    android:hint="비급여 항목을 검색하세요"
                     android:textColor="@android:color/black"
                     android:textColorHint="#757575"
-                    android:inputType="text"
-                    android:imeOptions="actionSearch"/>
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"/>
 
                 <ImageButton
                     android:id="@+id/btnClear"
                     android:layout_width="20dp"
                     android:layout_height="20dp"
-                    android:layout_marginEnd="16dp"
+                    android:layout_marginEnd="8dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:padding="2dp"
                     android:src="@drawable/ic_clear"
                     android:visibility="gone"/>
+
+                <ImageButton
+                    android:id="@+id/btnFilter"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginEnd="16dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="2dp"
+                    android:src="@drawable/ic_filter"/>
             </LinearLayout>
 
         </androidx.appcompat.widget.Toolbar>
@@ -68,27 +77,37 @@
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvSearchResults"
+        android:id="@+id/recyclerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
         android:padding="16dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
 
-    <TextView
-        android:id="@+id/emptyView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:visibility="gone"
-        android:text="검색 결과가 없습니다"
-        android:textSize="16sp"/>
-
     <ProgressBar
-        android:id="@+id/loadingView"
+        android:id="@+id/progressBar"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:visibility="gone"/>
+
+    <LinearLayout
+        android:id="@+id/emptyStateLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/emptyStateText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="검색 결과가 없습니다"
+            android:textSize="16sp"/>
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
