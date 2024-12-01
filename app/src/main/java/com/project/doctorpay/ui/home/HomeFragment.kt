@@ -88,6 +88,14 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // 1. 먼저 기본적인 UI 컴포넌트들 초기화
+        setupRecyclerView()  // adapter 초기화가 여기서 이루어짐
+
+        // 2. LocationPreference 초기화 및 위치 설정
+        locationPreference = LocationPreference(requireContext())
+
+        // 3. 위치 기반 초기화
         if (locationPreference.isFirstLaunch()) {
             loadHospitals()  // 현재 위치 가져오기
         } else {
@@ -96,7 +104,6 @@ class HomeFragment : Fragment() {
                 userLocation = LatLng(latitude, longitude)
                 binding.tvCurrentLocation.text = locationPreference.getAddress()
 
-                // 저장된 위치로 병원 정보 로드
                 adapter.updateUserLocation(userLocation!!)
                 viewModel.fetchNearbyHospitals(
                     viewId = HospitalViewModel.HOME_VIEW,
@@ -107,12 +114,11 @@ class HomeFragment : Fragment() {
             }
         }
 
+        // 4. 나머지 설정들
         setupLocationSelection()
-        setupRecyclerView()
         setupSearchButton()
         setupCategoryButtons()
         setupObservers()
-        loadHospitals()
         setupRecentHospitals()
     }
 

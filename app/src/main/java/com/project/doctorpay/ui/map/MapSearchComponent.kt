@@ -3,14 +3,15 @@ package com.project.doctorpay.ui.map
 import android.content.Context
 import android.location.Geocoder
 import android.util.AttributeSet
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.FrameLayout
-import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.google.android.material.snackbar.Snackbar
 import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.databinding.ComponentMapSearchBinding
 import kotlinx.coroutines.CoroutineScope
@@ -19,7 +20,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
 import java.io.IOException
+import java.net.URLEncoder
 
 
 class MapSearchComponent @JvmOverloads constructor(
@@ -28,16 +33,26 @@ class MapSearchComponent @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : FrameLayout(context, attrs, defStyleAttr) {
 
+
     private val binding = ComponentMapSearchBinding.inflate(LayoutInflater.from(context), this, true)
     private var searchJob: Job? = null
     private var onLocationSelectedListener: ((LatLng) -> Unit)? = null
-    private val geocoder: Geocoder by lazy { Geocoder(context) }
+    private val client = OkHttpClient()
     private val inputMethodManager: InputMethodManager by lazy {
         context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
     }
 
-    private val searchAdapter = SearchResultAdapter { location ->
-        onLocationSelectedListener?.invoke(location)
+    companion object {
+        private const val KAKAO_REST_API_KEY = "d27b50429aadfd71ce821e898e3b2629"
+        private const val SEARCH_URL = "https://dapi.kakao.com/v2/local/search/address.json"
+        private const val KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
+        private const val MIN_QUERY_LENGTH = 2
+        private const val SEARCH_DEBOUNCE_TIME = 300L
+        private const val MAX_RESULTS = 10
+    }
+
+    private val searchAdapter = SearchResultAdapter { latLng ->
+        onLocationSelectedListener?.invoke(latLng)
         clearSearchResults()
         hideKeyboard()
         binding.searchInput.clearFocus()
@@ -54,13 +69,10 @@ class MapSearchComponent @JvmOverloads constructor(
             layoutManager = LinearLayoutManager(context)
             adapter = searchAdapter
             visibility = View.GONE
-
-            // 결과 목록에 애니메이션 효과 추가
             alpha = 0f
             translationY = -50f
         }
 
-        // 바깥 영역 터치 처리 개선
         binding.root.setOnClickListener {
             if (binding.searchResultsList.visibility == View.VISIBLE) {
                 animateSearchResultsHide()
@@ -71,7 +83,7 @@ class MapSearchComponent @JvmOverloads constructor(
     private fun setupSearchInput() {
         binding.searchInput.apply {
             doAfterTextChanged { text ->
-                if (text?.length ?: 0 >= 2) { // 최소 2글자 이상일 때만 검색
+                if (text?.length ?: 0 >= MIN_QUERY_LENGTH) {
                     performSearch(text.toString())
                 } else {
                     clearSearchResults()
@@ -90,10 +102,9 @@ class MapSearchComponent @JvmOverloads constructor(
                 }
             }
 
-            // 포커스 변경 시 부드러운 전환
             setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) {
-                    if (text?.length ?: 0 >= 2) {
+                    if (text?.length ?: 0 >= MIN_QUERY_LENGTH) {
                         animateSearchResultsShow()
                     }
                 } else {
@@ -107,6 +118,7 @@ class MapSearchComponent @JvmOverloads constructor(
         }
     }
 
+
     private fun setupTouchInteraction() {
         // 검색 결과 목록 영역의 터치 이벤트 처리
         binding.searchResultsList.setOnTouchListener { _, _ ->
@@ -119,26 +131,100 @@ class MapSearchComponent @JvmOverloads constructor(
         searchJob?.cancel()
         searchJob = CoroutineScope(Dispatchers.Main).launch {
             try {
-                delay(300) // 디바운스 시간 감소로 반응성 향상
+                delay(SEARCH_DEBOUNCE_TIME)
+
                 val results = withContext(Dispatchers.IO) {
-                    geocoder.getFromLocationName(query, 5)?.mapNotNull { address ->
-                        val latLng = LatLng(address.latitude, address.longitude)
-                        SearchResult(
-                            address.getAddressLine(0) ?: "",
-                            latLng
-                        )
-                    } ?: emptyList()
+                    val addressResults = searchAddress(query)
+                    val keywordResults = if (addressResults.isEmpty()) {
+                        searchKeyword(query)
+                    } else {
+                        emptyList()
+                    }
+                    (addressResults + keywordResults)
+                        .distinctBy { "${it.latitude}${it.longitude}" }
+                        .take(MAX_RESULTS)
                 }
+
                 if (results.isNotEmpty()) {
                     animateSearchResultsShow()
                     searchAdapter.submitList(results)
                 } else {
                     showNoResults()
                 }
-            } catch (e: IOException) {
+            } catch (e: Exception) {
+                Log.e("MapSearch", "Search error", e)
                 showError()
             }
         }
+    }
+
+    private suspend fun searchKeyword(query: String): List<SearchResultAdapter.SearchResult> {
+        return try {
+            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            val request = Request.Builder()
+                .url("$KEYWORD_URL?query=$encodedQuery")
+                .addHeader("Authorization", "KakaoAK $KAKAO_REST_API_KEY")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: return emptyList()
+            Log.d("MapSearch", "Keyword search response: $responseBody")
+
+            val jsonObject = JSONObject(responseBody)
+            val documents = jsonObject.getJSONArray("documents")
+
+            List(documents.length()) { i ->
+                val document = documents.getJSONObject(i)
+                SearchResultAdapter.SearchResult(
+                    address = "${document.getString("place_name")} (${document.getString("address_name")})",
+                    latitude = document.getString("y").toDouble(),
+                    longitude = document.getString("x").toDouble()
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("MapSearch", "Keyword search error", e)
+            emptyList()
+        }
+    }
+
+    private suspend fun searchAddress(query: String): List<SearchResultAdapter.SearchResult> {
+        return try {
+            val encodedQuery = URLEncoder.encode(query, "UTF-8")
+            val request = Request.Builder()
+                .url("$SEARCH_URL?query=$encodedQuery")
+                .addHeader("Authorization", "KakaoAK $KAKAO_REST_API_KEY")
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: return emptyList()
+            Log.d("MapSearch", "Address search response: $responseBody")
+
+            val jsonObject = JSONObject(responseBody)
+            val documents = jsonObject.getJSONArray("documents")
+
+            List(documents.length()) { i ->
+                val document = documents.getJSONObject(i)
+                SearchResultAdapter.SearchResult(
+                    address = document.getString("address_name"),
+                    latitude = document.getString("y").toDouble(),
+                    longitude = document.getString("x").toDouble()
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("MapSearch", "Address search error", e)
+            emptyList()
+        }
+    }
+
+    private fun showNoResults() {
+        binding.searchResultsList.visibility = View.VISIBLE
+        searchAdapter.submitList(emptyList())
+        Snackbar.make(binding.root, "검색 결과가 없습니다", Snackbar.LENGTH_SHORT).show()
+    }
+
+    private fun showError() {
+        binding.searchResultsList.visibility = View.GONE
+        Snackbar.make(binding.root, "검색 중 오류가 발생했습니다", Snackbar.LENGTH_SHORT).show()
     }
 
     private fun animateSearchResultsShow() {
@@ -163,18 +249,7 @@ class MapSearchComponent @JvmOverloads constructor(
             .start()
     }
 
-    private fun showNoResults() {
-        // 결과 없음 상태 표시
-        binding.searchResultsList.visibility = View.VISIBLE
-        searchAdapter.submitList(emptyList())
-        // 필요한 경우 "검색 결과가 없습니다" 메시지 표시
-    }
 
-    private fun showError() {
-        // 에러 상태 표시
-        binding.searchResultsList.visibility = View.GONE
-        // 필요한 경우 에러 메시지 표시
-    }
 
     private fun clearSearchResults() {
         animateSearchResultsHide()
@@ -196,8 +271,4 @@ class MapSearchComponent @JvmOverloads constructor(
         onLocationSelectedListener = listener
     }
 
-    data class SearchResult(
-        val address: String,
-        val location: LatLng
-    )
 }
