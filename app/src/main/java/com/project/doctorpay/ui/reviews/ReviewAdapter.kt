@@ -76,6 +76,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
         fun bind(review: Review) {
             binding.apply {
                 tvReviewerName.text = review.userName
+                tvHospitalName.text = review.hospitalName
                 tvDepartment.text = review.department
                 ratingBar.rating = review.rating
                 tvReviewContent.text = review.content
@@ -153,6 +154,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 data class Review(
     val id: String = "",
     val hospitalId: String = "",
+    val hospitalName: String = "",
     val userId: String = "",
     val userName: String = "",
     val userNickname: String = "",

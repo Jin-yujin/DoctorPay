@@ -337,7 +337,6 @@ class HospitalDetailFragment : Fragment() {
     private fun setupClickListeners() {
         binding.apply {
             btnStart.setOnClickListener { openMapWithDirections("출발") }
-            btnDestination.setOnClickListener { openMapWithDirections("도착") }
             btnSave.setOnClickListener { toggleFavorite() }
             btnCall.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
             btnShare.setOnClickListener { shareHospitalInfo() }

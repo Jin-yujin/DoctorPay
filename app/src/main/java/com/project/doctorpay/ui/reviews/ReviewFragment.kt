@@ -282,6 +282,9 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
 
         dialog.show()
 
+        // 병원 이름 가져오기
+        val hospitalName = arguments?.getString("hospitalName") ?: ""
+
         val departments = arguments?.getStringArrayList("departments")?.toList() ?: listOf()
         val allDepartments = listOf("진료과 선택") + departments
 
@@ -321,6 +324,7 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
                 else -> {
                     viewModel.addReview(
                         hospitalId = hospitalId,
+                        hospitalName = hospitalName,
                         rating = rating,
                         content = content,
                         department = selectedDepartment

@@ -88,7 +88,7 @@ class ReviewViewModel : ViewModel() {
             }
     }
 
-    fun addReview(hospitalId: String, rating: Float, content: String, department: String) {
+    fun addReview(hospitalId: String, hospitalName: String, rating: Float, content: String, department: String) {
         viewModelScope.launch {
             _reviewStatus.value = ReviewStatus.Loading
             try {
@@ -96,6 +96,7 @@ class ReviewViewModel : ViewModel() {
                     id = UUID.randomUUID().toString(),
                     userId = auth.currentUser?.uid ?: "",
                     hospitalId = hospitalId,
+                    hospitalName = hospitalName,
                     content = content,
                     rating = rating,
                     department = department,
@@ -136,7 +137,8 @@ class ReviewViewModel : ViewModel() {
         val updatedReview = review.copy(
             rating = newRating,
             content = newContent,
-            department = newDepartment
+            department = newDepartment,
+            hospitalName = review.hospitalName
         )
 
         db.collection("reviews")
