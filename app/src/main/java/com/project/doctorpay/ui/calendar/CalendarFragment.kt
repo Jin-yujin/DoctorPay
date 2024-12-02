@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import androidx.appcompat.widget.SearchView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.firebase.auth.FirebaseAuth
@@ -18,6 +19,8 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
+import com.project.doctorpay.comp.BackPressHandler
+import com.project.doctorpay.comp.handleBackPress
 import com.project.doctorpay.databinding.FragmentCalendarBinding
 import com.project.doctorpay.databinding.DialogAddAppointmentBinding
 import java.text.SimpleDateFormat
@@ -31,9 +34,28 @@ class CalendarFragment : Fragment() {
     private var selectedDate: Calendar = Calendar.getInstance()
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private lateinit var backPressHandler: BackPressHandler
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        backPressHandler = BackPressHandler(requireActivity())
+
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentCalendarBinding.inflate(inflater, container, false)
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (System.currentTimeMillis() > backPressHandler.backPressedTime + 2000) {
+                        backPressHandler.backPressedTime = System.currentTimeMillis()
+                        Toast.makeText(requireContext(), "한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        requireActivity().finishAffinity() // 앱 종료
+                    }
+                }
+            }
+        )
         return binding.root
     }
 

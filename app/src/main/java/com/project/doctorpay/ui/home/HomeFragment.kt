@@ -10,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -22,6 +23,8 @@ import com.project.doctorpay.location.LocationSettingFragment
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
+import com.project.doctorpay.comp.BackPressHandler
+import com.project.doctorpay.comp.handleBackPress
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.db.DepartmentCategory
 import com.project.doctorpay.db.HospitalInfo
@@ -52,6 +55,7 @@ class HomeFragment : Fragment() {
     }
 
     private lateinit var adapter: HospitalAdapter
+    private lateinit var backPressHandler: BackPressHandler
 
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -75,6 +79,8 @@ class HomeFragment : Fragment() {
         if (!::viewModel.isInitialized) {
             viewModel = (requireActivity() as MainActivity).hospitalViewModel
         }
+        backPressHandler = BackPressHandler(requireActivity())
+
     }
 
 
@@ -83,6 +89,19 @@ class HomeFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
+
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (System.currentTimeMillis() > backPressHandler.backPressedTime + 2000) {
+                        backPressHandler.backPressedTime = System.currentTimeMillis()
+                        Toast.makeText(requireContext(), "한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        requireActivity().finishAffinity() // 앱 종료
+                    }
+                }
+            }
+        )
         return binding.root
     }
 

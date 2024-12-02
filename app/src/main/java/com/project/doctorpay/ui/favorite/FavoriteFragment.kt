@@ -30,6 +30,9 @@ import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import android.Manifest
+import androidx.activity.OnBackPressedCallback
+import com.project.doctorpay.comp.BackPressHandler
+import com.project.doctorpay.comp.handleBackPress
 
 class FavoriteFragment : Fragment() {
     private var _binding: FragmentFavoriteBinding? = null
@@ -44,10 +47,13 @@ class FavoriteFragment : Fragment() {
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
+    private lateinit var backPressHandler: BackPressHandler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+        backPressHandler = BackPressHandler(requireActivity())
+
     }
 
     override fun onCreateView(
@@ -56,6 +62,19 @@ class FavoriteFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentFavoriteBinding.inflate(inflater, container, false)
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (System.currentTimeMillis() > backPressHandler.backPressedTime + 2000) {
+                        backPressHandler.backPressedTime = System.currentTimeMillis()
+                        Toast.makeText(requireContext(), "한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        requireActivity().finishAffinity() // 앱 종료
+                    }
+                }
+            }
+        )
+
         return binding.root
     }
 

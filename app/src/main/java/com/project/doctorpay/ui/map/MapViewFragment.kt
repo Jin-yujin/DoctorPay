@@ -12,6 +12,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
@@ -53,7 +54,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.material.snackbar.Snackbar
 import com.naver.maps.map.CameraAnimation
 import com.naver.maps.map.CameraPosition
+import com.project.doctorpay.comp.BackPressHandler
 import com.project.doctorpay.comp.LoadingManager
+import com.project.doctorpay.comp.handleBackPress
 import com.project.doctorpay.db.OperationState
 import kotlinx.coroutines.withTimeout
 
@@ -119,6 +122,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
     private var currentVisibleRegion: LatLngBounds? = null
     private var isDataLoading = false
     private val loadingScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private lateinit var backPressHandler: BackPressHandler
 
     // 데이터 중복 방지를 위한 캐시
     private var lastLoadedHospitals = mutableSetOf<String>() // ykiho 기준
@@ -151,6 +155,9 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                 lastKnownZoomLevel = zoom
             }
         }
+
+        backPressHandler = BackPressHandler(requireActivity())
+
     }
 
     override fun onCreateView(
@@ -159,6 +166,18 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentMapviewBinding.inflate(inflater, container, false)
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (System.currentTimeMillis() > backPressHandler.backPressedTime + 2000) {
+                        backPressHandler.backPressedTime = System.currentTimeMillis()
+                        Toast.makeText(requireContext(), "한 번 더 누르면 종료됩니다.", Toast.LENGTH_SHORT).show()
+                    } else {
+                        requireActivity().finishAffinity() // 앱 종료
+                    }
+                }
+            }
+        )
         return binding.root
     }
 

@@ -38,7 +38,7 @@ class LoginActivity : AppCompatActivity() {
                 val account = task.getResult(ApiException::class.java)
                 firebaseAuthWithGoogle(account.idToken!!)
             } catch (e: ApiException) {
-                Toast.makeText(this, "Google 로그인 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Google 로그인 실패", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -88,13 +88,13 @@ class LoginActivity : AppCompatActivity() {
                         } else {
                             Toast.makeText(
                                 this,
-                                "로그인 실패: ${task.exception?.message}",
+                                "이메일과 비밀번호를 확인하세요",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
                     }
             } else {
-                Toast.makeText(this, "이메일과 비밀번호를 입력하세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "이메일과 비밀번호를 입력하세요ㅇㅇㅇ.", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -156,8 +156,8 @@ class LoginActivity : AppCompatActivity() {
     private fun loginWithKakaoAccount() {
         UserApiClient.instance.loginWithKakaoAccount(this, callback = { token, error ->
             if (error != null) {
-                Log.e("KakaoLogin", "카카오계정 로그인 실패", error)
-                Toast.makeText(this, "카카오계정 로그인 실패: ${error.message}", Toast.LENGTH_SHORT).show()
+                Log.e("KakaoLogin", "카카오계정 로그인 실패: ${error.message}", error)
+                Toast.makeText(this, "카카오계정 로그인 실패", Toast.LENGTH_SHORT).show()
             } else if (token != null) {
                 handleKakaoLoginResult(token, null)
             }
@@ -166,8 +166,8 @@ class LoginActivity : AppCompatActivity() {
 
     private fun handleKakaoLoginResult(token: OAuthToken?, error: Throwable?) {
         if (error != null) {
-            Log.e("KakaoLogin", "카카오 로그인 실패", error)
-            Toast.makeText(this, "카카오 로그인 실패: ${error.message}", Toast.LENGTH_SHORT).show()
+            Log.e("KakaoLogin", "카카오 로그인 실패: ${error.message}", error)
+            Toast.makeText(this, "카카오 로그인 실패", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -243,7 +243,8 @@ class LoginActivity : AppCompatActivity() {
         }
 
         override fun onFailure(httpStatus: Int, message: String) {
-            Toast.makeText(this@LoginActivity, "Naver 로그인 실패: $message", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@LoginActivity, "Naver 로그인 실패", Toast.LENGTH_SHORT).show()
+            Log.e("Naver","naver로그인 실패: $message")
         }
 
         override fun onError(errorCode: Int, message: String) {
@@ -274,7 +275,7 @@ class LoginActivity : AppCompatActivity() {
                 } else {
                     Toast.makeText(
                         this,
-                        "Google 로그인 실패: ${task.exception?.message}",
+                        "Google 로그인 실패",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -310,7 +311,7 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
             .addOnFailureListener { e ->
-                Toast.makeText(this, "프로필 확인 실패: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "프로필 확인 실패", Toast.LENGTH_SHORT).show()
             }
     }
 }
