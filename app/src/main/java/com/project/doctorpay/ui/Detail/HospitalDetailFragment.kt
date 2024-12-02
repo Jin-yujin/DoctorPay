@@ -336,8 +336,7 @@ class HospitalDetailFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.apply {
-            btnStart.setOnClickListener { openMapWithDirections("출발") }
-            btnDestination.setOnClickListener { openMapWithDirections("도착") }
+            btnStart.setOnClickListener { openMapWithDirections() }
             btnSave.setOnClickListener { toggleFavorite() }
             btnCall.setOnClickListener { dialPhoneNumber(hospital.phoneNumber) }
             btnShare.setOnClickListener { shareHospitalInfo() }
@@ -491,15 +490,11 @@ class HospitalDetailFragment : Fragment() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, callback)
     }
 
-    private fun openMapWithDirections(mode: String) {
+    private fun openMapWithDirections() {
         val encodedAddress = Uri.encode(hospital.address)
         val encodedName = Uri.encode(hospital.name)
 
-        val uri = when (mode) {
-            "출발" -> Uri.parse("nmap://route/public?slat=&slng=&sname=현재위치&dlat=${hospital.latitude}&dlng=${hospital.longitude}&dname=$encodedName&appname=${context?.packageName}")
-            "도착" -> Uri.parse("nmap://route/public?dlat=${hospital.latitude}&dlng=${hospital.longitude}&dname=$encodedName&appname=${context?.packageName}")
-            else -> Uri.parse("nmap://search?query=$encodedAddress&appname=${context?.packageName}")
-        }
+        val uri =Uri.parse("nmap://route/public?slat=&slng=&sname=현재위치&dlat=${hospital.latitude}&dlng=${hospital.longitude}&dname=$encodedName&appname=${context?.packageName}")
 
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
