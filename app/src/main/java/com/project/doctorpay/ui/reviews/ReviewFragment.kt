@@ -209,7 +209,7 @@ class ReviewFragment : Fragment(), ReviewAdapter.ReviewActionListener {
 
     private fun setupRecyclerView() {
         reviewAdapter = ReviewAdapter().apply {
-            setActionListener(this@ReviewFragment)  // ReviewFragment를 리스너로 설정
+            setActionListener(this@ReviewFragment)
         }
         binding.recyclerViewReviews.apply {
             adapter = reviewAdapter

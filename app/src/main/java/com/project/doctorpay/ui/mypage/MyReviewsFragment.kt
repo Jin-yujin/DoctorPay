@@ -55,7 +55,7 @@ class MyReviewsFragment : Fragment(), ReviewAdapter.ReviewActionListener {
     }
 
     private fun setupRecyclerView() {
-        reviewAdapter = ReviewAdapter().apply {
+        reviewAdapter = ReviewAdapter(showHospitalName = true).apply {
             setActionListener(this@MyReviewsFragment)
         }
         binding.recyclerViewMyReviews.apply {
