@@ -15,7 +15,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(ReviewDiffCallback()) {
+class ReviewAdapter(private val showHospitalName: Boolean = false) : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(ReviewDiffCallback()) {
     private val db = FirebaseFirestore.getInstance()
     private val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
     private var actionListener: ReviewActionListener? = null
@@ -34,7 +34,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReviewViewHolder {
         val binding = ItemReviewBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ReviewViewHolder(binding, currentUserId, actionListener)
+        return ReviewViewHolder(binding, currentUserId, actionListener, showHospitalName)
     }
 
     override fun onBindViewHolder(holder: ReviewViewHolder, position: Int) {
@@ -70,17 +70,24 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
     class ReviewViewHolder(
         private val binding: ItemReviewBinding,
         private val currentUserId: String?,
-        private val actionListener: ReviewActionListener?
+        private val actionListener: ReviewActionListener?,
+        private val showHospitalName: Boolean
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(review: Review) {
             binding.apply {
                 tvReviewerName.text = review.userName
+                tvHospitalName.text = review.hospitalName
                 tvDepartment.text = review.department
                 ratingBar.rating = review.rating
                 tvReviewContent.text = review.content
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
                 tvReviewDate.text = dateFormat.format(Date(review.timestamp))
+                // 병원 이름 표시 여부 설정
+                tvHospitalName.visibility = if (showHospitalName) View.VISIBLE else View.GONE
+                if (showHospitalName) {
+                    tvHospitalName.text = review.hospitalName
+                }
 
                 // 사용자 정보 가져오기 및 표시
                 FirebaseFirestore.getInstance()
@@ -153,6 +160,7 @@ class ReviewAdapter : ListAdapter<Review, ReviewAdapter.ReviewViewHolder>(Review
 data class Review(
     val id: String = "",
     val hospitalId: String = "",
+    val hospitalName: String = "",
     val userId: String = "",
     val userName: String = "",
     val userNickname: String = "",
