@@ -7,16 +7,11 @@ import android.content.Context
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.Gravity
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 import com.kakao.sdk.common.KakaoSdk
 import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.initialize
-import com.google.firebase.messaging.FirebaseMessaging
 
 class MyApplication : Application() {
     companion object {
@@ -45,18 +40,6 @@ class MyApplication : Application() {
 
         // 알림 채널 생성
         createNotificationChannel()
-
-        // FCM 토큰 가져오기
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                Log.w("FCM", "Fetching FCM registration token failed", task.exception)
-                return@addOnCompleteListener
-            }
-
-            // 새 토큰 얻기
-            val token = task.result
-            Log.d("FCM", "FCM Token: $token")
-        }
 
         // 앱 초기화 시 필요한 설정들
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

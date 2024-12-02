@@ -69,14 +69,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".ui.calendar.FCMService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
-
         <meta-data
             android:name="com.naver.maps.map.CLIENT_ID"
             android:value="w9nz2kg3mc" />
