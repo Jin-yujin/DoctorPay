@@ -6,6 +6,11 @@
     android:background="@color/white"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
+    <LinearLayout
+        android:id="@+id/mainContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
@@ -32,12 +37,6 @@
         </androidx.appcompat.widget.Toolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
-
-
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
     <androidx.core.widget.NestedScrollView
         android:id="@+id/nestedScrollView"
@@ -101,35 +100,7 @@
                     tools:text="4.5" />
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="16dp">
 
-                <Button
-                    android:id="@+id/btnStart"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
-                    android:text="출발"
-                    android:textColor="@android:color/black"
-                    android:backgroundTint="@android:color/white"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <Button
-                    android:id="@+id/btnDestination"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:text="도착"
-                    android:textColor="@android:color/black"
-                    android:backgroundTint="@android:color/white"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -178,6 +149,28 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="전화"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+
+                    <ImageButton
+                        android:id="@+id/btnStart"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:src="@android:drawable/ic_menu_directions"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="btnStart" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="길찾기"
                         android:textSize="12sp" />
                 </LinearLayout>
 
@@ -323,13 +316,13 @@
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
+      
+    </LinearLayout>
 
         <FrameLayout
             android:id="@+id/hospitalDetailContainer"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:visibility="gone" />
-
-    </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
