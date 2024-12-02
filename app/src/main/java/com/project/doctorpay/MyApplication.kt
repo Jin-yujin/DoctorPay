@@ -9,6 +9,9 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.widget.Toast
+import androidx.work.Configuration
+import androidx.work.WorkManager
+import androidx.work.WorkerFactory
 import com.kakao.sdk.common.KakaoSdk
 import com.google.firebase.Firebase
 import com.google.firebase.initialize
@@ -37,6 +40,13 @@ class MyApplication : Application() {
         instance = this
         Firebase.initialize(this)
         KakaoSdk.init(this, BuildConfig.KAKAO_NATIVE_APP_KEY)
+
+        // WorkManager 설정
+        val config = Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .build()
+
+        WorkManager.initialize(this, config)
 
         // 알림 채널 생성
         createNotificationChannel()

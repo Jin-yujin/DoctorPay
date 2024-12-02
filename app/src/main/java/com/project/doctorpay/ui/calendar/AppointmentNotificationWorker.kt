@@ -9,9 +9,9 @@ import android.media.RingtoneManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.work.*
-import com.google.firebase.auth.FirebaseAuth
 import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -69,7 +69,7 @@ class AppointmentNotificationWorker(
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("병원 예약 알림")
-            .setContentText("오늘 ${hospitalName}에 ${appointmentTime} 예약이 있습니다.")
+            .setContentText("내일 ${appointmentTime}에 ${hospitalName} 예약이 있습니다.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
@@ -116,21 +116,61 @@ class AppointmentNotificationWorker(
 
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresDeviceIdle(false)
                 .build()
 
             val notificationWork = OneTimeWorkRequestBuilder<AppointmentNotificationWorker>()
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+                .setBackoffCriteria(
+                    BackoffPolicy.LINEAR,
+                    Duration.ofMinutes(5).toMillis(),  // 5분 간격으로 재시도
+                    TimeUnit.MILLISECONDS
+                )
                 .setInputData(inputData)
                 .setConstraints(constraints)
                 .addTag(appointment.id)
                 .build()
 
+            val workManager = WorkManager.getInstance(context)
+            workManager.enqueueUniqueWork(
+                appointment.id,
+                ExistingWorkPolicy.REPLACE,
+                notificationWork
+            )
+
+            workManager.getWorkInfoByIdLiveData(notificationWork.id)
+                .observeForever { workInfo ->
+                    when (workInfo.state) {
+                        WorkInfo.State.SUCCEEDED -> {
+                            Log.d("WorkManager", "Notification work succeeded")
+                        }
+                        WorkInfo.State.FAILED -> {
+                            Log.e("WorkManager", "Notification work failed")
+                            rescheduleNotification(context, appointment)
+                        }
+                        else -> {
+                            Log.d("WorkManager", "Notification work state: ${workInfo.state}")
+                        }
+                    }
+                }
+        }
+
+        private fun rescheduleNotification(context: Context, appointment: Appointment) {
+            val rescheduleDelay = Duration.ofMinutes(5).toMillis()
+            val inputData = workDataOf(
+                KEY_HOSPITAL_NAME to appointment.hospitalName,
+                KEY_APPOINTMENT_TIME to appointment.time,
+                KEY_APPOINTMENT_ID to appointment.id
+            )
+
+            val rescheduleWork = OneTimeWorkRequestBuilder<AppointmentNotificationWorker>()
+                .setInitialDelay(rescheduleDelay, TimeUnit.MILLISECONDS)
+                .setInputData(inputData)
+                .addTag("${appointment.id}_reschedule")
+                .build()
+
             WorkManager.getInstance(context)
-                .enqueueUniqueWork(
-                    appointment.id,
-                    ExistingWorkPolicy.REPLACE,
-                    notificationWork
-                )
+                .enqueue(rescheduleWork)
         }
 
         fun cancelNotification(context: Context, appointmentId: String) {
