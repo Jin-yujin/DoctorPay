@@ -17,7 +17,11 @@ import com.project.doctorpay.databinding.ComponentMapSearchBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -25,6 +29,7 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
+import kotlin.coroutines.cancellation.CancellationException
 
 
 class MapSearchComponent @JvmOverloads constructor(
@@ -35,7 +40,6 @@ class MapSearchComponent @JvmOverloads constructor(
 
 
     private val binding = ComponentMapSearchBinding.inflate(LayoutInflater.from(context), this, true)
-    private var searchJob: Job? = null
     private var onLocationSelectedListener: ((LatLng) -> Unit)? = null
     private val client = OkHttpClient()
     private val inputMethodManager: InputMethodManager by lazy {
@@ -57,6 +61,8 @@ class MapSearchComponent @JvmOverloads constructor(
         hideKeyboard()
         binding.searchInput.clearFocus()
     }
+    private var searchJob: Job? = null
+    private val searchScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     init {
         setupViews()
@@ -127,36 +133,54 @@ class MapSearchComponent @JvmOverloads constructor(
         }
     }
 
+
     private fun performSearch(query: String) {
-        searchJob?.cancel()
-        searchJob = CoroutineScope(Dispatchers.Main).launch {
+        searchJob?.cancel()  // 이전 검색 작업 취소
+
+        searchJob = searchScope.launch {
             try {
+                binding.searchResultsList.visibility = View.GONE  // 검색 시작 시 결과 숨기기
+
                 delay(SEARCH_DEBOUNCE_TIME)
 
                 val results = withContext(Dispatchers.IO) {
-                    val addressResults = searchAddress(query)
-                    val keywordResults = if (addressResults.isEmpty()) {
-                        searchKeyword(query)
-                    } else {
+                    try {
+                        val addressResults = searchAddress(query)
+                        if (addressResults.isNotEmpty()) {
+                            addressResults
+                        } else {
+                            searchKeyword(query)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MapSearch", "Search API error", e)
                         emptyList()
                     }
-                    (addressResults + keywordResults)
-                        .distinctBy { "${it.latitude}${it.longitude}" }
-                        .take(MAX_RESULTS)
-                }
+                }.distinctBy { "${it.latitude}${it.longitude}" }
+                    .take(MAX_RESULTS)
+
+                // JobCancellationException 체크
+                ensureActive()
 
                 if (results.isNotEmpty()) {
+                    binding.searchResultsList.visibility = View.VISIBLE
                     animateSearchResultsShow()
                     searchAdapter.submitList(results)
                 } else {
                     showNoResults()
                 }
+
+            } catch (e: CancellationException) {
+                // 검색 취소는 정상적인 경우이므로 에러 표시하지 않음
+                Log.d("MapSearch", "Search cancelled")
             } catch (e: Exception) {
                 Log.e("MapSearch", "Search error", e)
-                showError()
+                if (isActive) {  // 코루틴이 활성 상태일 때만 에러 표시
+                    showError()
+                }
             }
         }
     }
+
 
     private suspend fun searchKeyword(query: String): List<SearchResultAdapter.SearchResult> {
         return try {
@@ -270,5 +294,9 @@ class MapSearchComponent @JvmOverloads constructor(
     fun setOnLocationSelectedListener(listener: (LatLng) -> Unit) {
         onLocationSelectedListener = listener
     }
-
+    // 컴포넌트가 제거될 때 코루틴 정리
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        searchScope.cancel()
+    }
 }

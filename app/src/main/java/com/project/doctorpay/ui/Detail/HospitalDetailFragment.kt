@@ -21,6 +21,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -40,7 +41,9 @@ import com.project.doctorpay.ui.calendar.Appointment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import com.project.doctorpay.ui.reviews.Review
 import com.project.doctorpay.ui.reviews.ReviewFragment
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -130,6 +133,7 @@ class HospitalDetailFragment : Fragment() {
                                 "점심시간 (${formatTime(lunch.start)} - ${formatTime(lunch.end)})\n"
                             } ?: "점심시간\n"
                         }
+
                         OperationState.CLOSED -> "영업종료\n"
                         OperationState.EMERGENCY -> {
                             when {
@@ -139,6 +143,7 @@ class HospitalDetailFragment : Fragment() {
                                 else -> ""
                             }
                         }
+
                         OperationState.UNKNOWN -> "운영시간 정보 없음"
                     })
 
@@ -334,17 +339,26 @@ class HospitalDetailFragment : Fragment() {
             btnBack.setOnClickListener { navigateBack() }
 
             // 비급여 항목 더보기 버튼 클릭 리스너 통합
-            btnMoreNonCoveredItems.setOnClickListener {
-                parentFragmentManager.beginTransaction()
-                    .replace(
-                        R.id.fragment_container, NonCoveredItemsFragment.newInstance(
-                            hospitalId = hospital.ykiho,
-                            hospitalName = hospital.name
-                        )
-                    )
-                    .addToBackStack(null)
-                    .commit()
+            binding.btnMoreNonCoveredItems.setOnClickListener {
+                showAllNonCoveredItems()
             }
+        }
+    }
+
+    // HospitalDetailFragment에 추가
+    fun showMainButtons() {
+        binding.apply {
+            btnSave.visibility = View.VISIBLE
+            btnShare.visibility = View.VISIBLE
+            btnAppointment.visibility = View.VISIBLE
+        }
+    }
+
+    fun hideMainButtons() {
+        binding.apply {
+            btnSave.visibility = View.GONE
+            btnShare.visibility = View.GONE
+            btnAppointment.visibility = View.GONE
         }
     }
 
@@ -559,27 +573,36 @@ class HospitalDetailFragment : Fragment() {
         }
     }
 
+    // HospitalDetailFragment에서
     private fun loadNonCoveredItems() {
         if (!isViewCreated || !isAdded || _binding == null) return
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                val items = viewModel.fetchNonPaymentItemsOnly(hospital.ykiho)
+                // withContext를 사용하여 IO 작업 수행
+                val items = withContext(Dispatchers.IO) {
+                    viewModel.fetchNonPaymentItemsOnly(hospital.ykiho)
+                }
 
-                if (items.isEmpty()) {
-                    addEmptyNonCoveredView("비급여 항목이 없습니다")
-                    binding.btnMoreNonCoveredItems?.isVisible = false
-                } else {
-                    binding.layoutNonCoveredItems.removeAllViews()
-                    items.take(3).forEach { item ->
-                        addNonCoveredItemPreview(item)
+                // UI 업데이트는 Main 스레드에서
+                withContext(Dispatchers.Main) {
+                    if (items.isEmpty()) {
+                        addEmptyNonCoveredView("비급여 항목이 없습니다")
+                        binding.btnMoreNonCoveredItems?.isVisible = false
+                    } else {
+                        binding.layoutNonCoveredItems.removeAllViews()
+                        items.take(3).forEach { item ->
+                            addNonCoveredItemPreview(item)
+                        }
+                        binding.btnMoreNonCoveredItems?.isVisible = items.size > 3
                     }
-                    binding.btnMoreNonCoveredItems?.isVisible = items.size > 3
                 }
             } catch (e: Exception) {
                 Log.e("NonPaymentAPI", "Error loading non-covered items", e)
-                addEmptyNonCoveredView("데이터를 불러오는데 실패했습니다")
-                binding.btnMoreNonCoveredItems?.isVisible = false
+                withContext(Dispatchers.Main) {
+                    addEmptyNonCoveredView("데이터를 불러오는데 실패했습니다")
+                    binding.btnMoreNonCoveredItems?.isVisible = false
+                }
             }
         }
     }
@@ -626,7 +649,12 @@ class HospitalDetailFragment : Fragment() {
                 view.findViewById<TextView>(R.id.tvDate)?.apply {
                     text = item.adtFrDd?.let { date ->
                         try {
-                            "기준일자: ${date.substring(0, 4)}.${date.substring(4, 6)}.${date.substring(6, 8)}"
+                            "기준일자: ${date.substring(0, 4)}.${date.substring(4, 6)}.${
+                                date.substring(
+                                    6,
+                                    8
+                                )
+                            }"
                         } catch (e: Exception) {
                             "기준일자: $date"
                         }
@@ -665,6 +693,7 @@ class HospitalDetailFragment : Fragment() {
             Log.e("NonPaymentAPI", "Error adding empty view", e)
         }
     }
+
     private fun addEmptyNonCoveredView() {
         val emptyView = LayoutInflater.from(requireContext())
             .inflate(R.layout.item_non_covered_full, binding.layoutNonCoveredItems, false)
@@ -680,14 +709,20 @@ class HospitalDetailFragment : Fragment() {
     }
 
     // 비급여 상세 목록으로 이동
+
     private fun showAllNonCoveredItems() {
+        hideContent()  // 기존 내용 숨기기
+
+        // toolbar도 숨기기
+        binding.appBarLayout.visibility = View.GONE
+
         val nonCoveredFragment = NonCoveredItemsFragment.newInstance(
             hospitalId = hospital.ykiho,
             hospitalName = hospital.name
         )
 
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, nonCoveredFragment)
+        childFragmentManager.beginTransaction()
+            .replace(R.id.hospitalDetailContainer, nonCoveredFragment)
             .addToBackStack(null)
             .commit()
     }
@@ -729,7 +764,8 @@ class HospitalDetailFragment : Fragment() {
         val itemView = LayoutInflater.from(requireContext())
             .inflate(R.layout.item_non_covered, binding.layoutNonCoveredItems, false)
         itemView.findViewById<TextView>(R.id.tvItemName).text = itemName
-        itemView.findViewById<TextView>(R.id.tvItemPrice).text = itemCd // Changed 'price' to 'itemCd'
+        itemView.findViewById<TextView>(R.id.tvItemPrice).text =
+            itemCd // Changed 'price' to 'itemCd'
         binding.layoutNonCoveredItems.addView(itemView)
     }
 
@@ -755,13 +791,16 @@ class HospitalDetailFragment : Fragment() {
             isFromMap -> {
                 listener?.onBackFromHospitalDetail()
             }
+
             parentFragment is HospitalListFragment -> {
                 parentFragmentManager.popBackStack()
             }
+
             parentFragment is FavoriteFragment -> {
                 listener?.onBackFromHospitalDetail()
                 parentFragmentManager.popBackStack()
             }
+
             else -> {
                 parentFragmentManager.popBackStack()
             }
@@ -794,4 +833,23 @@ class HospitalDetailFragment : Fragment() {
             }
     }
 
+
+
+    interface ContentVisibilityListener {
+        fun showContent()
+        fun hideContent()
+    }
+
+    fun showContent() {
+        binding.nestedScrollView.visibility = View.VISIBLE
+        binding.hospitalDetailContainer.visibility = View.GONE
+        binding.appBarLayout.visibility = View.VISIBLE  // toolbar 다시 표시
+        showMainButtons()
+    }
+
+    fun hideContent() {
+        binding.nestedScrollView.visibility = View.GONE
+        binding.hospitalDetailContainer.visibility = View.VISIBLE
+        hideMainButtons()
+    }
 }
