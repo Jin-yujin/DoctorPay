@@ -129,6 +129,7 @@ dependencies {
     implementation ("com.google.firebase:firebase-analytics")
     implementation ("com.google.firebase:firebase-auth-ktx")
     implementation ("com.google.firebase:firebase-firestore-ktx:24.1.0")
+    implementation ("com.google.firebase:firebase-messaging-ktx")
 
     implementation ("com.kakao.sdk:v2-user:2.19.0" )    // 카카오 로그인
     implementation ("com.navercorp.nid:oauth:5.1.1")    // 네이버 로그인
@@ -138,6 +139,8 @@ dependencies {
     implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.5.1")
     implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.5.1")
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4")
+
+    implementation ("androidx.work:work-runtime-ktx:2.9.0") // WorkManager
 
 }
 

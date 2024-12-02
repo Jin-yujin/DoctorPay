@@ -287,6 +287,10 @@ class CalendarFragment : Fragment() {
             .document(appointment.id)
             .set(appointment.toMap())
             .addOnSuccessListener {
+                // 기존 알림 취소 후 새로운 알림 설정
+                AppointmentNotificationWorker.cancelNotification(requireContext(), appointment.id)
+                AppointmentNotificationWorker.scheduleNotification(requireContext(), appointment)
+
                 Toast.makeText(context, "일정이 수정되었습니다", Toast.LENGTH_SHORT).show()
                 loadAppointments()
             }
@@ -305,6 +309,9 @@ class CalendarFragment : Fragment() {
             .document(appointment.id)
             .delete()
             .addOnSuccessListener {
+                // 알림 취소
+                AppointmentNotificationWorker.cancelNotification(requireContext(), appointment.id)
+
                 Toast.makeText(context, "일정이 삭제되었습니다", Toast.LENGTH_SHORT).show()
                 loadAppointments()
             }
@@ -442,7 +449,11 @@ class CalendarFragment : Fragment() {
             .document(userId)
             .collection("appointments")
             .add(appointment.toMap())
-            .addOnSuccessListener {
+            .addOnSuccessListener { documentRef ->
+                // 알림 설정
+                val appointmentWithId = appointment.copy(id = documentRef.id)
+                AppointmentNotificationWorker.scheduleNotification(requireContext(), appointmentWithId)
+
                 Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
                 loadAppointments()
             }
