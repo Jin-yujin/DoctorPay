@@ -73,7 +73,7 @@ class HospitalViewModel(
         const val DETAIL_VIEW = "DETAIL_VIEW"
         const val FAVORITE_VIEW = "FAVORITE_VIEW"
         const val HOME_VIEW = "HOME_VIEW"
-        const val DEFAULT_RADIUS = 5000
+        const val DEFAULT_RADIUS = 3000
         private const val CACHE_DURATION = 30 * 60 * 1000 // 30분
         private const val RETRY_COUNT = 2
         private const val BASE_DELAY = 500L
@@ -354,28 +354,27 @@ class HospitalViewModel(
     }
 
     // 비급여 정보만 가져오는 메서드 추가
+    // HospitalViewModel에서
     suspend fun fetchNonPaymentItemsOnly(ykiho: String): List<NonPaymentItem> {
-        return try {
-            Log.d("NonPaymentAPI", "Fetching non-payment items for ykiho: $ykiho")
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
+                    serviceKey = NetworkModule.getServiceKey(),
+                    ykiho = ykiho,
+                    pageNo = 1,
+                    numOfRows = 100
+                )
 
-            val response = healthInsuranceApi.getNonPaymentItemHospDtlList(
-                serviceKey = NetworkModule.getServiceKey(),
-                ykiho = ykiho,
-                pageNo = 1,
-                numOfRows = 150
-            )
-
-            if (response.isSuccessful) {
-                response.body()?.body?.items?.itemList?.also { items ->
-                    Log.d("NonPaymentAPI", "Fetched ${items.size} non-payment items")
-                } ?: emptyList()
-            } else {
-                Log.e("NonPaymentAPI", "Failed to fetch non-payment items: ${response.code()}")
+                if (response.isSuccessful) {
+                    response.body()?.body?.items?.itemList ?: emptyList()
+                } else {
+                    Log.e("NonPaymentAPI", "Failed to fetch non-payment items: ${response.code()}")
+                    emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("NonPaymentAPI", "Error fetching non-payment items", e)
                 emptyList()
             }
-        } catch (e: Exception) {
-            Log.e("NonPaymentAPI", "Error fetching non-payment items", e)
-            emptyList()
         }
     }
 

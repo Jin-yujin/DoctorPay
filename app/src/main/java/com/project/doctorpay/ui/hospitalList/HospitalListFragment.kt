@@ -174,6 +174,8 @@ class HospitalListFragment : Fragment() {
             viewModel.getHospitals(HospitalViewModel.LIST_VIEW).collectLatest { hospitals ->
                 Log.d(TAG, "Received base hospitals: ${hospitals.size}")
                 if (hospitals.isNotEmpty()) {
+                    binding.swipeRefreshLayout.isRefreshing = true  // 데이터 처리 중 로딩 표시
+
                     val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
                     Log.d(TAG, "Filtered by category: ${filteredHospitals.size}")
 
@@ -189,19 +191,20 @@ class HospitalListFragment : Fragment() {
                         filteredHospitals
                     }
 
-                    // userLocation이 null이 아닌지 확인하고, null이면 현재 위치 가져오기
                     if (userLocation == null) {
                         getCurrentLocation { _, _ ->
-                            // 위치를 가져온 후 병원 목록 다시 정렬
                             val sortedHospitals = sortHospitalsByDistance(finalHospitals)
                             updateUI(sortedHospitals)
+                            binding.swipeRefreshLayout.isRefreshing = false  // 로딩 완료
                         }
                     } else {
                         val sortedHospitals = sortHospitalsByDistance(finalHospitals)
                         updateUI(sortedHospitals)
+                        binding.swipeRefreshLayout.isRefreshing = false  // 로딩 완료
                     }
                 } else {
                     updateUI(emptyList())
+                    binding.swipeRefreshLayout.isRefreshing = false  // 로딩 완료
                 }
             }
         }
@@ -210,7 +213,6 @@ class HospitalListFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.getIsLoading(HospitalViewModel.LIST_VIEW).collectLatest { isLoading ->
                 binding.swipeRefreshLayout.isRefreshing = isLoading
-                // 로딩 중일 때는 빈 화면 메시지 숨기기
                 if (isLoading) {
                     binding.emptyView.visibility = View.GONE
                 }

@@ -11,11 +11,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.widget.FrameLayout
 import android.widget.RadioGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.children
 import androidx.core.view.isVisible
+import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -67,6 +70,16 @@ class NonCoveredItemsFragment : Fragment() {
             hospitalId = it.getString("hospitalId")
             hospitalName = it.getString("hospitalName")
         }
+
+        // 뒤로가기 처리 올바르게 수정
+        requireActivity().onBackPressedDispatcher.addCallback(
+            this, // LifecycleOwner
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    parentFragmentManager.popBackStack()
+                }
+            }
+        )
     }
 
 
@@ -405,9 +418,10 @@ class NonCoveredItemsFragment : Fragment() {
     private fun showError(message: String) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
-
     private fun setupBackButton() {
         binding.btnBack.setOnClickListener {
+            // 캐스팅하여 메서드 호출
+            (parentFragment as? HospitalDetailFragment)?.showContent()
             parentFragmentManager.popBackStack()
         }
     }
