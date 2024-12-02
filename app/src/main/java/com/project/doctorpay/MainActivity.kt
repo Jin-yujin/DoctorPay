@@ -2,11 +2,15 @@ package com.project.doctorpay
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.text.TextUtils.replace
 import android.util.Log
 import androidx.activity.viewModels
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import androidx.lifecycle.LiveData
@@ -27,6 +31,7 @@ import com.project.doctorpay.ui.map.MapViewFragment
 import com.project.doctorpay.ui.member.LoginActivity
 import com.project.doctorpay.ui.mypage.MyPageFragment
 import com.kakao.sdk.user.UserApiClient as LoginClient
+import android.Manifest
 
 class MainActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
@@ -37,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     val hospitalViewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
@@ -58,6 +64,8 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        // 알림 권한 체크 추가
+        checkNotificationPermission()
 
         val bottomNavigation: BottomNavigationView = findViewById(R.id.bottom_navigation)
         bottomNavigation.setOnItemSelectedListener { item ->
@@ -113,6 +121,45 @@ class MainActivity : AppCompatActivity() {
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragment_container, HomeFragment.newInstance(hospitalViewModel))
             .commit()
+    }
+
+    companion object {
+        private const val NOTIFICATION_PERMISSION_CODE = 100
+    }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_CODE
+                )
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            NOTIFICATION_PERMISSION_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // 권한이 허용됨
+                    Log.d("MainActivity", "Notification permission granted")
+                } else {
+                    // 권한이 거부됨
+                    Log.d("MainActivity", "Notification permission denied")
+                }
+            }
+        }
     }
 
     fun logout() {
