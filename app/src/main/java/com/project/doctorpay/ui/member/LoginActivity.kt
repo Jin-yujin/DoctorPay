@@ -245,7 +245,25 @@ class LoginActivity : AppCompatActivity() {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnCompleteListener { signInTask ->
                         if (signInTask.isSuccessful) {
-                            checkUserProfile(auth.currentUser?.uid, "naver")
+                            // Firebase UID로 Firestore 문서 확인
+                            auth.currentUser?.let { user ->
+                                db.collection("users").document(user.uid)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        if (document.exists()) {
+                                            // 프로필 존재하면 메인으로
+                                            saveLoginState(true)
+                                            startMainActivity()
+                                        } else {
+                                            // 프로필 없으면 프로필 설정으로
+                                            val intent = Intent(this@LoginActivity, ProfileCompletionActivity::class.java)
+                                            intent.putExtra("USER_IDENTIFIER", user.uid)
+                                            intent.putExtra("LOGIN_TYPE", "naver")
+                                            startActivity(intent)
+                                            finish()
+                                        }
+                                    }
+                            }
                         } else {
                             // 계정이 없으면 생성
                             auth.createUserWithEmailAndPassword(email, password)
