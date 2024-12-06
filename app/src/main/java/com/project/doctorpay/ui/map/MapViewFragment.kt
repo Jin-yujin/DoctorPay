@@ -304,7 +304,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                                 viewId = HospitalViewModel.MAP_VIEW,
                                 latitude = location.latitude,
                                 longitude = location.longitude,
-                                radius = 1500,
+                                radius = 1200,
                                 forceRefresh = true
                             )
                         }
@@ -475,7 +475,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                         viewId = HospitalViewModel.MAP_VIEW,
                         latitude = location.latitude,
                         longitude = location.longitude,
-                        radius = 1500,
+                        radius = 1200,
                         forceRefresh = true
                     )
                 }
@@ -1048,7 +1048,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
                         viewId = HospitalViewModel.MAP_VIEW,
                         latitude = defaultLocation.latitude,
                         longitude = defaultLocation.longitude,
-                        radius = 1500,
+                        radius = 1200,
                         forceRefresh = true // 강제 새로고침 추가
                     )
                 }

@@ -491,10 +491,11 @@ class HospitalViewModel(
                 if (response.isSuccessful) {
                     // 여기서 result 변수에 할당
                     result = processHospitalResponse(response, latitude, longitude)
-
                     // HOME_VIEW와 LIST_VIEW 모두에 데이터 저장
                     viewStates[HOME_VIEW]?.hospitals?.value = result
                     viewStates[LIST_VIEW]?.hospitals?.value = result
+
+//                    viewState.isLoading.value = true
 
                     // isDataLoaded 플래그도 둘 다 true로 설정
                     viewStates[HOME_VIEW]?.isDataLoaded = true
@@ -530,6 +531,7 @@ class HospitalViewModel(
                 if (viewId == FAVORITE_VIEW) {
                     viewStates[FAVORITE_VIEW]?.isLoading?.value = false
                 }
+//                viewState.isLoading.value = false
                 viewStates[HOME_VIEW]?.isLoading?.value = false
                 viewStates[LIST_VIEW]?.isLoading?.value = false
             }

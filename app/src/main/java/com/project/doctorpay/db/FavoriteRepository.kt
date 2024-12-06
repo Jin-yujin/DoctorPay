@@ -128,9 +128,9 @@ class FavoriteRepository private constructor() {
                             clCdNm = favorite.clCdNm,
                             departments = favorite.departments,
                             departmentCategories = favorite.departmentCategories,
-                            // 아래는 나중에 업데이트될 정보들
+                            // null인 경우의 기본 상태 수정
                             timeInfo = null,
-                            state = "로딩 중...",
+                            state = "운영시간 정보없음",
                             rating = 0.0,
                             nonPaymentItems = emptyList()
                         )
