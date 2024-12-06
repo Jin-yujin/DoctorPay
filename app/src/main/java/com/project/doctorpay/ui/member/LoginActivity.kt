@@ -237,19 +237,38 @@ class LoginActivity : AppCompatActivity() {
     private val naverCallback = object : OAuthLoginCallback {
         override fun onSuccess() {
             NaverIdLoginSDK.getAccessToken()?.let { accessToken ->
-                val naverId = "naver_${accessToken.substring(0, 10)}"
-                checkUserProfile(naverId, "naver")
+                // Firebase 인증용 임시 이메일/비밀번호 생성
+                val email = "naver_${accessToken.substring(0, 10)}@doctorpay.com"
+                val password = "naver_${accessToken}_secret"
+
+                // Firebase 계정 생성/로그인
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { signInTask ->
+                        if (signInTask.isSuccessful) {
+                            checkUserProfile(auth.currentUser?.uid, "naver")
+                        } else {
+                            // 계정이 없으면 생성
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { createTask ->
+                                    if (createTask.isSuccessful) {
+                                        val intent = Intent(this@LoginActivity, ProfileCompletionActivity::class.java)
+                                        intent.putExtra("USER_IDENTIFIER", auth.currentUser?.uid)
+                                        intent.putExtra("LOGIN_TYPE", "naver")
+                                        startActivity(intent)
+                                        finish()
+                                    }
+                                }
+                        }
+                    }
             }
         }
 
         override fun onFailure(httpStatus: Int, message: String) {
             Toast.makeText(this@LoginActivity, "Naver 로그인 실패", Toast.LENGTH_SHORT).show()
-            Log.e("Naver","naver로그인 실패: $message")
         }
 
         override fun onError(errorCode: Int, message: String) {
-            Toast.makeText(this@LoginActivity, "Naver login error: $message", Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(this@LoginActivity, "Naver 로그인 에러: $message", Toast.LENGTH_SHORT).show()
         }
     }
 
