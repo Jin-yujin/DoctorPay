@@ -14,7 +14,6 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Basic Information -->
         <TextView
             android:id="@+id/categoryTitleTextView"
             android:layout_width="match_parent"
@@ -52,7 +51,6 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- Expandable Details -->
         <LinearLayout
             android:id="@+id/detailsContainer"
             android:layout_width="match_parent"
@@ -76,6 +74,20 @@
 
             <TextView
                 android:id="@+id/itemCodeTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/hospitalInfoTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/priceDetailsTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
