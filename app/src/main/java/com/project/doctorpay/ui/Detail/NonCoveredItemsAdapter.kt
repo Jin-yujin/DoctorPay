@@ -73,23 +73,12 @@ class NonCoveredItemsAdapter : ListAdapter<NonPaymentItem, NonCoveredItemsAdapte
                         append("\n식별코드: ${item.ykiho ?: "정보없음"}")
                     }
 
-                    // 4. 금액 상세 정보
-                    priceDetailsTextView.text = buildString {
-                        val amount = item.curAmt?.toIntOrNull()
-                        if (amount != null) {
-                            append("기준금액: ${formatAmount(item.curAmt)}")
-                            // 참고용 일일 금액 계산
-                            append("\n일일 기준: ${formatAmount((amount / 30.0).toInt().toString())}")
-                        }
-                    }
-
-                    // 5. 유효기간 정보
+                    // 4. 유효기간 정보
                     validPeriodTextView.text = buildString {
                         append("적용시작일: ${formatDate(item.adtFrDd)}")
-                        append("\n적용종료일: ${formatDate(item.adtEndDd)}")
                     }
 
-                    // 6. 특이사항 및 참고사항
+                    // 5. 특이사항 및 참고사항
                     notesTextView.text = buildString {
                         append("특이사항: ${item.spcmfyCatn?.takeIf { it.isNotBlank() } ?: "없음"}")
                         // 위치 정보가 있는 경우 표시
