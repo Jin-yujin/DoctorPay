@@ -157,36 +157,47 @@ class HospitalViewModel(
     ) {
         viewModelScope.launch {
             val viewState = getViewState(viewId)
+            viewStates[HOME_VIEW]?.isLoading?.value = true
+            viewStates[LIST_VIEW]?.isLoading?.value = true
+            viewStates[FAVORITE_VIEW]?.isLoading?.value = true  // FAVORITE_VIEW도 추가
 
-            // 1. 글로벌 캐시 체크
-            if (globalCache == null ||
-                System.currentTimeMillis() - globalCacheTime > CACHE_DURATION ||
-                forceRefresh
-            ) {
-                // 캐시가 없거나 만료되었거나 강제 새로고침인 경우
-                viewState.isLoading.value = true
-                fetchNearbyHospitals(
-                    viewId = viewId,
-                    latitude = latitude,
-                    longitude = longitude,
-                    updateGlobalCache = true
-                )
-            } else {
-                // 2. 캐시된 데이터 사용
-                val categoryKey = category?.name ?: "ALL"
-                val cachedData = viewState.categoryCache[categoryKey]
-
-                if (cachedData != null && !forceRefresh) {
-                    // 카테고리별 캐시가 있는 경우
-                    viewState.hospitals.value = cachedData
-                    viewState.isLoading.value = false
+            try {
+                // 1. 글로벌 캐시 체크
+                if (globalCache == null ||
+                    System.currentTimeMillis() - globalCacheTime > CACHE_DURATION ||
+                    forceRefresh
+                ) {
+                    // 캐시가 없거나 만료되었거나 강제 새로고침인 경우
+                    viewState.isLoading.value = true
+                    val result = fetchNearbyHospitals(
+                        viewId = viewId,
+                        latitude = latitude,
+                        longitude = longitude,
+                        updateGlobalCache = true
+                    )
+                    // 결과를 캐시 및 hospitals에 저장
+                    if (viewId == FAVORITE_VIEW) {
+                        viewState.cachedHospitals = result
+                    }
                 } else {
-                    // 카테고리별 필터링 수행
-                    val filteredData = filterHospitalsByCategory(globalCache!!, category)
-                    viewState.categoryCache[categoryKey] = filteredData
-                    viewState.hospitals.value = filteredData
-                    viewState.isLoading.value = false
+                    // 2. 캐시된 데이터 사용
+                    val categoryKey = category?.name ?: "ALL"
+                    val cachedData = viewState.categoryCache[categoryKey]
+
+                    if (cachedData != null && !forceRefresh) {
+                        // 카테고리별 캐시가 있는 경우
+                        viewState.hospitals.value = cachedData
+                    } else {
+                        // 카테고리별 필터링 수행
+                        val filteredData = filterHospitalsByCategory(globalCache!!, category)
+                        viewState.categoryCache[categoryKey] = filteredData
+                        viewState.hospitals.value = filteredData
+                    }
                 }
+            } finally {
+                viewStates[HOME_VIEW]?.isLoading?.value = false
+                viewStates[LIST_VIEW]?.isLoading?.value = false
+                viewStates[FAVORITE_VIEW]?.isLoading?.value = false
             }
         }
     }
@@ -457,15 +468,20 @@ class HospitalViewModel(
 
         viewModelScope.launch {
             val viewState = getViewState(viewId)
-            viewState.isLoading.value = true
             viewState.error.value = null
+
+            viewStates[HOME_VIEW]?.isLoading?.value = true
+            viewStates[LIST_VIEW]?.isLoading?.value = true
+            if (viewId == FAVORITE_VIEW) {
+                viewStates[FAVORITE_VIEW]?.isLoading?.value = true
+            }
 
             try {
                 val response = retryWithExponentialBackoff {
                     healthInsuranceApi.getHospitalInfo(
                         serviceKey = NetworkModule.getServiceKey(),
                         pageNo = viewState.currentPage,
-                        numOfRows = pageSize, // 화면별 페이지 사이즈 사용
+                        numOfRows = pageSize,
                         yPos = formatCoordinate(latitude),
                         xPos = formatCoordinate(longitude),
                         radius = radius
@@ -473,40 +489,51 @@ class HospitalViewModel(
                 }
 
                 if (response.isSuccessful) {
-                    val hospitals = processHospitalResponse(response, latitude, longitude)
-
+                    // 여기서 result 변수에 할당
+                    result = processHospitalResponse(response, latitude, longitude)
                     // HOME_VIEW와 LIST_VIEW 모두에 데이터 저장
-                    viewStates[HOME_VIEW]?.hospitals?.value = hospitals
-                    viewStates[LIST_VIEW]?.hospitals?.value = hospitals
+                    viewStates[HOME_VIEW]?.hospitals?.value = result
+                    viewStates[LIST_VIEW]?.hospitals?.value = result
+
+//                    viewState.isLoading.value = true
 
                     // isDataLoaded 플래그도 둘 다 true로 설정
                     viewStates[HOME_VIEW]?.isDataLoaded = true
                     viewStates[LIST_VIEW]?.isDataLoaded = true
 
                     if (updateGlobalCache) {
-                        globalCache = hospitals
+                        globalCache = result
                         globalCacheTime = System.currentTimeMillis()
                     }
-                    viewState.hospitals.value = hospitals
-                    result = hospitals
+                    viewState.hospitals.value = result
 
                     // filteredHospitals 업데이트 - MapView를 위한 최적화
                     if (viewId == MAP_VIEW) {
-                        val filtered = hospitals.take(pageSize) // MapView용 제한된 수의 병원만
+                        val filtered = result.take(pageSize) // MapView용 제한된 수의 병원만
                         filterHospitalsWithin5km(viewId, latitude, longitude, filtered)
                     } else {
-                        filterHospitalsWithin5km(viewId, latitude, longitude, hospitals)
+                        filterHospitalsWithin5km(viewId, latitude, longitude, result)
                     }
 
                     viewState.isDataLoaded = true
                     viewState.lastLocation = Pair(latitude, longitude)
+
+                    if (viewId == FAVORITE_VIEW) {
+                        // 즐겨찾기 뷰의 경우 캐시 유지
+                        viewState.cachedHospitals = result
+                    }
                 } else {
                     throw HttpException(response)
                 }
             } catch (e: Exception) {
                 handleError(viewId, e)
             } finally {
-                viewState.isLoading.value = false
+                if (viewId == FAVORITE_VIEW) {
+                    viewStates[FAVORITE_VIEW]?.isLoading?.value = false
+                }
+//                viewState.isLoading.value = false
+                viewStates[HOME_VIEW]?.isLoading?.value = false
+                viewStates[LIST_VIEW]?.isLoading?.value = false
             }
         }
 
