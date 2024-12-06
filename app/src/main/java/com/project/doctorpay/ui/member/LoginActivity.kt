@@ -271,13 +271,27 @@ class LoginActivity : AppCompatActivity() {
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    checkUserProfile(user?.uid, "google")
+                    if (user != null) {
+                        db.collection("users").document(user.uid)
+                            .get()
+                            .addOnSuccessListener { document ->
+                                if (document.exists()) {
+                                    saveLoginState(true)
+                                    startMainActivity()
+                                } else {
+                                    val intent = Intent(this, ProfileCompletionActivity::class.java)
+                                    intent.putExtra("USER_IDENTIFIER", user.uid)
+                                    intent.putExtra("LOGIN_TYPE", "google")
+                                    startActivity(intent)
+                                    finish()
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(this, "프로필 확인 실패", Toast.LENGTH_SHORT).show()
+                            }
+                    }
                 } else {
-                    Toast.makeText(
-                        this,
-                        "Google 로그인 실패",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this, "Google 로그인 실패", Toast.LENGTH_SHORT).show()
                 }
             }
     }
