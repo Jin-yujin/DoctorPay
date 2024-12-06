@@ -464,7 +464,7 @@ class CalendarFragment : Fragment() {
         ).show()
     }
 
-    private fun addAppointment(appointment: Appointment) {
+    fun addAppointment(appointment: Appointment) {
         val userId = auth.currentUser?.uid ?: return
 
         db.collection("users")

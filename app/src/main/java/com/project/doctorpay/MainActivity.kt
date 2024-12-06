@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity() {
     private val _newAppointment = MutableLiveData<Appointment?>()
     val newAppointment: LiveData<Appointment?> = _newAppointment
 
-
     val hospitalViewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
     }
