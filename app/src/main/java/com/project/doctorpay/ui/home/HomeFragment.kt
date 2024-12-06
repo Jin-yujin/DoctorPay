@@ -24,6 +24,7 @@ import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.api.HospitalViewModel
 import com.project.doctorpay.comp.BackPressHandler
+import com.project.doctorpay.comp.KakaoSearchService
 import com.project.doctorpay.comp.handleBackPress
 import com.project.doctorpay.databinding.FragmentHomeBinding
 import com.project.doctorpay.db.DepartmentCategory
@@ -33,6 +34,7 @@ import com.project.doctorpay.ui.hospitalList.HospitalAdapter
 import com.project.doctorpay.ui.Detail.HospitalDetailFragment
 import com.project.doctorpay.ui.hospitalList.HospitalListFragment
 import com.project.doctorpay.ui.hospitalList.HospitalSearchFragment
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -109,14 +111,15 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // 1. 먼저 기본적인 UI 컴포넌트들 초기화
-        setupRecyclerView()  // adapter 초기화가 여기서 이루어짐
+        setupRecyclerView()
 
         // 2. LocationPreference 초기화 및 위치 설정
         locationPreference = LocationPreference(requireContext())
 
         // 3. 위치 기반 초기화
-        if (locationPreference.isFirstLaunch()) {
-            loadHospitals()  // 현재 위치 가져오기
+        if (!locationPreference.isCurrentLocationSet()) {
+            // 현재 위치 가져오기
+            getCurrentLocation()
         } else {
             // 저장된 위치 정보 복원
             locationPreference.getLocation()?.let { (latitude, longitude) ->
@@ -140,6 +143,7 @@ class HomeFragment : Fragment() {
         setupObservers()
         setupRecentHospitals()
     }
+
 
     private fun setupRecentHospitals() {
         recentHospitalRepository = RecentHospitalRepository(requireContext())
@@ -180,33 +184,78 @@ class HomeFragment : Fragment() {
     }
 
     private fun getCurrentLocation() {
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
-        try {
-            if (ContextCompat.checkSelfPermission(
-                    requireContext(),
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED) {
+        if (!isAdded) return  // Fragment가 Activity에 붙어있지 않으면 리턴
 
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED) {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
+
+            try {
                 fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    // Fragment가 destroy되었는지 체크
+                    if (!isAdded) return@addOnSuccessListener
+
                     location?.let {
                         val newLocation = LatLng(it.latitude, it.longitude)
-                        userLocation = newLocation  // userLocation 업데이트
+                        userLocation = newLocation
                         adapter.updateUserLocation(newLocation)
-                        viewModel.fetchNearbyHospitals(
-                            viewId = HospitalViewModel.HOME_VIEW,
-                            latitude = it.latitude,
-                            longitude = it.longitude,
-                            radius = HospitalViewModel.DEFAULT_RADIUS
-                        )
-                    } ?: loadDefaultLocation()
+
+                        // viewLifecycleOwner의 lifecycleScope 사용
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            try {
+                                // 컨텍스트 유효성 체크
+                                if (!isAdded) return@launch
+
+                                val kakaoSearchService = KakaoSearchService(requireContext())
+                                val address = kakaoSearchService.getAddressFromLocation(
+                                    latitude = it.latitude,
+                                    longitude = it.longitude
+                                )
+
+                                // UI 업데이트 전 Fragment 상태 체크
+                                if (!isAdded) return@launch
+
+                                // 위치 정보 저장 및 UI 업데이트
+                                locationPreference.saveLocation(it.latitude, it.longitude, address)
+                                locationPreference.saveCurrentLocationState()
+                                binding.tvCurrentLocation.text = address
+
+                                viewModel.fetchNearbyHospitals(
+                                    viewId = HospitalViewModel.HOME_VIEW,
+                                    latitude = it.latitude,
+                                    longitude = it.longitude,
+                                    radius = HospitalViewModel.DEFAULT_RADIUS
+                                )
+                            } catch (e: Exception) {
+                                if (isAdded) {
+                                    loadDefaultLocation()
+                                }
+                            }
+                        }
+                    } ?: run {
+                        if (isAdded) {
+                            loadDefaultLocation()
+                        }
+                    }
+                }.addOnFailureListener {
+                    if (isAdded) {
+                        loadDefaultLocation()
+                    }
                 }
-            } else {
-                loadDefaultLocation()
+            } catch (e: SecurityException) {
+                if (isAdded) {
+                    loadDefaultLocation()
+                }
             }
-        } catch (e: SecurityException) {
-            loadDefaultLocation()
-        } catch (e: Exception) {
-            loadDefaultLocation()
+        } else {
+            requestPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
         }
     }
 
@@ -355,11 +404,16 @@ class HomeFragment : Fragment() {
             val longitude = bundle.getDouble("longitude")
             val address = bundle.getString("address", "선택된 위치")
 
+            // isLoading 상태 설정
+            viewModel.getViewState(HospitalViewModel.HOME_VIEW).isLoading.value = true
+            viewModel.getViewState(HospitalViewModel.LIST_VIEW).isLoading.value = true
+
             // 위치 정보 업데이트 및 저장
             userLocation = LatLng(latitude, longitude)
             binding.tvCurrentLocation.text = address
             locationPreference.saveLocation(latitude, longitude, address)
             adapter.updateUserLocation(userLocation!!)
+
             viewModel.fetchNearbyHospitals(
                 viewId = HospitalViewModel.HOME_VIEW,
                 latitude = latitude,
@@ -406,8 +460,17 @@ class HomeFragment : Fragment() {
         Toast.makeText(context, error, Toast.LENGTH_LONG).show()
     }
 
+    // onDestroyView에서 바인딩 제거
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    // Fragment 생명주기 관리를 위한 Job 추가
+    private var locationJob: Job? = null
+
+    override fun onStop() {
+        super.onStop()
+        locationJob?.cancel()
     }
 }

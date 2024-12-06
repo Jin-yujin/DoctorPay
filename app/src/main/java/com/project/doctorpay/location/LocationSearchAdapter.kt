@@ -62,6 +62,7 @@ class LocationPreference(context: Context) {
 
     companion object {
         private const val KEY_FIRST_LAUNCH = "first_launch"
+        private const val KEY_CURRENT_LOCATION_SET = "current_location_set"
     }
 
     fun saveLocation(latitude: Double, longitude: Double, address: String) {
@@ -90,5 +91,14 @@ class LocationPreference(context: Context) {
         } else {
             null
         }
+    }
+
+
+    fun isCurrentLocationSet(): Boolean {
+        return prefs.getBoolean(KEY_CURRENT_LOCATION_SET, false)
+    }
+
+    fun saveCurrentLocationState() {
+        prefs.edit().putBoolean(KEY_CURRENT_LOCATION_SET, true).apply()
     }
 }

@@ -174,8 +174,6 @@ class HospitalListFragment : Fragment() {
             viewModel.getHospitals(HospitalViewModel.LIST_VIEW).collectLatest { hospitals ->
                 Log.d(TAG, "Received base hospitals: ${hospitals.size}")
                 if (hospitals.isNotEmpty()) {
-                    binding.swipeRefreshLayout.isRefreshing = true  // 데이터 처리 중 로딩 표시
-
                     val filteredHospitals = viewModel.filterHospitalsByCategory(hospitals, category)
                     Log.d(TAG, "Filtered by category: ${filteredHospitals.size}")
 
@@ -195,16 +193,13 @@ class HospitalListFragment : Fragment() {
                         getCurrentLocation { _, _ ->
                             val sortedHospitals = sortHospitalsByDistance(finalHospitals)
                             updateUI(sortedHospitals)
-                            binding.swipeRefreshLayout.isRefreshing = false  // 로딩 완료
                         }
                     } else {
                         val sortedHospitals = sortHospitalsByDistance(finalHospitals)
                         updateUI(sortedHospitals)
-                        binding.swipeRefreshLayout.isRefreshing = false  // 로딩 완료
                     }
                 } else {
                     updateUI(emptyList())
-                    binding.swipeRefreshLayout.isRefreshing = false  // 로딩 완료
                 }
             }
         }
@@ -218,6 +213,7 @@ class HospitalListFragment : Fragment() {
                 }
             }
         }
+
 
 
         // 에러 상태 관찰

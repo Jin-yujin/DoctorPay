@@ -11,18 +11,84 @@ import java.time.LocalTime
 
 // 기존 enum 클래스들과 data 클래스들은 그대로 유지
 enum class DepartmentCategory(val categoryName: String, val codes: List<String>, val keywords: List<String>) {
-    GENERAL_MEDICINE("일반의", listOf("00", "23", "41"), listOf("일반의")),
-    INTERNAL_MEDICINE("내과", listOf("01", "20"), listOf("내과")),
-    SURGERY("외과", listOf("04", "05", "06", "07", "08"), listOf("외과", "흉부외과")),
-    OBSTETRICS("산부인과", listOf("11"), listOf("소아과", "소아청소년과","산부인과", "여성")),
-    MENTAL_NEUROLOGY("정신/신경과", listOf("02", "03"), listOf("정신", "신경")),
-    OTOLARYNGOLOGY("이비인후과", listOf("12"), listOf("이비인후과")),
-    OPHTHALMOLOGY("안과", listOf("13"), listOf("안과")),
-    DERMATOLOGY("피부과", listOf("14"), listOf("피부과")),
-    REHABILITATION("정형외과", listOf("21"), listOf("정형", "재활", "물리치료")),
-    DENTISTRY("치과", listOf("27", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61"), listOf("치과")),
-    ORIENTAL_MEDICINE("한의원", listOf("28", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90"), listOf("한의원", "한방")),
-    OTHER_SPECIALTIES("기타", listOf("09","10","15", "24", "25", "26", "31", "40", "42", "43", "44"), listOf("비뇨", "성형"));
+    GENERAL_MEDICINE("일반의",
+        listOf("00", "23", "41"), // 일반의, 가정의학과, 보건
+        listOf("일반의", "가정의학과")
+    ),
+
+    INTERNAL_MEDICINE("내과",
+        listOf("01", "20"), // 내과, 결핵과
+        listOf("내과")
+    ),
+
+    SURGERY("외과",
+        listOf("04", "05", "06", "07", "08"), // 외과, 정형외과, 신경외과, 흉부외과, 성형외과
+        listOf("외과", "흉부외과")
+    ),
+
+    OBSTETRICS("산부인과",
+        listOf("10"), // 산부인과
+        listOf("산부인과", "여성")
+    ),
+
+    MENTAL_NEUROLOGY("정신/신경과",
+        listOf("02", "03"), // 신경과, 정신건강의학과
+        listOf("정신", "신경")
+    ),
+
+    OTOLARYNGOLOGY("이비인후과",
+        listOf("13"), // 이비인후과
+        listOf("이비인후과")
+    ),
+
+    OPHTHALMOLOGY("안과",
+        listOf("12"), // 안과
+        listOf("안과")
+    ),
+
+    DERMATOLOGY("피부과",
+        listOf("14"), // 피부과
+        listOf("피부과")
+    ),
+
+    REHABILITATION("정형외과",
+        listOf("21"), // 재활의학과
+        listOf("정형", "재활", "물리치료")
+    ),
+
+    DENTISTRY("치과",
+        listOf("27", "49", "50", "51", "52", "53", "54", "55", "56", "57", "58", "59", "60", "61"),
+        // 치과 관련 모든 코드
+        listOf("치과")
+    ),
+
+    ORIENTAL_MEDICINE("한의원",
+        listOf("28", "80", "81", "82", "83", "84", "85", "86", "87", "88", "89", "90"),
+        // 한의원 관련 모든 코드
+        listOf("한의원", "한방")
+    ),
+
+    OTHER_SPECIALTIES("기타",
+        listOf(
+            "09", // 마취통증의학과
+            "11", //소아 청소년과
+            "15", // 비뇨의학과
+            "16", // 영상의학과
+            "17", // 방사선종양학과
+            "18", // 병리과
+            "19", // 진단검사의학과
+            "22", // 핵의학과
+            "24", // 응급의학과
+            "25", // 직업환경의학과
+            "26", // 예방의학과
+            "31", // 기타2
+            "40", // 기타2(2)
+            "42", // 기타3
+            "43", // 보건기관치과
+            "44"  // 보건기관한방
+        ),
+        listOf("비뇨", "성형")
+    );
 
     companion object {
         fun getCategory(code: String): DepartmentCategory {

@@ -157,36 +157,42 @@ class HospitalViewModel(
     ) {
         viewModelScope.launch {
             val viewState = getViewState(viewId)
-
-            // 1. 글로벌 캐시 체크
-            if (globalCache == null ||
-                System.currentTimeMillis() - globalCacheTime > CACHE_DURATION ||
-                forceRefresh
-            ) {
-                // 캐시가 없거나 만료되었거나 강제 새로고침인 경우
-                viewState.isLoading.value = true
-                fetchNearbyHospitals(
-                    viewId = viewId,
-                    latitude = latitude,
-                    longitude = longitude,
-                    updateGlobalCache = true
-                )
-            } else {
-                // 2. 캐시된 데이터 사용
-                val categoryKey = category?.name ?: "ALL"
-                val cachedData = viewState.categoryCache[categoryKey]
-
-                if (cachedData != null && !forceRefresh) {
-                    // 카테고리별 캐시가 있는 경우
-                    viewState.hospitals.value = cachedData
-                    viewState.isLoading.value = false
+            viewStates[HOME_VIEW]?.isLoading?.value = true
+            viewStates[LIST_VIEW]?.isLoading?.value = true
+            try {
+                // 1. 글로벌 캐시 체크
+                if (globalCache == null ||
+                    System.currentTimeMillis() - globalCacheTime > CACHE_DURATION ||
+                    forceRefresh
+                ) {
+                    // 캐시가 없거나 만료되었거나 강제 새로고침인 경우
+                    viewState.isLoading.value = true
+                    fetchNearbyHospitals(
+                        viewId = viewId,
+                        latitude = latitude,
+                        longitude = longitude,
+                        updateGlobalCache = true
+                    )
                 } else {
-                    // 카테고리별 필터링 수행
-                    val filteredData = filterHospitalsByCategory(globalCache!!, category)
-                    viewState.categoryCache[categoryKey] = filteredData
-                    viewState.hospitals.value = filteredData
-                    viewState.isLoading.value = false
+                    // 2. 캐시된 데이터 사용
+                    val categoryKey = category?.name ?: "ALL"
+                    val cachedData = viewState.categoryCache[categoryKey]
+
+                    if (cachedData != null && !forceRefresh) {
+                        // 카테고리별 캐시가 있는 경우
+                        viewState.hospitals.value = cachedData
+                        viewState.isLoading.value = false
+                    } else {
+                        // 카테고리별 필터링 수행
+                        val filteredData = filterHospitalsByCategory(globalCache!!, category)
+                        viewState.categoryCache[categoryKey] = filteredData
+                        viewState.hospitals.value = filteredData
+                        viewState.isLoading.value = false
+                    }
                 }
+            }finally {
+                viewStates[HOME_VIEW]?.isLoading?.value = false
+                viewStates[LIST_VIEW]?.isLoading?.value = false
             }
         }
     }
@@ -457,8 +463,10 @@ class HospitalViewModel(
 
         viewModelScope.launch {
             val viewState = getViewState(viewId)
-            viewState.isLoading.value = true
             viewState.error.value = null
+
+            viewStates[HOME_VIEW]?.isLoading?.value = true
+            viewStates[LIST_VIEW]?.isLoading?.value = true
 
             try {
                 val response = retryWithExponentialBackoff {
@@ -506,7 +514,8 @@ class HospitalViewModel(
             } catch (e: Exception) {
                 handleError(viewId, e)
             } finally {
-                viewState.isLoading.value = false
+                viewStates[HOME_VIEW]?.isLoading?.value = false
+                viewStates[LIST_VIEW]?.isLoading?.value = false
             }
         }
 
