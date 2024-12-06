@@ -8,10 +8,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.Source
+import com.naver.maps.geometry.LatLng
 import com.project.doctorpay.MyApplication
 import kotlinx.coroutines.tasks.await
 
 class FavoriteRepository private constructor() {
+
+
     companion object {
         private const val TAG = "FavoriteRepository"
         private const val COLLECTION_USERS = "users"
@@ -43,11 +46,6 @@ class FavoriteRepository private constructor() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    data class FavoriteHospital(
-        val hospitalID: String = "",
-        val userId: String = "",
-        val timestamp: Long = 0
-    )
 
     private fun checkAuthAndGetUserId(): String {
         return auth.currentUser?.uid ?: throw IllegalStateException("User must be logged in")
@@ -75,32 +73,71 @@ class FavoriteRepository private constructor() {
                 )
     }
 
+
+
     suspend fun addFavorite(hospital: HospitalInfo) {
         try {
             val userId = checkAuthAndGetUserId()
-            Log.d(TAG, "Adding favorite - Hospital: ${hospital.name}, User: $userId")
 
             val favorite = FavoriteHospital(
                 hospitalID = hospital.ykiho,
                 userId = userId,
-                timestamp = System.currentTimeMillis()
+                timestamp = System.currentTimeMillis(),
+                name = hospital.name,
+                address = hospital.address,
+                latitude = hospital.latitude,
+                longitude = hospital.longitude,
+                phoneNumber = hospital.phoneNumber,
+                clCdNm = hospital.clCdNm,
+                departments = hospital.departments,
+                departmentCategories = hospital.departmentCategories
             )
-
-            handleOfflineOperation("add favorite")
 
             getUserFavoritesCollection(userId)
                 .document(hospital.ykiho)
                 .set(favorite)
                 .await()
-            refreshCache(userId)
-
-            Log.d(TAG, "Successfully added favorite for ${hospital.name}")
         } catch (e: Exception) {
-            Log.e(TAG, "Error adding favorite for ${hospital.name}", e)
-            when (e) {
-                is IllegalStateException -> throw e
-                else -> throw Exception("Failed to add favorite: ${e.message}")
+            throw Exception("Failed to add favorite: ${e.message}")
+        }
+    }
+
+    suspend fun getFavoriteHospitals(): List<HospitalInfo> {
+        return try {
+            val userId = checkAuthAndGetUserId()
+            val collection = getUserFavoritesCollection(userId)
+
+            // 먼저 서버에서 데이터 가져오기 시도
+            val favorites = try {
+                collection.get(Source.SERVER).await()
+            } catch (e: Exception) {
+                collection.get(Source.CACHE).await()
             }
+
+            favorites.documents
+                .mapNotNull { doc ->
+                    doc.toObject(FavoriteHospital::class.java)?.let { favorite ->
+                        HospitalInfo(
+                            ykiho = favorite.hospitalID,
+                            name = favorite.name,
+                            address = favorite.address,
+                            latitude = favorite.latitude,
+                            longitude = favorite.longitude,
+                            location = LatLng(favorite.latitude, favorite.longitude),
+                            phoneNumber = favorite.phoneNumber,
+                            clCdNm = favorite.clCdNm,
+                            departments = favorite.departments,
+                            departmentCategories = favorite.departmentCategories,
+                            // 아래는 나중에 업데이트될 정보들
+                            timeInfo = null,
+                            state = "로딩 중...",
+                            rating = 0.0,
+                            nonPaymentItems = emptyList()
+                        )
+                    }
+                }
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 
@@ -142,16 +179,18 @@ class FavoriteRepository private constructor() {
         }
     }
 
+    // Source.SERVER를 우선적으로 사용하고, 실패할 경우 CACHE 사용
     suspend fun getFavoriteYkihos(): List<String> {
         return try {
             val userId = checkAuthAndGetUserId()
             val collection = getUserFavoritesCollection(userId)
 
+            // 먼저 서버에서 데이터 가져오기 시도
             try {
-                collection.get(Source.CACHE).await()
-            } catch (e: Exception) {
-                Log.d(TAG, "Cache miss, fetching favorites from server")
                 collection.get(Source.SERVER).await()
+            } catch (e: Exception) {
+                Log.d(TAG, "Server fetch failed, using cache")
+                collection.get(Source.CACHE).await()
             }.documents
                 .mapNotNull { it.toObject(FavoriteHospital::class.java)?.hospitalID }
                 .also { list ->

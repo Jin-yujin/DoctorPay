@@ -33,6 +33,10 @@ import android.Manifest
 import androidx.activity.OnBackPressedCallback
 import com.project.doctorpay.comp.BackPressHandler
 import com.project.doctorpay.comp.handleBackPress
+import com.project.doctorpay.db.inferDepartments
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 class FavoriteFragment : Fragment() {
     private var _binding: FragmentFavoriteBinding? = null
@@ -254,24 +258,66 @@ class FavoriteFragment : Fragment() {
 
     private fun loadFavoriteHospitals(forceRefresh: Boolean = false) {
         lifecycleScope.launch {
+            binding.swipeRefreshLayout.isRefreshing = true
             try {
-                val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
-                if (favoriteYkihos.isEmpty()) {
+                // 1. Firebase에서 즐겨찾기 병원 정보를 바로 가져와서 우선 표시
+                var favoriteHospitals = favoriteRepository.getFavoriteHospitals()
+                if (favoriteHospitals.isEmpty()) {
                     updateUI(emptyList())
                     return@launch
                 }
 
-                val location = userLocation ?: LatLng(37.5666805, 126.9784147)
-                viewModel.fetchNearbyHospitals(
-                    viewId = HospitalViewModel.FAVORITE_VIEW,
-                    latitude = location.latitude,
-                    longitude = location.longitude,
-                    radius = 5000,
-                    forceRefresh = forceRefresh
+                // 기본 정보로 먼저 UI 업데이트
+                updateUI(favoriteHospitals)
+
+                // 2. 백그라운드에서 각 병원의 운영시간 정보 업데이트
+                favoriteHospitals = coroutineScope {
+                    favoriteHospitals.map { hospital ->
+                        async {
+                            try {
+                                // 운영시간 정보만 가져오기
+                                val timeInfo = viewModel.fetchHospitalTimeInfo(hospital.ykiho)
+
+                                // 새로운 운영상태로 병원 정보 업데이트
+                                hospital.copy(
+                                    timeInfo = timeInfo,
+                                    state = timeInfo.getCurrentState().toDisplayText()
+                                )
+                            } catch (e: Exception) {
+                                hospital // 에러 시 기존 정보 유지
+                            }
+                        }
+                    }.awaitAll()
+                }
+
+                // 운영상태로 정렬하여 UI 업데이트
+                val sortedHospitals = favoriteHospitals.sortedWith(
+                    compareBy<HospitalInfo> { it.operationState != OperationState.OPEN }
+                        .thenBy { it.operationState != OperationState.EMERGENCY }
+                        .thenBy { it.operationState != OperationState.LUNCH_BREAK }
+                        .thenBy { it.operationState.ordinal }
                 )
+                updateUI(sortedHospitals)
+
             } catch (e: Exception) {
+                Log.e("FavoriteFragment", "Error loading favorites", e)
                 showError("즐겨찾기 목록을 불러오는데 실패했습니다")
+            } finally {
+                binding.swipeRefreshLayout.isRefreshing = false
             }
+        }
+    }
+
+    // 별도의 캐시 관리 추가
+    private var lastLoadTime = 0L
+    private val CACHE_DURATION = 5 * 60 * 1000 // 5분
+
+    override fun onResume() {
+        super.onResume()
+        val now = System.currentTimeMillis()
+        if (now - lastLoadTime > CACHE_DURATION) {
+            loadFavoriteHospitals(forceRefresh = true)
+            lastLoadTime = now
         }
     }
 
