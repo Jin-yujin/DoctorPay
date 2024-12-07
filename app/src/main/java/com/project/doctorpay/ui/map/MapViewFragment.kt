@@ -848,7 +848,7 @@ class MapViewFragment : Fragment(), OnMapReadyCallback, HospitalDetailFragment.H
         binding.hospitalFilter.visibility = View.VISIBLE
         binding.hospitalRecyclerView.visibility = View.VISIBLE
         binding.hospitalDetailContainer.visibility = View.GONE
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
 
     private fun setupResearchButton() {
