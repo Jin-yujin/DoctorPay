@@ -28,6 +28,7 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.project.doctorpay.MainActivity
 import com.project.doctorpay.R
 import com.project.doctorpay.databinding.FragmentHospitalDetailBinding
 import com.project.doctorpay.db.HospitalInfo
@@ -440,6 +441,7 @@ class HospitalDetailFragment : Fragment() {
             .create()
 
         dialogView.findViewById<Button>(R.id.addButton).setOnClickListener {
+            val userId = auth.currentUser?.uid ?: return@setOnClickListener
             val appointmentDate = dateEditText.text.toString()
             val appointmentTime = timeEditText.text.toString()
             val notes = notesEditText.text.toString()
@@ -450,7 +452,7 @@ class HospitalDetailFragment : Fragment() {
             }
 
             val appointment = Appointment(
-                userId = auth.currentUser?.uid ?: "",
+                userId = userId,
                 year = calendar.get(Calendar.YEAR),
                 month = calendar.get(Calendar.MONTH),
                 day = calendar.get(Calendar.DAY_OF_MONTH),
@@ -460,18 +462,9 @@ class HospitalDetailFragment : Fragment() {
                 timestamp = Date()
             )
 
-            // MainActivity를 통해 CalendarFragment로 일정 정보 전달하는 방식 변경
-            // Firestore에 직접 저장
-            db.collection("appointments")
-                .add(appointment.toMap())
-                .addOnSuccessListener {
-                    Toast.makeText(context, "일정이 추가되었습니다", Toast.LENGTH_SHORT).show()
-                    dialog.dismiss()
-                }
-                .addOnFailureListener { e ->
-                    Log.e("HospitalDetailFragment", "Error adding appointment", e)
-                    Toast.makeText(context, "일정 추가 중 오류가 발생했습니다", Toast.LENGTH_SHORT).show()
-                }
+            // MainActivity를 통해서 일정 추가
+            (activity as? MainActivity)?.addAppointmentToCalendar(appointment)
+            dialog.dismiss()
         }
 
         dialogView.findViewById<Button>(R.id.cancelButton).setOnClickListener {

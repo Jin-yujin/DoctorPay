@@ -237,19 +237,56 @@ class LoginActivity : AppCompatActivity() {
     private val naverCallback = object : OAuthLoginCallback {
         override fun onSuccess() {
             NaverIdLoginSDK.getAccessToken()?.let { accessToken ->
-                val naverId = "naver_${accessToken.substring(0, 10)}"
-                checkUserProfile(naverId, "naver")
+                // Firebase 인증용 임시 이메일/비밀번호 생성
+                val email = "naver_${accessToken.substring(0, 10)}@doctorpay.com"
+                val password = "naver_${accessToken}_secret"
+
+                // Firebase 계정 생성/로그인
+                auth.signInWithEmailAndPassword(email, password)
+                    .addOnCompleteListener { signInTask ->
+                        if (signInTask.isSuccessful) {
+                            // Firebase UID로 Firestore 문서 확인
+                            auth.currentUser?.let { user ->
+                                db.collection("users").document(user.uid)
+                                    .get()
+                                    .addOnSuccessListener { document ->
+                                        if (document.exists()) {
+                                            // 프로필 존재하면 메인으로
+                                            saveLoginState(true)
+                                            startMainActivity()
+                                        } else {
+                                            // 프로필 없으면 프로필 설정으로
+                                            val intent = Intent(this@LoginActivity, ProfileCompletionActivity::class.java)
+                                            intent.putExtra("USER_IDENTIFIER", user.uid)
+                                            intent.putExtra("LOGIN_TYPE", "naver")
+                                            startActivity(intent)
+                                            finish()
+                                        }
+                                    }
+                            }
+                        } else {
+                            // 계정이 없으면 생성
+                            auth.createUserWithEmailAndPassword(email, password)
+                                .addOnCompleteListener { createTask ->
+                                    if (createTask.isSuccessful) {
+                                        val intent = Intent(this@LoginActivity, ProfileCompletionActivity::class.java)
+                                        intent.putExtra("USER_IDENTIFIER", auth.currentUser?.uid)
+                                        intent.putExtra("LOGIN_TYPE", "naver")
+                                        startActivity(intent)
+                                        finish()
+                                    }
+                                }
+                        }
+                    }
             }
         }
 
         override fun onFailure(httpStatus: Int, message: String) {
             Toast.makeText(this@LoginActivity, "Naver 로그인 실패", Toast.LENGTH_SHORT).show()
-            Log.e("Naver","naver로그인 실패: $message")
         }
 
         override fun onError(errorCode: Int, message: String) {
-            Toast.makeText(this@LoginActivity, "Naver login error: $message", Toast.LENGTH_SHORT)
-                .show()
+            Toast.makeText(this@LoginActivity, "Naver 로그인 에러: $message", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -271,13 +308,27 @@ class LoginActivity : AppCompatActivity() {
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    checkUserProfile(user?.uid, "google")
+                    if (user != null) {
+                        db.collection("users").document(user.uid)
+                            .get()
+                            .addOnSuccessListener { document ->
+                                if (document.exists()) {
+                                    saveLoginState(true)
+                                    startMainActivity()
+                                } else {
+                                    val intent = Intent(this, ProfileCompletionActivity::class.java)
+                                    intent.putExtra("USER_IDENTIFIER", user.uid)
+                                    intent.putExtra("LOGIN_TYPE", "google")
+                                    startActivity(intent)
+                                    finish()
+                                }
+                            }
+                            .addOnFailureListener { e ->
+                                Toast.makeText(this, "프로필 확인 실패", Toast.LENGTH_SHORT).show()
+                            }
+                    }
                 } else {
-                    Toast.makeText(
-                        this,
-                        "Google 로그인 실패",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this, "Google 로그인 실패", Toast.LENGTH_SHORT).show()
                 }
             }
     }

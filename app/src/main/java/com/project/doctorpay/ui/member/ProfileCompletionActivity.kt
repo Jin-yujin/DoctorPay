@@ -1,5 +1,6 @@
 package com.project.doctorpay.ui.member
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.widget.ArrayAdapter
@@ -60,7 +61,6 @@ class ProfileCompletionActivity : AppCompatActivity() {
                 val firebaseUid = intent.getStringExtra("USER_IDENTIFIER")
 
                 if (firebaseUid != null) {
-                    // Firebase Auth의 UID를 문서 ID로 사용
                     val userProfile = UserProfile(
                         auth.currentUser?.email ?: "",
                         nickname,
@@ -72,7 +72,11 @@ class ProfileCompletionActivity : AppCompatActivity() {
                     db.collection("users").document(firebaseUid)
                         .set(userProfile)
                         .addOnSuccessListener {
-                            Toast.makeText(this, "프로필 설정이 완료되었습니다.", Toast.LENGTH_SHORT).show()
+                            // 로그인 상태 저장
+                            val sharedPreferences = getSharedPreferences("LoginPrefs", Context.MODE_PRIVATE)
+                            sharedPreferences.edit().putBoolean("is_logged_in", true).apply()
+
+                            Toast.makeText(this, "회원가입이 완료되었습니다.", Toast.LENGTH_SHORT).show()
                             startActivity(Intent(this, MainActivity::class.java))
                             finish()
                         }
