@@ -133,33 +133,6 @@ class FavoriteFragment : Fragment() {
         }
     }
 
-    private fun setupFilterChips() {
-        binding.filterChipGroup.apply {
-            addChip("전체")
-            addChip("영업중")
-            addChip("영업마감")
-
-            setOnCheckedChangeListener { group, checkedId ->
-                if (checkedId == View.NO_ID) {
-                    // 모든 칩이 선택 해제된 경우 전체 선택
-                    group.check(group.getChildAt(0).id)
-                    return@setOnCheckedChangeListener
-                }
-
-                val chip = group.findViewById<Chip>(checkedId)
-                currentFilter = when (chip?.text?.toString()) {
-                    "영업중" -> OperationState.OPEN
-                    "영업마감" -> OperationState.CLOSED
-                    else -> null
-                }
-
-                viewLifecycleOwner.lifecycleScope.launch {
-                    val hospitals = viewModel.getHospitals(HospitalViewModel.FAVORITE_VIEW).value
-                    filterAndUpdateHospitals(hospitals)
-                }
-            }
-        }
-    }
 
     private fun ChipGroup.addChip(text: String) {
         Chip(requireContext()).apply {
@@ -207,28 +180,58 @@ class FavoriteFragment : Fragment() {
         }
     }
 
-    private suspend fun filterAndUpdateHospitals(hospitals: List<HospitalInfo> = emptyList()) {
+    private suspend fun filterAndUpdateHospitals(hospitals: List<HospitalInfo>) {
         try {
+            // 1. Firebase에서 즐겨찾기 목록 가져오기
             val favoriteYkihos = favoriteRepository.getFavoriteYkihos()
             val favoriteHospitals = hospitals.filter { hospital ->
                 favoriteYkihos.contains(hospital.ykiho)
             }.distinct()
 
-            val filteredHospitals = when (currentFilter) {
-                OperationState.OPEN -> favoriteHospitals.filter {
-                    it.operationState == OperationState.OPEN || it.operationState == OperationState.EMERGENCY
-                }
-                OperationState.CLOSED -> favoriteHospitals.filter {
-                    it.operationState == OperationState.CLOSED || it.operationState == OperationState.LUNCH_BREAK
-                }
-                else -> favoriteHospitals
+            // 2. 각 병원의 운영시간 정보 업데이트
+            val updatedHospitals = coroutineScope {
+                favoriteHospitals.map { hospital ->
+                    async {
+                        try {
+                            // 운영시간 정보만 가져오기
+                            val timeInfo = viewModel.fetchHospitalTimeInfo(hospital.ykiho)
+
+                            // 새로운 운영상태로 병원 정보 업데이트
+                            hospital.copy(
+                                timeInfo = timeInfo,
+                                state = timeInfo.getCurrentState().toDisplayText()
+                            )
+                        } catch (e: Exception) {
+                            hospital // 에러 시 기존 정보 유지
+                        }
+                    }
+                }.awaitAll()
             }
 
+            // 3. 운영 상태로 필터링
+            val filteredHospitals = when (currentFilter) {
+                OperationState.OPEN -> updatedHospitals.filter { hospital ->
+                    hospital.operationState == OperationState.OPEN ||
+                            hospital.operationState == OperationState.EMERGENCY
+                }
+                OperationState.CLOSED -> updatedHospitals.filter { hospital ->
+                    hospital.operationState == OperationState.CLOSED ||
+                            hospital.operationState == OperationState.LUNCH_BREAK
+                }
+                else -> updatedHospitals
+            }
+
+            // 4. 운영 상태에 따라 정렬
             val sortedHospitals = filteredHospitals.sortedWith(
-                compareBy<HospitalInfo> { it.operationState != OperationState.OPEN }
-                    .thenBy { it.operationState != OperationState.EMERGENCY }
-                    .thenBy { it.operationState != OperationState.LUNCH_BREAK }
-                    .thenBy { it.operationState.ordinal }
+                compareBy<HospitalInfo> {
+                    when (it.operationState) {
+                        OperationState.OPEN -> 0
+                        OperationState.EMERGENCY -> 1
+                        OperationState.LUNCH_BREAK -> 2
+                        OperationState.CLOSED -> 3
+                        OperationState.UNKNOWN -> 4
+                    }
+                }
             )
 
             updateUI(sortedHospitals)
@@ -260,22 +263,19 @@ class FavoriteFragment : Fragment() {
         lifecycleScope.launch {
             binding.swipeRefreshLayout.isRefreshing = true
             try {
-                // 1. Firebase에서 즐겨찾기 병원 정보를 바로 가져와서 우선 표시
+                // 1. Firebase에서 즐겨찾기 병원 기본 정보 가져오기
                 var favoriteHospitals = favoriteRepository.getFavoriteHospitals()
                 if (favoriteHospitals.isEmpty()) {
                     updateUI(emptyList())
                     return@launch
                 }
 
-                // 기본 정보로 먼저 UI 업데이트
-                updateUI(favoriteHospitals)
-
-                // 2. 백그라운드에서 각 병원의 운영시간 정보 업데이트
+                // 2. 각 병원의 운영시간 정보 업데이트
                 favoriteHospitals = coroutineScope {
                     favoriteHospitals.map { hospital ->
                         async {
                             try {
-                                // 운영시간 정보만 가져오기
+                                // 운영시간 정보 가져오기
                                 val timeInfo = viewModel.fetchHospitalTimeInfo(hospital.ykiho)
 
                                 // 새로운 운영상태로 병원 정보 업데이트
@@ -284,19 +284,39 @@ class FavoriteFragment : Fragment() {
                                     state = timeInfo.getCurrentState().toDisplayText()
                                 )
                             } catch (e: Exception) {
+                                Log.e("FavoriteFragment", "Error fetching time info for ${hospital.name}", e)
                                 hospital // 에러 시 기존 정보 유지
                             }
                         }
                     }.awaitAll()
                 }
 
-                // 운영상태로 정렬하여 UI 업데이트
-                val sortedHospitals = favoriteHospitals.sortedWith(
-                    compareBy<HospitalInfo> { it.operationState != OperationState.OPEN }
-                        .thenBy { it.operationState != OperationState.EMERGENCY }
-                        .thenBy { it.operationState != OperationState.LUNCH_BREAK }
-                        .thenBy { it.operationState.ordinal }
+                // 3. 운영상태로 필터링
+                val filteredHospitals = when (currentFilter) {
+                    OperationState.OPEN -> favoriteHospitals.filter { hospital ->
+                        hospital.operationState == OperationState.OPEN ||
+                                hospital.operationState == OperationState.EMERGENCY
+                    }
+                    OperationState.CLOSED -> favoriteHospitals.filter { hospital ->
+                        hospital.operationState == OperationState.CLOSED ||
+                                hospital.operationState == OperationState.LUNCH_BREAK
+                    }
+                    else -> favoriteHospitals
+                }
+
+                // 4. 운영 상태별로 정렬
+                val sortedHospitals = filteredHospitals.sortedWith(
+                    compareBy<HospitalInfo> {
+                        when (it.operationState) {
+                            OperationState.OPEN -> 0
+                            OperationState.EMERGENCY -> 1
+                            OperationState.LUNCH_BREAK -> 2
+                            OperationState.CLOSED -> 3
+                            OperationState.UNKNOWN -> 4
+                        }
+                    }
                 )
+
                 updateUI(sortedHospitals)
 
             } catch (e: Exception) {
@@ -308,6 +328,30 @@ class FavoriteFragment : Fragment() {
         }
     }
 
+    private fun setupFilterChips() {
+        binding.filterChipGroup.apply {
+            addChip("전체")
+            addChip("영업중")
+            addChip("영업마감")
+
+            setOnCheckedChangeListener { group, checkedId ->
+                if (checkedId == View.NO_ID) {
+                    group.check(group.getChildAt(0).id)
+                    return@setOnCheckedChangeListener
+                }
+
+                val chip = group.findViewById<Chip>(checkedId)
+                currentFilter = when (chip?.text?.toString()) {
+                    "영업중" -> OperationState.OPEN
+                    "영업마감" -> OperationState.CLOSED
+                    else -> null
+                }
+
+                // 필터 변경 시 전체 목록 새로 로드
+                loadFavoriteHospitals(forceRefresh = true)
+            }
+        }
+    }
     // 별도의 캐시 관리 추가
     private var lastLoadTime = 0L
     private val CACHE_DURATION = 5 * 60 * 1000 // 5분
