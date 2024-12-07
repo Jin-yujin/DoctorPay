@@ -47,34 +47,7 @@ class NonPaymentSearchFragment : Fragment() {
     }
 
     private val adapter = NonPaymentSearchAdapter { item ->
-        val hospital = HospitalInfo(
-            name = item.yadmNm ?: "",
-            ykiho = item.ykiho ?: "",
-            address = "",
-            phoneNumber = "",
-            latitude = 0.0,
-            longitude = 0.0,
-            departments = emptyList(),
-            departmentCategories = emptyList(),
-            nonPaymentItems = listOf(item),
-            location = LatLng(0.0, 0.0),
-            clCdNm = "",
-            rating = 0.0,
-            timeInfo = null,
-            state = ""
-        )
-
-        val detailFragment = HospitalDetailFragment.newInstance(
-            hospitalId = item.ykiho ?: "",
-            isFromMap = false,
-            category = ""
-        )
-        detailFragment.setHospitalInfo(hospital)
-
-        parentFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, detailFragment)
-            .addToBackStack(null)
-            .commit()
+        navigateToHospitalDetail(item)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -173,47 +146,57 @@ class NonPaymentSearchFragment : Fragment() {
     }
 
     private fun navigateToHospitalDetail(item: NonPaymentItem) {
-        // Fragment가 유효한지 체크
         if (!isAdded || _binding == null) return
 
-        try {
-            val hospital = HospitalInfo(
-                name = item.yadmNm ?: "",
-                ykiho = item.ykiho ?: "",
-                address = "",
-                phoneNumber = "",
-                latitude = item.latitude?.toDoubleOrNull() ?: 0.0,
-                longitude = item.longitude?.toDoubleOrNull() ?: 0.0,
-                departments = emptyList(),
-                departmentCategories = emptyList(),
-                nonPaymentItems = listOf(item),
-                location = LatLng(
-                    item.latitude?.toDoubleOrNull() ?: 0.0,
-                    item.longitude?.toDoubleOrNull() ?: 0.0
-                ),
-                clCdNm = item.clCdNm ?: "",
-                rating = 0.0,
-                timeInfo = null,
-                state = ""
-            )
+        lifecycleScope.launch {
+            try {
+                binding.progressBar.isVisible = true
 
-            val detailFragment = HospitalDetailFragment.newInstance(
-                hospitalId = item.ykiho ?: "",
-                isFromMap = false,
-                category = ""
-            ).apply {
-                setHospitalInfo(hospital)
+                // 운영시간 정보 가져오기
+                val timeInfo = viewModel.fetchHospitalTimeInfo(item.ykiho ?: "")
+
+                val hospital = HospitalInfo(
+                    name = item.yadmNm ?: "",
+                    ykiho = item.ykiho ?: "",
+                    address = "",
+                    phoneNumber = "",
+                    latitude = item.latitude?.toDoubleOrNull() ?: 0.0,
+                    longitude = item.longitude?.toDoubleOrNull() ?: 0.0,
+                    departments = emptyList(),
+                    departmentCategories = emptyList(),
+                    nonPaymentItems = listOf(item),
+                    location = LatLng(
+                        item.latitude?.toDoubleOrNull() ?: 0.0,
+                        item.longitude?.toDoubleOrNull() ?: 0.0
+                    ),
+                    clCdNm = item.clCdNm ?: "",
+                    rating = 0.0,
+                    timeInfo = timeInfo,
+                    state = timeInfo.getCurrentState().toDisplayText()
+                )
+
+                val detailFragment = HospitalDetailFragment.newInstance(
+                    hospitalId = item.ykiho ?: "",
+                    isFromMap = false,
+                    category = ""
+                ).apply {
+                    setHospitalInfo(hospital)
+                }
+
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, detailFragment)
+                    .addToBackStack(null)
+                    .commit()
+
+            } catch (e: Exception) {
+                Log.e("NonPaymentSearchFragment", "Error navigating to detail", e)
+                Toast.makeText(context, "상세 정보를 불러오는데 실패했습니다", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.progressBar.isVisible = false
             }
-
-            parentFragmentManager.beginTransaction()
-                .replace(R.id.fragment_container, detailFragment)
-                .addToBackStack(null)
-                .commit()
-        } catch (e: Exception) {
-            Log.e("NonPaymentSearchFragment", "Error navigating to detail", e)
-            Toast.makeText(context, "상세 정보를 불러오는데 실패했습니다", Toast.LENGTH_SHORT).show()
         }
     }
+
 
     private fun performSearch(query: String) {
         if (!isAdded || _binding == null) return
