@@ -157,9 +157,15 @@ class HospitalViewModel(
     ) {
         viewModelScope.launch {
             val viewState = getViewState(viewId)
+
+            viewState.isLoading.value = true
+
+            // HOME_VIEW와 LIST_VIEW 동기화 유지
             viewStates[HOME_VIEW]?.isLoading?.value = true
             viewStates[LIST_VIEW]?.isLoading?.value = true
-            viewStates[FAVORITE_VIEW]?.isLoading?.value = true  // FAVORITE_VIEW도 추가
+            if (viewId == FAVORITE_VIEW) {
+                viewStates[FAVORITE_VIEW]?.isLoading?.value = true
+            }
 
             try {
                 // 1. 글로벌 캐시 체크
@@ -195,9 +201,13 @@ class HospitalViewModel(
                     }
                 }
             } finally {
+                // 모든 로딩 상태 적절히 해제
+                viewState.isLoading.value = false
                 viewStates[HOME_VIEW]?.isLoading?.value = false
                 viewStates[LIST_VIEW]?.isLoading?.value = false
-                viewStates[FAVORITE_VIEW]?.isLoading?.value = false
+                if (viewId == FAVORITE_VIEW) {
+                    viewStates[FAVORITE_VIEW]?.isLoading?.value = false
+                }
             }
         }
     }
@@ -469,7 +479,7 @@ class HospitalViewModel(
         viewModelScope.launch {
             val viewState = getViewState(viewId)
             viewState.error.value = null
-
+            viewStates[MAP_VIEW]?.isLoading?.value = true
             viewStates[HOME_VIEW]?.isLoading?.value = true
             viewStates[LIST_VIEW]?.isLoading?.value = true
             if (viewId == FAVORITE_VIEW) {
@@ -528,12 +538,12 @@ class HospitalViewModel(
             } catch (e: Exception) {
                 handleError(viewId, e)
             } finally {
+                viewStates[MAP_VIEW]?.isLoading?.value = false
+                viewStates[HOME_VIEW]?.isLoading?.value = false
+                viewStates[LIST_VIEW]?.isLoading?.value = false
                 if (viewId == FAVORITE_VIEW) {
                     viewStates[FAVORITE_VIEW]?.isLoading?.value = false
                 }
-//                viewState.isLoading.value = false
-                viewStates[HOME_VIEW]?.isLoading?.value = false
-                viewStates[LIST_VIEW]?.isLoading?.value = false
             }
         }
 
