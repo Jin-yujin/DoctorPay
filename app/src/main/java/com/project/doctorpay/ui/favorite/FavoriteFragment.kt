@@ -34,6 +34,7 @@ import androidx.activity.OnBackPressedCallback
 import com.project.doctorpay.comp.BackPressHandler
 import com.project.doctorpay.comp.handleBackPress
 import com.project.doctorpay.db.inferDepartments
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -47,6 +48,10 @@ class FavoriteFragment : Fragment() {
     private val favoriteRepository = FavoriteRepository.getInstance()
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private var userLocation: LatLng? = null
+
+    // 코루틴 Job 추가
+    private var loadingJob: Job? = null
+
 
     private val viewModel: HospitalViewModel by viewModels {
         HospitalViewModelFactory(NetworkModule.healthInsuranceApi)
@@ -193,16 +198,13 @@ class FavoriteFragment : Fragment() {
                 favoriteHospitals.map { hospital ->
                     async {
                         try {
-                            // 운영시간 정보만 가져오기
                             val timeInfo = viewModel.fetchHospitalTimeInfo(hospital.ykiho)
-
-                            // 새로운 운영상태로 병원 정보 업데이트
                             hospital.copy(
                                 timeInfo = timeInfo,
                                 state = timeInfo.getCurrentState().toDisplayText()
                             )
                         } catch (e: Exception) {
-                            hospital // 에러 시 기존 정보 유지
+                            hospital
                         }
                     }
                 }.awaitAll()
@@ -221,7 +223,7 @@ class FavoriteFragment : Fragment() {
                 else -> updatedHospitals
             }
 
-            // 4. 운영 상태에 따라 정렬
+            // 4. 운영 상태와 거리로 정렬
             val sortedHospitals = filteredHospitals.sortedWith(
                 compareBy<HospitalInfo> {
                     when (it.operationState) {
@@ -231,6 +233,13 @@ class FavoriteFragment : Fragment() {
                         OperationState.CLOSED -> 3
                         OperationState.UNKNOWN -> 4
                     }
+                }.thenBy { hospital ->
+                    userLocation?.let { location ->
+                        calculateDistance(
+                            location.latitude, location.longitude,
+                            hospital.latitude, hospital.longitude
+                        )
+                    } ?: Float.MAX_VALUE
                 }
             )
 
@@ -241,28 +250,42 @@ class FavoriteFragment : Fragment() {
         }
     }
 
+    // 거리 계산 유틸리티 함수 추가
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, results)
+        return results[0]
+    }
+
+
     private fun updateUI(hospitals: List<HospitalInfo>) {
-        if (hospitals.isEmpty()) {
-            binding.emptyView.apply {
-                visibility = View.VISIBLE
-                text = when {
-                    currentFilter != null -> "해당 조건의 병원이 없습니다"
-                    else -> "즐겨찾기한 병원이 없습니다.\n병원 상세페이지에서 즐겨찾기를 추가해보세요."
+        _binding?.let { binding ->
+            if (hospitals.isEmpty()) {
+                binding.emptyView.apply {
+                    visibility = View.VISIBLE
+                    text = when {
+                        currentFilter != null -> "해당 조건의 병원이 없습니다"
+                        else -> "즐겨찾기한 병원이 없습니다.\n병원 상세페이지에서 즐겨찾기를 추가해보세요."
+                    }
                 }
+                binding.favoriteRecyclerView.visibility = View.GONE
+            } else {
+                binding.emptyView.visibility = View.GONE
+                binding.favoriteRecyclerView.visibility = View.VISIBLE
+                adapter.submitList(hospitals)
             }
-            binding.favoriteRecyclerView.visibility = View.GONE
-        } else {
-            binding.emptyView.visibility = View.GONE
-            binding.favoriteRecyclerView.visibility = View.VISIBLE
-            adapter.submitList(hospitals)
+            binding.swipeRefreshLayout.isRefreshing = false
         }
-        binding.swipeRefreshLayout.isRefreshing = false
     }
 
     private fun loadFavoriteHospitals(forceRefresh: Boolean = false) {
-        lifecycleScope.launch {
-            binding.swipeRefreshLayout.isRefreshing = true
+        // 기존 작업 취소
+        loadingJob?.cancel()
+
+        loadingJob = viewLifecycleOwner.lifecycleScope.launch {
             try {
+                _binding?.swipeRefreshLayout?.isRefreshing = true
+
                 // 1. Firebase에서 즐겨찾기 병원 기본 정보 가져오기
                 var favoriteHospitals = favoriteRepository.getFavoriteHospitals()
                 if (favoriteHospitals.isEmpty()) {
@@ -275,17 +298,14 @@ class FavoriteFragment : Fragment() {
                     favoriteHospitals.map { hospital ->
                         async {
                             try {
-                                // 운영시간 정보 가져오기
                                 val timeInfo = viewModel.fetchHospitalTimeInfo(hospital.ykiho)
-
-                                // 새로운 운영상태로 병원 정보 업데이트
                                 hospital.copy(
                                     timeInfo = timeInfo,
                                     state = timeInfo.getCurrentState().toDisplayText()
                                 )
                             } catch (e: Exception) {
                                 Log.e("FavoriteFragment", "Error fetching time info for ${hospital.name}", e)
-                                hospital // 에러 시 기존 정보 유지
+                                hospital
                             }
                         }
                     }.awaitAll()
@@ -304,7 +324,7 @@ class FavoriteFragment : Fragment() {
                     else -> favoriteHospitals
                 }
 
-                // 4. 운영 상태별로 정렬
+                // 4. 운영 상태와 거리로 정렬
                 val sortedHospitals = filteredHospitals.sortedWith(
                     compareBy<HospitalInfo> {
                         when (it.operationState) {
@@ -314,6 +334,13 @@ class FavoriteFragment : Fragment() {
                             OperationState.CLOSED -> 3
                             OperationState.UNKNOWN -> 4
                         }
+                    }.thenBy { hospital ->
+                        userLocation?.let { location ->
+                            calculateDistance(
+                                location.latitude, location.longitude,
+                                hospital.latitude, hospital.longitude
+                            )
+                        } ?: Float.MAX_VALUE
                     }
                 )
 
@@ -323,7 +350,7 @@ class FavoriteFragment : Fragment() {
                 Log.e("FavoriteFragment", "Error loading favorites", e)
                 showError("즐겨찾기 목록을 불러오는데 실패했습니다")
             } finally {
-                binding.swipeRefreshLayout.isRefreshing = false
+                _binding?.swipeRefreshLayout?.isRefreshing = false
             }
         }
     }
@@ -366,9 +393,12 @@ class FavoriteFragment : Fragment() {
     }
 
     private fun showError(message: String) {
-        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-        binding.swipeRefreshLayout.isRefreshing = false
+        context?.let {
+            Toast.makeText(it, message, Toast.LENGTH_LONG).show()
+        }
+        _binding?.swipeRefreshLayout?.isRefreshing = false
     }
+
 
     private fun navigateToHospitalDetail(hospital: HospitalInfo) {
         val detailFragment = HospitalDetailFragment.newInstance(
@@ -386,6 +416,7 @@ class FavoriteFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        loadingJob?.cancel() // 작업 취소
         super.onDestroyView()
         _binding = null
     }

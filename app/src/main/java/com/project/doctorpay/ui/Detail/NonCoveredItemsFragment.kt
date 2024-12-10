@@ -20,6 +20,7 @@ import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
@@ -71,12 +72,22 @@ class NonCoveredItemsFragment : Fragment() {
             hospitalName = it.getString("hospitalName")
         }
 
-        // 뒤로가기 처리 올바르게 수정
+        // 뒤로가기 처리
         requireActivity().onBackPressedDispatcher.addCallback(
-            this, // LifecycleOwner
+            this,  // LifecycleOwner
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    parentFragmentManager.popBackStack()
+                    // 부모 Fragment 참조를 먼저 가져옴
+                    val parentFragment = parentFragment as? HospitalDetailFragment
+
+                    // Fragment가 아직 attached 상태인지 확인
+                    if (isAdded && parentFragmentManager.isDestroyed.not()) {
+                        parentFragmentManager.popBackStack()
+                        // UI 업데이트는 post로 지연 실행
+                        view?.post {
+                            parentFragment?.showContent()
+                        }
+                    }
                 }
             }
         )
@@ -418,13 +429,23 @@ class NonCoveredItemsFragment : Fragment() {
     private fun showError(message: String) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
+
+
     private fun setupBackButton() {
         binding.btnBack.setOnClickListener {
-            // 캐스팅하여 메서드 호출
-            (parentFragment as? HospitalDetailFragment)?.showContent()
+            val parentFragment = parentFragment as? HospitalDetailFragment
             parentFragmentManager.popBackStack()
+
+            // UI 업데이트를 지연 실행
+            view?.post {
+                parentFragment?.let { fragment ->
+                    fragment.resetScroll() // 스크롤 초기화
+                    fragment.showContent() // UI 표시
+                }
+            }
         }
     }
+
 
     override fun onDestroyView() {
         filterBottomSheet = null
