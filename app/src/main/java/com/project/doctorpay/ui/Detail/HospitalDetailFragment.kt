@@ -832,21 +832,32 @@ class HospitalDetailFragment : Fragment() {
 
 
 
-    interface ContentVisibilityListener {
-        fun showContent()
-        fun hideContent()
-    }
-
     fun showContent() {
-        binding.nestedScrollView.visibility = View.VISIBLE
-        binding.hospitalDetailContainer.visibility = View.GONE
-        binding.appBarLayout.visibility = View.VISIBLE  // toolbar 다시 표시
-        showMainButtons()
+        binding.apply {
+            // 먼저 스크롤 뷰를 표시
+            nestedScrollView.visibility = View.VISIBLE
+            appBarLayout.visibility = View.VISIBLE
+            showMainButtons()
+
+            // UI 업데이트가 완료된 후 컨테이너를 숨김
+            view?.post {
+                hospitalDetailContainer.visibility = View.GONE
+                // 스크롤을 맨 위로 이동
+                nestedScrollView.scrollTo(0, 0)
+            }
+        }
     }
 
     fun hideContent() {
-        binding.nestedScrollView.visibility = View.GONE
-        binding.hospitalDetailContainer.visibility = View.VISIBLE
-        hideMainButtons()
+        binding.apply {
+            nestedScrollView.visibility = View.GONE
+            hospitalDetailContainer.visibility = View.VISIBLE
+            hideMainButtons()
+        }
+    }
+
+
+    fun resetScroll() {
+        binding.nestedScrollView.scrollTo(0, 0)
     }
 }

@@ -20,6 +20,7 @@ import androidx.core.view.children
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
@@ -418,13 +419,23 @@ class NonCoveredItemsFragment : Fragment() {
     private fun showError(message: String) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
+
+
     private fun setupBackButton() {
         binding.btnBack.setOnClickListener {
-            // 캐스팅하여 메서드 호출
-            (parentFragment as? HospitalDetailFragment)?.showContent()
+            val parentFragment = parentFragment as? HospitalDetailFragment
             parentFragmentManager.popBackStack()
+
+            // UI 업데이트를 지연 실행
+            view?.post {
+                parentFragment?.let { fragment ->
+                    fragment.resetScroll() // 스크롤 초기화
+                    fragment.showContent() // UI 표시
+                }
+            }
         }
     }
+
 
     override fun onDestroyView() {
         filterBottomSheet = null

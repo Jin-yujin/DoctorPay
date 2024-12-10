@@ -69,7 +69,6 @@
         android:layout_height="match_parent"
         android:background="@android:color/white"
         android:orientation="vertical"
-        android:paddingBottom="100dp"
         app:behavior_fitToContents="false"
         app:behavior_halfExpandedRatio="0.5"
         app:behavior_hideable="false"
@@ -81,6 +80,7 @@
             android:layout_height="40dp"
             android:background="@color/signature_color1"
             android:orientation="horizontal"
+            android:paddingBottom="100dp"
             android:gravity="center_vertical">
 
             <ImageView
