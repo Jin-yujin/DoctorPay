@@ -72,12 +72,22 @@ class NonCoveredItemsFragment : Fragment() {
             hospitalName = it.getString("hospitalName")
         }
 
-        // 뒤로가기 처리 올바르게 수정
+        // 뒤로가기 처리
         requireActivity().onBackPressedDispatcher.addCallback(
-            this, // LifecycleOwner
+            this,  // LifecycleOwner
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    parentFragmentManager.popBackStack()
+                    // 부모 Fragment 참조를 먼저 가져옴
+                    val parentFragment = parentFragment as? HospitalDetailFragment
+
+                    // Fragment가 아직 attached 상태인지 확인
+                    if (isAdded && parentFragmentManager.isDestroyed.not()) {
+                        parentFragmentManager.popBackStack()
+                        // UI 업데이트는 post로 지연 실행
+                        view?.post {
+                            parentFragment?.showContent()
+                        }
+                    }
                 }
             }
         )
